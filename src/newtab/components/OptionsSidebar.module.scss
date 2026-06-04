@@ -1,0 +1,724 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  backdrop-filter: blur(12px);
+  border-bottom: none;
+  color: var(--c-text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+// Primary tabs (대분류)
+.tab-bar-primary {
+  display: flex;
+}
+
+.tab-primary {
+  padding: 0.45em 0.75em;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--c-muted);
+  transition: all 0.15s;
+  border-bottom: 1px solid black;
+
+  &:hover {
+    color: var(--c-text);
+  }
+}
+
+.tab-active {
+  color: var(--c-text);
+  font-weight: 700;
+  background-color: white;
+  flex: 1;
+  border: 1px solid black;
+  border-bottom: none;
+}
+
+// Modal body (secondary sidebar + content)
+.modal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  background-color: white;
+}
+
+// Secondary tabs (소분류) — 사이드바
+.tab-bar-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  padding: 0.75em 0.5em;
+  border: 1px solid var(--c-border);
+  border-top: none;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.tab-secondary {
+  padding: 0.4em 0.65em;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--c-muted);
+  transition: all 0.15s;
+  text-align: left;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--c-text);
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.tab-secondary-active {
+  color: var(--c-text);
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+// Tab content
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1em 1.25em 1.25em;
+  min-width: 0;
+  background-color: #f8f8f8;
+  border: none;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
+}
+
+// --- Mockups ---
+.mockup {
+  border: 1px solid var(--c-border);
+  border-radius: 2px;
+  padding: 0.75em;
+  margin-bottom: 1em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  background: rgba(0, 0, 0, 0.02);
+  min-height: 90px;
+}
+
+.mockup-label {
+  font-size: 0.65rem;
+  color: var(--c-muted);
+}
+
+.mockup-note {
+  font-size: 0.6rem;
+  color: var(--c-muted);
+  opacity: 0.7;
+  text-align: center;
+}
+
+.mockup-screen {
+  width: 100%;
+  height: 270px;
+  border: 1px solid var(--c-border);
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  background: #f8f8f8;
+}
+
+// Layout mockup — card
+.mock-card-layout {
+  break-inside: avoid;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  padding: 4px;
+  margin-bottom: 4px;
+  width: fit-content;
+}
+
+.mock-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.mock-breadcrumb {
+  height: 6px;
+  width: 50%;
+  background: var(--c-muted);
+  opacity: 0.5;
+}
+
+.mock-route {
+  height: 4px;
+  width: 30%;
+  background: var(--c-muted);
+  opacity: 0.3;
+}
+
+// Layout mockup — grid
+.mock-grid {
+  display: grid;
+  width: fit-content;
+  max-width: 100px;
+}
+
+// Layout mockup — item (vertical)
+.mock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  width: 22px;
+}
+
+.mock-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
+
+.mock-text {
+  width: 80%;
+  height: 4px;
+  background: var(--c-muted);
+  opacity: 0.4;
+}
+
+// Layout mockup — item (horizontal)
+.mock-item-h {
+  flex-direction: row;
+  width: auto;
+  min-width: 0;
+
+  .mock-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
+  .mock-text {
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+// Layout mockup — scroll stack (세로 카드 나열)
+.mock-scroll-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+// masonry 내부 카드/그리드는 column 너비에 맞춤
+.mock-card-fill {
+  width: auto;
+}
+
+.mock-grid-fill {
+  width: auto;
+}
+
+// Layout mockup — masonry
+.mock-masonry {
+  width: fit-content;
+  padding: 4px;
+}
+
+.mockup-bg-box {
+  width: 40px;
+  height: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.mockup-card {
+  width: 100%;
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.mockup-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.mockup-title-hover:hover {
+  color: var(--ct-title-hover) !important;
+}
+
+.mockup-subtitle {
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.mockup-subtitle-hover:hover {
+  color: var(--ct-subtitle-hover) !important;
+}
+
+.mockup-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+// 세로 레이아웃 (아이콘 위 + 텍스트 아래)
+.mockup-icon-row-v {
+  flex-direction: column;
+  text-align: center;
+}
+
+.mockup-icon {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--c-border);
+  display: grid;
+  place-items: center;
+}
+
+.mockup-icon-inner {
+  width: 18px;
+  height: 18px;
+  background: var(--c-muted);
+  border-radius: 2px;
+}
+
+.mockup-icon-text {
+  font-size: 0.75rem;
+}
+
+// 북마크 버튼 목업 (실제 IconButton 구조 반영)
+// 세로 (기본): grid 2행, 고정 너비, 가운데 정렬
+.mockup-bm-button {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  place-items: center;
+  border: 1px solid var(--c-border);
+  transition: all 0.15s;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--bm-hover-bg) !important;
+    transform: translateY(var(--bm-hover-y));
+    box-shadow: var(--bm-hover-shadow);
+
+    .mockup-bm-name {
+      color: var(--bm-hover-text) !important;
+    }
+  }
+}
+
+// 가로: grid 2열
+.mockup-bm-button-h {
+  grid-template-rows: none;
+  grid-template-columns: auto 1fr;
+  width: auto;
+}
+
+.mockup-bm-icon {
+  border-radius: 4px;
+  box-sizing: content-box;
+}
+
+.mockup-bm-name {
+  word-break: break-all;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+}
+
+.mockup-bm-name-left {
+  text-align: left;
+}
+
+// 폴더 버튼 목업 (IconButton folder 구조 반영)
+.mockup-fl-button {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  place-items: center;
+  border: 1px solid;
+  transition: all 0.15s;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--fl-hover-bg) !important;
+    transform: translateY(var(--fl-hover-y));
+    box-shadow: var(--fl-hover-shadow);
+
+    .mockup-fl-name {
+      color: var(--fl-hover-text) !important;
+    }
+  }
+}
+
+.mockup-fl-button-h {
+  grid-template-rows: none;
+  grid-template-columns: auto 1fr;
+  width: auto;
+}
+
+.mockup-fl-icon {
+  display: grid;
+  place-items: center;
+  border: 1px solid;
+  box-sizing: content-box;
+  font-weight: 600;
+}
+
+.mockup-fl-name {
+  word-break: break-all;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+}
+
+.mockup-fl-name-left {
+  text-align: left;
+}
+
+// --- Reused utility styles ---
+.section {
+  margin-bottom: 0.75em;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.5em;
+}
+
+.rootPathLabel {
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: var(--c-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.box {
+  border: 1px solid var(--c-border);
+  padding: 0.5em 0.75em 0.75em;
+  background: var(--c-surface);
+  margin-bottom: 0.5em;
+}
+
+.boxTitle {
+  display: block;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  margin-bottom: 0.4em;
+}
+
+.settingLabel {
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+.rangeLabel {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.checkboxInput {
+  accent-color: #333;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  font-size: 0.8rem;
+  margin-left: 0.25em;
+}
+
+.subGroupTitle {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.75em;
+  margin-bottom: 0.4em;
+}
+
+.resetButton {
+  width: 100%;
+  padding: 0.5em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+  margin-bottom: 0.5em;
+
+  &:hover {
+    background: var(--c-hover-bg);
+    color: var(--c-hover-text);
+  }
+}
+
+.creditsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  margin-bottom: 0.8em;
+}
+
+.creditsItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.creditsName {
+  color: var(--c-text);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.creditsRole {
+  color: var(--c-muted);
+  font-size: 0.75rem;
+}
+
+.creditsLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.creditsLink {
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--c-hover-bg);
+    color: var(--c-hover-text);
+  }
+}
+
+.backgroundImageContainer {
+  margin: 0.4rem 0;
+  display: flex;
+  gap: 0.4em;
+
+  button {
+    padding: 0.4em 0.75em;
+    border: 1px solid var(--c-border);
+    background: var(--c-surface);
+    cursor: pointer;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    transition: all 0.15s;
+
+    &:hover {
+      background: var(--c-hover-bg);
+      color: var(--c-hover-text);
+    }
+  }
+}
+
+.textInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4em 0.5em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-size: 0.8rem;
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 1px #333;
+  }
+
+  &::placeholder {
+    color: var(--c-muted);
+  }
+}
+
+.processingIndicator {
+  padding: 0.4em 0;
+  font-size: 0.8rem;
+  color: var(--c-muted);
+  font-family: monospace;
+}
+
+.languageSelect {
+  display: flex;
+  gap: 0.4em;
+  margin-bottom: 0.8em;
+}
+
+.languageButton {
+  flex: 1;
+  padding: 0.4em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--c-hover-bg);
+    color: var(--c-hover-text);
+  }
+}
+
+.languageButton-active {
+  background: #333;
+  color: var(--c-accent-text);
+  border-color: #333;
+}
+
+.exportImportRow {
+  display: flex;
+  gap: 0.4em;
+  margin-bottom: 0.5em;
+}
+
+.actionButton {
+  flex: 1;
+  padding: 0.4em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--c-hover-bg);
+    color: var(--c-hover-text);
+  }
+}
+
+.colorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3em 0;
+
+  span {
+    font-size: 0.8rem;
+  }
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5em;
+  padding: 0.75em 1.25em;
+  border: 1px solid var(--c-border);
+  border-top: none;
+  background: white;
+}
+
+.cancel-button,
+.save-button {
+  padding: 0.4em 1em;
+  border: 1px solid var(--c-border);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.save-button {
+  background: #333;
+  color: var(--c-accent-text);
+  border-color: #333;
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.cancel-button {
+  background: var(--c-surface);
+}
+
+.confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.confirm-box {
+  background: white;
+  padding: 1.25em;
+  border: 1px solid var(--c-border);
+  max-width: 300px;
+  text-align: center;
+
+  p {
+    font-size: 0.85rem;
+    margin: 0 0 1em;
+  }
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+}
+
+.cssInput {
+  width: 100%;
+  min-height: 300px;
+  padding: 0.5em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-family: monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  resize: vertical;
+  tab-size: 2;
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 1px #333;
+  }
+
+  &::placeholder {
+    color: var(--c-muted);
+  }
+}

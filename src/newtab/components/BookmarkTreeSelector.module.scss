@@ -1,0 +1,139 @@
+.tree {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  min-height: 112px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+// 루트 그룹 드롭다운
+.rootSelect {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 0.75em;
+  border-bottom: 1px solid var(--c-border);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.rootLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+.rootDropdown {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3em 0.4em;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-size: 0.78rem;
+  color: var(--c-text);
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--c-accent);
+  }
+}
+
+.treeRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: none;
+  cursor: grab;
+  font-size: 0.8rem;
+  color: var(--c-text);
+  transition:
+    background 0.1s,
+    opacity 0.15s;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    background: var(--c-hover-bg);
+    color: var(--c-hover-text);
+  }
+}
+
+.treeRowFolder {
+  font-weight: 600;
+}
+
+.treeRowDragOver {
+  border-bottom-color: var(--c-accent);
+}
+
+.treeRowHidden {
+  .folderName {
+    opacity: 0.45;
+    text-decoration: line-through;
+  }
+}
+
+.expandButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.55rem;
+  width: 16px;
+  text-align: center;
+  padding: 0;
+  color: var(--c-muted);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.expandPlaceholder {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.folderName {
+  font-size: inherit;
+  color: inherit;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visibilityToggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--c-muted);
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--c-text);
+  }
+}
+
+.dragHandle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-muted);
+  cursor: grab;
+  padding: 0 2px;
+
+  &:active {
+    cursor: grabbing;
+  }
+}

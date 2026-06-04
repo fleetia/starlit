@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Starlit",
+  "version": "1.0.0",
+  "description": "Customizable New Tab Bookmark Grid",
+  "permissions": ["storage", "bookmarks"],
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab/index.html"
+  }
+}

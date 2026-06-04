@@ -1,0 +1,39 @@
+{
+  "name": "@fleetia/starlit",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && mv ./dist/src/newtab/index.html ./dist/newtab/index.html && rm -rf ./dist/src && cp ./manifest.json ./dist/manifest.json && cp -r ./assets/ ./dist/assets/",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@fleetia/components": "^1.1.1",
+    "classnames": "^2.5.1",
+    "gifuct-js": "^2.1.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@fleetia/config": "^1.0.0",
+    "@fleetia/test-utils": "^0.1.0",
+    "eslint": "^9.39.4",
+    "@testing-library/react": "^16.3.2",
+    "@types/chrome": "^0.0.268",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vanilla-extract/css": "^1.20.0",
+    "@vanilla-extract/vite-plugin": "^5.2.1",
+    "@vitejs/plugin-react": "^6.0.0",
+    "jsdom": "^26.1.0",
+    "sass": "^1.77.8",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^3.1.4"
+  },
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be"
+}
