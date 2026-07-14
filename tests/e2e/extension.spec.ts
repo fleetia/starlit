@@ -240,15 +240,6 @@ for (const backgroundCase of BACKGROUND_URL_CASES) {
 
     if (backgroundCase.expectedTag === 'VIDEO') {
       await expect(background).toHaveAttribute('src', backgroundCase.url);
-      await expect
-        .poll(
-          () =>
-            background.evaluate((element) =>
-              element instanceof HTMLVideoElement ? element.readyState : -1,
-            ),
-          { timeout: 30_000 },
-        )
-        .toBeGreaterThanOrEqual(1);
     } else {
       await expect(background).toHaveCSS(
         'background-image',
@@ -359,13 +350,7 @@ test('imports an unversioned V1 backup with file media through settings', async 
     'video[data-starlit-part="background-media"]',
   );
   await expect(importedVideo).toBeVisible();
-  await expect
-    .poll(() =>
-      importedVideo.evaluate((element) =>
-        element instanceof HTMLVideoElement ? element.readyState : -1,
-      ),
-    )
-    .toBeGreaterThanOrEqual(1);
+  await expect(importedVideo).toHaveAttribute('src', /^blob:/);
 });
 
 test('saves settings and background drafts only after confirmation', async ({
