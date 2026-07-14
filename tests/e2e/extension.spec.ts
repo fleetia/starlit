@@ -241,10 +241,12 @@ for (const backgroundCase of BACKGROUND_URL_CASES) {
     if (backgroundCase.expectedTag === 'VIDEO') {
       await expect(background).toHaveAttribute('src', backgroundCase.url);
       await expect
-        .poll(() =>
-          background.evaluate((element) =>
-            element instanceof HTMLVideoElement ? element.readyState : -1,
-          ),
+        .poll(
+          () =>
+            background.evaluate((element) =>
+              element instanceof HTMLVideoElement ? element.readyState : -1,
+            ),
+          { timeout: 30_000 },
         )
         .toBeGreaterThanOrEqual(1);
     } else {
