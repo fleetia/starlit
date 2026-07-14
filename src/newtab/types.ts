@@ -5,6 +5,17 @@ export type BookmarkItem = {
   favicon?: string;
 };
 
+export type Placement =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'center-left'
+  | 'center-center'
+  | 'center-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
 export type Bookmark = {
   id?: string;
   title: string;
@@ -23,7 +34,7 @@ export type GridSettings = {
   gap: string;
   cardGap?: string;
   masonryColumns?: number;
-  position: string;
+  position: Placement;
   margin?: { top: number; bottom: number; left: number; right: number };
   background: {
     color: string;
@@ -60,15 +71,23 @@ export type GridSettings = {
   };
 };
 
-import type { ColorTheme } from "@fleetia/components/theme";
-export type { ColorTheme };
+export type StarlitTheme = {
+  accent: string;
+  accentText: string;
+  surface: string;
+  text: string;
+  border: string;
+  hoverBg: string;
+  hoverText: string;
+  muted: string;
+};
 
 export type Settings = {
   isFolderEnabled: boolean;
   isVisibleOnce: boolean;
   isOpenInNewTab: boolean;
   isExpandView: boolean;
-  iconLayout?: "vertical" | "horizontal";
+  iconLayout?: 'vertical' | 'horizontal';
 };
 
 export type GroupPreference = {
@@ -76,16 +95,12 @@ export type GroupPreference = {
   visible: boolean;
 };
 
-export function getGroupKey(b: Bookmark): string {
-  return (b.route ?? [b.title]).join("/");
-}
-
 export type OptionsType = {
   bookmarks: Bookmark[];
-  gridSettings: GridSettings;
-  settings: Settings;
-  colorTheme: ColorTheme;
-  backgroundImage?: string;
-  displaySize: number;
+  colorTheme: StarlitTheme;
   customCSS?: string;
+  gridSettings: GridSettings;
+  iconSize: number;
+  settings: Settings;
+  size: number;
 };

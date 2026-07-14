@@ -1,17 +1,14 @@
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
-import { resolve } from "path";
+import react from '@vitejs/plugin-react';
+import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), vanillaExtractPlugin()],
   test: {
+    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
     globals: true,
-    environment: "jsdom",
-    setupFiles: ["@fleetia/test-utils/setup", "./test/setup.ts"]
+    environment: 'happy-dom',
+    restoreMocks: true,
+    setupFiles: ['./test/setup.ts'],
   },
-  resolve: {
-    alias: {
-      "@": resolve(__dirname, "./src")
-    }
-  }
 });

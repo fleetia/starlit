@@ -1,94 +1,79 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useLocale } from "../useLocale";
+import { useLocale } from '../useLocale';
 
-beforeEach(() => {
-  vi.clearAllMocks();
+type StorageGetMock = ReturnType<
+  typeof vi.fn<
+    (key: string, callback: (result: Record<string, unknown>) => void) => void
+  >
+>;
+
+function getStorageGetMock(): StorageGetMock {
+  return chrome.storage.sync.get as unknown as StorageGetMock;
+}
+
+beforeEach((): void => {
+  getStorageGetMock().mockImplementation((_key, callback): void =>
+    callback({}),
+  );
 });
 
-describe("useLocale", () => {
-  it("returns default locale 'ko' and isLoaded false initially", () => {
-    (chrome.storage.sync.get as ReturnType<typeof vi.fn>).mockImplementation(
-      (_key: string, cb: (result: Record<string, unknown>) => void) => cb({})
-    );
-    const { result } = renderHook(() => useLocale());
-
-    expect(result.current.locale).toBe("ko");
-  });
-
-  it("loads saved locale from chrome.storage.sync", async () => {
-    (chrome.storage.sync.get as ReturnType<typeof vi.fn>).mockImplementation(
-      (_key: string, cb: (result: Record<string, unknown>) => void) =>
-        cb({ locale: "en" })
+describe('useLocale', () => {
+  it('loads a supported saved locale', async () => {
+    getStorageGetMock().mockImplementation((_key, callback): void =>
+      callback({ locale: 'en' }),
     );
 
     const { result } = renderHook(() => useLocale());
 
-    await vi.waitFor(() => {
-      expect(result.current.isLoaded).toBe(true);
-    });
-    expect(result.current.locale).toBe("en");
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.locale).toBe('en');
   });
 
-  it("loads 'ja' locale", async () => {
-    (chrome.storage.sync.get as ReturnType<typeof vi.fn>).mockImplementation(
-      (_key: string, cb: (result: Record<string, unknown>) => void) =>
-        cb({ locale: "ja" })
+  it('falls back to Korean for an unsupported saved locale', async () => {
+    getStorageGetMock().mockImplementation((_key, callback): void =>
+      callback({ locale: 'fr' }),
     );
 
     const { result } = renderHook(() => useLocale());
 
-    await vi.waitFor(() => {
-      expect(result.current.isLoaded).toBe(true);
-    });
-    expect(result.current.locale).toBe("ja");
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.locale).toBe('ko');
   });
 
-  it("ignores invalid locale values", async () => {
-    (chrome.storage.sync.get as ReturnType<typeof vi.fn>).mockImplementation(
-      (_key: string, cb: (result: Record<string, unknown>) => void) =>
-        cb({ locale: "fr" })
-    );
-
-    const { result } = renderHook(() => useLocale());
-
-    await vi.waitFor(() => {
-      expect(result.current.isLoaded).toBe(true);
+  it('is immediately ready when Chrome storage is unavailable', () => {
+    const originalChrome = globalThis.chrome;
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      value: undefined,
+      writable: true,
     });
-    expect(result.current.locale).toBe("ko");
+
+    try {
+      const { result, unmount } = renderHook(() => useLocale());
+
+      expect(result.current.isLoaded).toBe(true);
+      expect(result.current.locale).toBe('ko');
+      unmount();
+    } finally {
+      Object.defineProperty(globalThis, 'chrome', {
+        configurable: true,
+        value: originalChrome,
+        writable: true,
+      });
+    }
   });
 
-  it("sets isLoaded true even without chrome.storage", async () => {
-    const original = globalThis.chrome;
-    (globalThis as Record<string, unknown>).chrome = undefined;
-
+  it('updates and persists the selected locale', async () => {
     const { result } = renderHook(() => useLocale());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
-    await vi.waitFor(() => {
-      expect(result.current.isLoaded).toBe(true);
-    });
-    expect(result.current.locale).toBe("ko");
-
-    (globalThis as Record<string, unknown>).chrome = original;
-  });
-
-  it("updates locale and saves to chrome.storage", async () => {
-    (chrome.storage.sync.get as ReturnType<typeof vi.fn>).mockImplementation(
-      (_key: string, cb: (result: Record<string, unknown>) => void) => cb({})
-    );
-
-    const { result } = renderHook(() => useLocale());
-
-    await vi.waitFor(() => {
-      expect(result.current.isLoaded).toBe(true);
+    await act(async (): Promise<void> => {
+      await result.current.setLocale('ja');
     });
 
-    act(() => {
-      result.current.setLocale("en");
-    });
-
-    expect(result.current.locale).toBe("en");
-    expect(chrome.storage.sync.set).toHaveBeenCalledWith({ locale: "en" });
+    expect(result.current.locale).toBe('ja');
+    expect(chrome.storage.sync.set).toHaveBeenCalledWith({ locale: 'ja' });
   });
 });
