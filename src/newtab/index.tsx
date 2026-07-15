@@ -1,9 +1,16 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createRoot } from "react-dom/client";
-import { I18nProvider } from "@fleetia/components/i18n";
-import { useLocale } from "@/hooks/useLocale";
-import { NewTabApp } from "./NewTabApp";
-import "@/styles/reset.scss";
+import { createRoot, type Root as ReactRoot } from 'react-dom/client';
+import '@fleetia/lagrange/styles.css';
+
+import { useLocale } from '../hooks/useLocale';
+import { I18nProvider } from '../i18n';
+import { runStorageMigration } from '../platform/storage/migrateStorage';
+import { NewTabApp } from './NewTabApp';
+import './newtab.css';
+
+type RootContainer = HTMLElement & {
+  starlitRoot?: ReactRoot;
+};
 
 function Root(): React.ReactElement | null {
   const { locale, setLocale, isLoaded } = useLocale();
@@ -15,14 +22,24 @@ function Root(): React.ReactElement | null {
   );
 }
 
-function initializeNewTab(): void {
-  const container = document.getElementById("root");
+async function initializeNewTab(): Promise<void> {
+  await runStorageMigration();
+
+  const container = document.getElementById('root') as RootContainer | null;
   if (!container) {
-    throw new Error("Root container not found");
+    throw new Error('Root container not found');
   }
 
-  const root = createRoot(container);
+  const root = container.starlitRoot ?? createRoot(container);
+  container.starlitRoot = root;
   root.render(<Root />);
 }
 
-initializeNewTab();
+void initializeNewTab().catch((error: unknown) => {
+  if (typeof globalThis.reportError === 'function') {
+    globalThis.reportError(error);
+    return;
+  }
+
+  throw error;
+});
