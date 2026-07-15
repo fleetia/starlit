@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@fleetia/lagrange':
-        specifier: 0.1.0
-        version: 0.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.1.1
+        version: 0.1.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       gifuct-js:
         specifier: ^2.1.2
         version: 2.1.2
@@ -372,8 +372,8 @@ packages:
     resolution: {integrity: sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
-  '@fleetia/lagrange@0.1.0':
-    resolution: {integrity: sha512-/95Y6wpyGY6FoxqRa3r9zZJqgBjdMivZhUDF/z9zgL/n27i6Ksr+60v8VEAzO7Jb4xOWFU3vGbPxH0yR5HXVFw==, tarball: https://npm.pkg.github.com/download/@fleetia/lagrange/0.1.0/21c33ebaa3c60c5302b03c02f4a65a19dda2af5e}
+  '@fleetia/lagrange@0.1.1':
+    resolution: {integrity: sha512-hWhxgOnrtxtqyJktVg7IGVu7ab1oEdFKEuuVGeDkKslu0sXcTMtx642D27M5wzUeIzbetPrn9z2SchS9VbkVTQ==, tarball: https://npm.pkg.github.com/download/@fleetia/lagrange/0.1.1/70846a6b74e70981de736cbd4ab6306f298f6ac8}
     engines: {node: '>=22.14.0'}
     peerDependencies:
       react: '>=18.2.0 <20'
@@ -1724,7 +1724,7 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@fleetia/lagrange@0.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@fleetia/lagrange@0.1.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       clsx: 2.1.1
       react: 19.2.7

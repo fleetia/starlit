@@ -53,6 +53,7 @@ const ja: Translations = {
   'sidebar.tokens.accentText': 'アクセント上のテキスト',
   'sidebar.tokens.border': 'ボーダー',
   'sidebar.tokens.bookmarkTitle': 'ブックマーク配色',
+  'sidebar.colorAlpha': '不透明度',
   'sidebar.colorSwatch': 'カラースウォッチ',
 
   // OptionsSidebar - Container section

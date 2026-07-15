@@ -53,6 +53,7 @@ const ko: Translations = {
   'sidebar.tokens.accentText': '강조 위 텍스트',
   'sidebar.tokens.border': '테두리',
   'sidebar.tokens.bookmarkTitle': '북마크 색상',
+  'sidebar.colorAlpha': '불투명도',
   'sidebar.colorSwatch': '색상 견본',
 
   // OptionsSidebar - Container section
