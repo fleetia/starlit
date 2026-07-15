@@ -28,6 +28,10 @@ const en: Translations = {
   'sidebar.tab.css': 'CSS',
   'sidebar.tab.groups': 'Groups',
   'sidebar.tab.general': 'General',
+  'sidebar.support.title': 'Support Starlit',
+  'sidebar.support.description':
+    'If Starlit makes your day brighter, help keep it glowing.',
+  'sidebar.support.fairy': 'Support on Fairy',
 
   // OptionsSidebar - Appearance sub tabs
   'sidebar.appearance.background': 'Background',
@@ -156,7 +160,6 @@ const en: Translations = {
   'sidebar.general.credits.postype': 'Postype',
   'sidebar.general.credits.bugReport': 'Bug Report',
   'sidebar.general.credits.homepage': 'Homepage',
-  'sidebar.general.credits.buyMeACoffee': 'Buy me a coffee',
 
   // OptionsSidebar - Footer / Confirm
   'sidebar.cancel': 'Cancel',

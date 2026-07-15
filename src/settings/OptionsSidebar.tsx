@@ -1503,14 +1503,6 @@ function OptionsSidebarSession({
             >
               {t('sidebar.general.credits.homepage')}
             </a>
-            <a
-              className={styles.link}
-              href="https://coff.ee/starlight.space"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {t('sidebar.general.credits.buyMeACoffee')}
-            </a>
           </div>
         </SettingsSection>
       </Stack>
@@ -1542,6 +1534,38 @@ function OptionsSidebarSession({
         title={t('newtab.options')}
       >
         <div className={styles.content} data-starlit-part="settings-content">
+          <aside
+            aria-label={t('sidebar.support.title')}
+            className={styles.support}
+            data-starlit-part="settings-support"
+          >
+            <Stack gap="xxs">
+              <Text as="p" variant="label" weight="strong">
+                {t('sidebar.support.title')}
+              </Text>
+              <Text as="p" tone="muted" variant="caption">
+                {t('sidebar.support.description')}
+              </Text>
+            </Stack>
+            <div className={styles.supportActions}>
+              <a
+                className={styles.supportLink}
+                href="https://fairy.hada.io/@starlit#support"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {t('sidebar.support.fairy')}
+              </a>
+              <a
+                className={`${styles.supportLink} ${styles.supportLinkSecondary}`}
+                href="https://buymeacoffee.com/starlight.space"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Buy Me a Coffee
+              </a>
+            </div>
+          </aside>
           {actionError ? (
             <Text aria-live="polite" as="p" tone="critical">
               {actionError}

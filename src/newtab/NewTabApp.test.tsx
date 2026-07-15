@@ -241,6 +241,34 @@ describe('NewTabApp', () => {
     expect(navigationControls[1]?.getAttribute('data-direction')).toBe('next');
   });
 
+  it('shows the support links before the settings tabs', async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+
+    const tabList = screen.getByRole('tablist', { name: 'Options' });
+    const fairyLink = screen.getByRole('link', { name: 'Support on Fairy' });
+    const coffeeLink = screen.getByRole('link', { name: 'Buy Me a Coffee' });
+    const support = screen.getByRole('complementary', {
+      name: 'Support Starlit',
+    });
+
+    expect(support.compareDocumentPosition(tabList)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(fairyLink.getAttribute('href')).toBe(
+      'https://fairy.hada.io/@starlit#support',
+    );
+    expect(coffeeLink.getAttribute('href')).toBe(
+      'https://buymeacoffee.com/starlight.space',
+    );
+    expect(fairyLink.getAttribute('target')).toBe('_blank');
+    expect(fairyLink.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(coffeeLink.getAttribute('target')).toBe('_blank');
+    expect(coffeeLink.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
   it('documents stable selectors in the custom CSS placeholder', async () => {
     renderApp();
 
