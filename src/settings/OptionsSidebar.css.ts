@@ -1,9 +1,84 @@
 import { style } from '@vanilla-extract/css';
-import { semanticVars } from '@fleetia/lagrange/theme';
+import { componentVars, semanticVars } from '@fleetia/lagrange/theme';
 
 export const content = style({
   display: 'grid',
   minWidth: 0,
+});
+
+export const support = style({
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  alignItems: 'center',
+  gap: semanticVars.space.md,
+  marginBottom: semanticVars.space.md,
+  padding: semanticVars.space.md,
+  backgroundColor: semanticVars.color.interaction.focusSurface,
+  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.border.strong}`,
+  boxShadow: `inset ${semanticVars.space.xs} 0 ${semanticVars.color.interaction.primary}`,
+  '@media': {
+    '(max-width: 42rem)': {
+      gridTemplateColumns: 'minmax(0, 1fr)',
+      gap: semanticVars.space.sm,
+    },
+  },
+});
+
+export const supportActions = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: semanticVars.space.sm,
+  minWidth: '18rem',
+  '@media': {
+    '(max-width: 42rem)': {
+      minWidth: 0,
+      width: '100%',
+    },
+  },
+});
+
+export const supportLink = style({
+  boxSizing: 'border-box',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: componentVars.control.compactHeight,
+  margin: 0,
+  padding: `${semanticVars.space.xxs} ${semanticVars.space.sm}`,
+  color: componentVars.button.primaryText,
+  backgroundColor: componentVars.button.primaryBackground,
+  border: `${semanticVars.border.width.hairline} solid ${componentVars.button.primaryBackground}`,
+  borderRadius: semanticVars.shape.radius.none,
+  fontFamily: semanticVars.typography.family.ui,
+  fontSize: semanticVars.typography.size.caption,
+  fontWeight: 700,
+  lineHeight: semanticVars.typography.lineHeight.compact,
+  letterSpacing: '0.025em',
+  textAlign: 'center',
+  textDecoration: 'none',
+  transition: 'background-color 0.1s, color 0.1s',
+  selectors: {
+    '&:hover': {
+      backgroundColor: componentVars.button.primaryHoverBackground,
+      borderColor: componentVars.button.primaryHoverBackground,
+    },
+    '&:focus-visible': {
+      outline: 'none',
+      boxShadow: `inset ${semanticVars.space.xs} 0 ${componentVars.button.focusIndicator}`,
+    },
+  },
+});
+
+export const supportLinkSecondary = style({
+  color: componentVars.button.secondaryText,
+  backgroundColor: 'transparent',
+  borderColor: semanticVars.color.border.strong,
+  selectors: {
+    '&:hover': {
+      backgroundColor: componentVars.button.secondaryHoverBackground,
+      borderColor: semanticVars.color.border.strong,
+    },
+  },
 });
 
 export const primaryTabs = style({

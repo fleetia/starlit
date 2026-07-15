@@ -28,6 +28,9 @@ const ko: Translations = {
   'sidebar.tab.css': 'CSS',
   'sidebar.tab.groups': '그룹',
   'sidebar.tab.general': '일반',
+  'sidebar.support.title': 'Starlit 후원하기',
+  'sidebar.support.description': '마음에 들었다면 후원해주세요.',
+  'sidebar.support.fairy': 'Fairy에서 후원',
 
   // OptionsSidebar - Appearance sub tabs
   'sidebar.appearance.background': '배경',
@@ -156,7 +159,6 @@ const ko: Translations = {
   'sidebar.general.credits.postype': 'Postype',
   'sidebar.general.credits.bugReport': '버그 제보',
   'sidebar.general.credits.homepage': '홈페이지',
-  'sidebar.general.credits.buyMeACoffee': 'Buy me a coffee',
 
   // OptionsSidebar - Footer / Confirm
   'sidebar.cancel': '취소',
