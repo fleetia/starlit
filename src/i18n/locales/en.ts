@@ -53,6 +53,7 @@ const en: Translations = {
   'sidebar.tokens.accentText': 'Accent text',
   'sidebar.tokens.border': 'Border',
   'sidebar.tokens.bookmarkTitle': 'Bookmark palette',
+  'sidebar.colorAlpha': 'Alpha',
   'sidebar.colorSwatch': 'color swatch',
 
   // OptionsSidebar - Container section

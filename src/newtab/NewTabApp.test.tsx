@@ -62,6 +62,7 @@ const loadingState = vi.hoisted(() => ({
 
 const initialSettings = structuredClone(appState.settings);
 const initialBookmarks = structuredClone(appState.bookmarks);
+const initialGridSettings = structuredClone(appState.gridSettings);
 
 const appMocks = vi.hoisted(() => ({
   applyPreset: vi.fn<() => Promise<void>>(),
@@ -198,6 +199,7 @@ function renderApp(): ReturnType<typeof render> {
 
 beforeEach((): void => {
   appState.bookmarks = structuredClone(initialBookmarks);
+  appState.gridSettings = structuredClone(initialGridSettings);
   appState.settings = structuredClone(initialSettings);
   Object.assign(loadingState, {
     background: true,
@@ -259,6 +261,39 @@ describe('NewTabApp', () => {
     expect(placeholder).toContain('[data-starlit-part="bookmark-tile-label"]');
     expect(placeholder).toContain('[data-starlit-part^="bookmark-tile"]');
     expect(placeholder).toContain('data-kind="folder"');
+  });
+
+  it('edits and saves the background alpha', async () => {
+    appState.gridSettings = {
+      ...appState.gridSettings,
+      background: {
+        ...appState.gridSettings.background,
+        color: 'rgba(250, 246, 233, 0.94)',
+      },
+    };
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    const alpha = screen.getByRole<HTMLInputElement>('slider', {
+      name: 'Color Alpha',
+    });
+
+    expect(alpha.value).toBe('94');
+    fireEvent.change(alpha, { target: { value: '50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(appMocks.updateGridSettings).toHaveBeenCalledWith({
+        ...appState.gridSettings,
+        background: {
+          ...appState.gridSettings.background,
+          color: '#faf6e980',
+        },
+      });
+    });
   });
 
   it('waits for persisted settings before creating the settings session', async () => {

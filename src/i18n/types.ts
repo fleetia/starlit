@@ -40,6 +40,7 @@ export type TranslationKey =
   | 'sidebar.tokens.accentText'
   | 'sidebar.tokens.border'
   | 'sidebar.tokens.bookmarkTitle'
+  | 'sidebar.colorAlpha'
   | 'sidebar.colorSwatch'
   | 'sidebar.container.title'
   | 'sidebar.container.text'

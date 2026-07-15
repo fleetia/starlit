@@ -169,7 +169,7 @@ function RangeControl({
 }
 
 type ColorControlProps = {
-  label: ReactNode;
+  label: string;
   onValueChange: (value: string) => void;
   value: string;
 };
@@ -184,13 +184,10 @@ function ColorControl({
   return (
     <FormField label={label}>
       <ColorField
+        alphaLabel={`${label} ${t('sidebar.colorAlpha')}`}
         onValueChange={onValueChange}
         showAlpha
-        swatchLabel={
-          typeof label === 'string'
-            ? `${label} ${t('sidebar.colorSwatch')}`
-            : t('sidebar.colorSwatch')
-        }
+        swatchLabel={`${label} ${t('sidebar.colorSwatch')}`}
         value={value}
       />
     </FormField>
@@ -944,7 +941,7 @@ function OptionsSidebarSession({
         <SettingsSection title={t('sidebar.container.title')}>
           <div className={styles.fieldGrid}>
             <ColorControl
-              label={t('sidebar.container.text')}
+              label={`${t('sidebar.container.title')} ${t('sidebar.container.text')}`}
               onValueChange={(value) => updateHeading({ titleColor: value })}
               value={heading.titleColor}
             />
@@ -986,7 +983,7 @@ function OptionsSidebarSession({
         <SettingsSection title={t('sidebar.container.subtitle')}>
           <div className={styles.fieldGrid}>
             <ColorControl
-              label={t('sidebar.container.text')}
+              label={`${t('sidebar.container.subtitle')} ${t('sidebar.container.text')}`}
               onValueChange={(value) => updateHeading({ subtitleColor: value })}
               value={heading.subtitleColor}
             />
