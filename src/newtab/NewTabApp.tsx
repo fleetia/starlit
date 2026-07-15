@@ -365,6 +365,8 @@ export function NewTabApp({
           >
             {orderedBookmarks.length > 1 ? (
               <IconButton
+                data-direction="previous"
+                data-starlit-part="group-navigation"
                 label={t('navigation.previous')}
                 onClick={() => scrollToGroup(activeGroupIndex - 1)}
                 variant="quiet"
@@ -372,11 +374,17 @@ export function NewTabApp({
                 ←
               </IconButton>
             ) : null}
-            <div ref={groupRailRef} className="starlit-group-rail">
+            <div
+              ref={groupRailRef}
+              className="starlit-group-rail"
+              data-starlit-part="group-rail"
+            >
               {groups}
             </div>
             {orderedBookmarks.length > 1 ? (
               <IconButton
+                data-direction="next"
+                data-starlit-part="group-navigation"
                 label={t('navigation.next')}
                 onClick={() => scrollToGroup(activeGroupIndex + 1)}
                 variant="quiet"

@@ -93,6 +93,7 @@ export type TranslationKey =
   | 'sidebar.layout.preview'
   | 'sidebar.preview.note'
   | 'sidebar.css.title'
+  | 'sidebar.css.help'
   | 'sidebar.css.placeholder'
   | 'sidebar.general.language'
   | 'sidebar.general.openInNewTab'

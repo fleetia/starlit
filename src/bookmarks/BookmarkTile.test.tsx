@@ -50,4 +50,39 @@ describe('BookmarkTile', () => {
     expect(handleContextMenu.mock.calls[0]?.[0].clientX).toBe(120);
     expect(handleContextMenu.mock.calls[0]?.[0].clientY).toBe(84);
   });
+
+  it('exposes stable custom CSS parts for tile content', () => {
+    const { container, rerender } = render(
+      <BookmarkTile
+        favicon="data:image/png;base64,AAAA"
+        kind="bookmark"
+        title="GitHub"
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile-icon"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile-favicon"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile-label"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile-marker"]'),
+    ).toBeNull();
+
+    rerender(<BookmarkTile kind="folder" title="Reference" />);
+
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile-marker"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-tile-favicon"]'),
+    ).toBeNull();
+  });
 });

@@ -61,6 +61,7 @@ const loadingState = vi.hoisted(() => ({
 }));
 
 const initialSettings = structuredClone(appState.settings);
+const initialBookmarks = structuredClone(appState.bookmarks);
 
 const appMocks = vi.hoisted(() => ({
   applyPreset: vi.fn<() => Promise<void>>(),
@@ -196,6 +197,7 @@ function renderApp(): ReturnType<typeof render> {
 }
 
 beforeEach((): void => {
+  appState.bookmarks = structuredClone(initialBookmarks);
   appState.settings = structuredClone(initialSettings);
   Object.assign(loadingState, {
     background: true,
@@ -213,6 +215,52 @@ beforeEach((): void => {
 });
 
 describe('NewTabApp', () => {
+  it('exposes stable custom CSS parts for paged group navigation', () => {
+    appState.bookmarks = [
+      ...appState.bookmarks,
+      {
+        id: 'folder-personal',
+        list: [],
+        title: 'Personal',
+      },
+    ];
+    renderApp();
+    const navigationControls = document.querySelectorAll(
+      '[data-starlit-part="group-navigation"]',
+    );
+
+    expect(
+      document.querySelector('[data-starlit-part="group-rail"]'),
+    ).not.toBeNull();
+    expect(navigationControls).toHaveLength(2);
+    expect(navigationControls[0]?.getAttribute('data-direction')).toBe(
+      'previous',
+    );
+    expect(navigationControls[1]?.getAttribute('data-direction')).toBe('next');
+  });
+
+  it('documents stable selectors in the custom CSS placeholder', async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+    fireEvent.click(screen.getByRole('tab', { name: 'CSS' }));
+
+    const customCSSInput = screen.getByRole('textbox', {
+      name: 'Custom CSS',
+    });
+    const help = screen.getByText(
+      /Use #root \[data-starlit-part="\.\.\."\] for public selectors/u,
+    );
+    const placeholder = customCSSInput.getAttribute('placeholder');
+
+    expect(customCSSInput.getAttribute('aria-describedby')).toContain(help.id);
+    expect(placeholder).toContain('#root');
+    expect(placeholder).toContain('[data-starlit-part="bookmark-tile-label"]');
+    expect(placeholder).toContain('[data-starlit-part^="bookmark-tile"]');
+    expect(placeholder).toContain('data-kind="folder"');
+  });
+
   it('waits for persisted settings before creating the settings session', async () => {
     loadingState.settings = false;
     const view = renderApp();

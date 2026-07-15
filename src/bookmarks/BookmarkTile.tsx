@@ -25,19 +25,25 @@ function TileContent({
         aria-hidden="true"
         className="starlit-bookmark-tile__icon"
         data-kind={kind}
+        data-starlit-part="bookmark-tile-icon"
       >
         {favicon ? (
           <img
             alt=""
             className="starlit-bookmark-tile__favicon"
+            data-starlit-part="bookmark-tile-favicon"
             src={favicon}
           />
         ) : (
-          <span className="starlit-bookmark-tile__marker" />
+          <span
+            className="starlit-bookmark-tile__marker"
+            data-starlit-part="bookmark-tile-marker"
+          />
         )}
       </span>
       <Text
         className="starlit-bookmark-tile__label"
+        data-starlit-part="bookmark-tile-label"
         truncate
         variant="caption"
         weight="medium"

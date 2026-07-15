@@ -74,7 +74,8 @@ test('renders persisted visual leaves in the live surface and settings preview',
     sync: {
       colorTheme: LEGACY_THEME,
       customCSS:
-        '[data-starlit-part="bookmark-tile"] { outline-color: rgb(1, 2, 3); }',
+        '#root [data-starlit-part="bookmark-tile"] { outline-color: rgb(1, 2, 3); }\n' +
+        '#root [data-starlit-part="bookmark-tile"][data-kind="folder"] { border-style: solid; }',
       gridSettings: CUSTOM_GRID_SETTINGS,
       iconSize: 24,
       locale: 'en',
@@ -94,10 +95,10 @@ test('renders persisted visual leaves in the live surface and settings preview',
 
   const group = page.locator('[data-starlit-part="bookmark-group"]').first();
   const title = group.locator('[aria-current="page"]');
-  const route = group.locator('.starlit-bookmark-group__route');
+  const route = group.locator('[data-starlit-part="bookmark-route"]');
   const bookmark = page.getByRole('button', { name: 'Atlas 01' });
   const folder = page.getByRole('button', { name: 'Projects' });
-  const folderIcon = folder.locator('.starlit-bookmark-tile__icon');
+  const folderIcon = folder.locator('[data-starlit-part="bookmark-tile-icon"]');
 
   await expect(group).toHaveCSS('background-color', 'rgb(23, 34, 45)');
   await expect(group).toHaveCSS('border-top-color', 'rgb(54, 65, 76)');
@@ -151,7 +152,7 @@ test('renders persisted visual leaves in the live surface and settings preview',
 
   await expect(folder).toHaveCSS('background-color', 'rgb(190, 191, 192)');
   await expect(folder).toHaveCSS('border-top-color', 'rgb(78, 89, 90)');
-  await expect(folder).toHaveCSS('border-top-style', 'double');
+  await expect(folder).toHaveCSS('border-top-style', 'solid');
   await expect(folder).toHaveCSS('color', 'rgb(42, 31, 51)');
   await expect(folderIcon).toHaveCSS('background-color', 'rgb(88, 99, 44)');
   await expect(folderIcon).toHaveCSS('border-top-color', 'rgb(105, 92, 106)');
@@ -168,7 +169,7 @@ test('renders persisted visual leaves in the live surface and settings preview',
     '[data-starlit-part="bookmark-tile"][data-kind="bookmark"]',
   );
   const previewFolderIcon = preview.locator(
-    '.starlit-bookmark-tile__icon[data-kind="folder"]',
+    '[data-starlit-part="bookmark-tile-icon"][data-kind="folder"]',
   );
 
   await expect(previewGroup).toHaveAttribute('inert', '');

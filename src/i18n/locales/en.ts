@@ -117,8 +117,26 @@ const en: Translations = {
 
   // OptionsSidebar - CSS section
   'sidebar.css.title': 'Custom CSS',
+  'sidebar.css.help':
+    'Use #root [data-starlit-part="..."] for public selectors, ^= for a part family, and data-kind, data-layout, or data-direction to narrow state.',
   'sidebar.css.placeholder':
-    '/* Custom CSS with highest priority */\n.my-class-* {\n  color: red;\n}',
+    '/* Stable parts: root, main, background-media, paged-groups,\n' +
+    '   expanded-groups, group-rail, group-navigation, settings-trigger,\n' +
+    '   bookmark-group, bookmark-group-header, bookmark-breadcrumb,\n' +
+    '   bookmark-route, bookmark-grid, bookmark-tile, bookmark-tile-icon,\n' +
+    '   bookmark-tile-favicon, bookmark-tile-marker, bookmark-tile-label,\n' +
+    '   pagination, pagination-control, pagination-status */\n\n' +
+    '/* Target one part. #root overrides class-based app styles. */\n' +
+    '#root [data-starlit-part="bookmark-tile-label"] {\n' +
+    '  font-weight: 700;\n' +
+    '}\n\n' +
+    '/* Narrow by state: data-kind, data-layout, or data-direction. */\n' +
+    '#root [data-starlit-part="bookmark-tile"][data-kind="folder"] {\n' +
+    '  border-style: solid;\n' +
+    '}\n\n' +
+    '/* ^= targets a part family such as bookmark-tile and bookmark-tile-*. */\n' +
+    '#root [data-starlit-part^="bookmark-tile"] {\n' +
+    '}',
 
   // OptionsSidebar - General section
   'sidebar.general.language': 'Language',

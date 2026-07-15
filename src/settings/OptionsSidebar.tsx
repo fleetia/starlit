@@ -1589,7 +1589,10 @@ function OptionsSidebarSession({
               value="css"
             >
               <SettingsSection title={t('sidebar.css.title')}>
-                <FormField label={t('sidebar.css.title')}>
+                <FormField
+                  description={t('sidebar.css.help')}
+                  label={t('sidebar.css.title')}
+                >
                   <TextArea
                     onChange={(event) => setDraftCSS(event.currentTarget.value)}
                     placeholder={t('sidebar.css.placeholder')}
