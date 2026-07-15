@@ -21,12 +21,18 @@ const ko: Translations = {
   'contextMenu.changeIcon': '아이콘 변경',
   'contextMenu.resetIcon': '아이콘 초기화',
   'contextMenu.delete': '북마크 삭제',
+  'contextMenu.deleteConfirmTitle': 'Chrome 북마크에서도 삭제할까요?',
+  'contextMenu.deleteConfirmDescription':
+    '이 북마크는 Starlit과 Chrome 북마크 목록에서 모두 삭제됩니다.',
+  'contextMenu.deleteConfirmAction': 'Chrome 북마크에서 삭제',
+  'contextMenu.deleteFailed':
+    'Chrome 북마크를 삭제하지 못했습니다. 다시 시도해 주세요.',
 
   // OptionsSidebar - Primary tabs
   'sidebar.tab.appearance': '외형',
   'sidebar.tab.layout': '배치',
   'sidebar.tab.css': 'CSS',
-  'sidebar.tab.groups': '그룹',
+  'sidebar.tab.groups': '북마크 그룹',
   'sidebar.tab.general': '일반',
   'sidebar.support.title': 'Starlit 후원하기',
   'sidebar.support.description': '마음에 들었다면 후원해주세요.',
@@ -174,6 +180,21 @@ const ko: Translations = {
   'groups.hide': '숨기기',
   'groups.show': '보이기',
   'groups.dragToReorder': '드래그하여 순서 변경',
+  'groups.connectionTitle': 'Chrome 북마크를 사용합니다',
+  'groups.connectionDescription':
+    'Chrome 북마크 폴더를 불러와 Starlit에 표시합니다. Chrome에서 변경한 북마크는 새 탭을 다시 열면 반영됩니다.',
+  'groups.localPreferences':
+    '루트 그룹, 숨김, 순서, 아이콘 설정은 Starlit 화면에만 적용됩니다.',
+  'groups.openManager': 'Chrome 북마크 열기',
+  'groups.openManagerFailed':
+    'Chrome 북마크 관리자를 열지 못했습니다. 다시 시도해 주세요.',
+  'groups.guideSummary': '동작 방식 보기',
+  'groups.guideChrome':
+    'Chrome에서 북마크를 추가하거나 이름과 폴더를 변경하면 새 탭을 열 때 Starlit에 반영됩니다.',
+  'groups.guideStarlit':
+    '그룹 숨김과 순서, 아이콘 변경은 Chrome 북마크를 바꾸지 않습니다.',
+  'groups.guideDelete':
+    'Starlit에서 북마크를 삭제하면 Chrome 북마크에서도 삭제됩니다.',
 
   // PopupApp
   'popup.active': '활성화됨',

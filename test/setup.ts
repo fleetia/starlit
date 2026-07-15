@@ -14,6 +14,9 @@ beforeAll((): void => {
         onMessage: { addListener: vi.fn() },
         sendMessage: vi.fn(),
       },
+      tabs: {
+        create: vi.fn(),
+      },
       storage: {
         local: {
           get: vi.fn(),

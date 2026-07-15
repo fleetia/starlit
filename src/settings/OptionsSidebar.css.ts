@@ -95,6 +95,37 @@ export const appearanceTabs = style({
   minHeight: '22rem',
 });
 
+export const bookmarkGuide = style({
+  color: semanticVars.color.content.secondary,
+  fontFamily: semanticVars.typography.family.ui,
+  fontSize: semanticVars.typography.size.caption,
+});
+
+export const bookmarkGuideSummary = style({
+  width: 'fit-content',
+  color: semanticVars.color.content.accent,
+  cursor: 'pointer',
+  fontWeight: 700,
+  textDecorationLine: 'underline',
+  textDecorationStyle: 'dotted',
+  textUnderlineOffset: semanticVars.space.xs,
+  selectors: {
+    '&:hover': {
+      color: semanticVars.color.interaction.primaryHover,
+      textDecorationStyle: 'solid',
+    },
+    '&:focus-visible': {
+      outline: `${semanticVars.border.width.hairline} solid ${semanticVars.color.interaction.focus}`,
+      outlineOffset: semanticVars.space.xs,
+    },
+  },
+});
+
+export const bookmarkGuideContent = style({
+  marginTop: semanticVars.space.sm,
+  paddingInlineStart: semanticVars.space.md,
+});
+
 export const fieldGrid = style({
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',

@@ -275,4 +275,12 @@ const getTree = async (): Promise<ChromeBookmarkNode[]> => {
   return chrome.bookmarks.getTree();
 };
 
-export default { getTree };
+const openManager = async (): Promise<void> => {
+  if (typeof chrome === 'undefined' || !chrome.tabs?.create) {
+    throw new Error('Chrome tabs API is unavailable');
+  }
+
+  await chrome.tabs.create({ url: 'chrome://bookmarks/' });
+};
+
+export default { getTree, openManager };

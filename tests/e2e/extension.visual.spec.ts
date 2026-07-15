@@ -55,3 +55,19 @@ test('settings dialog', async ({ extension }) => {
   ).toBeVisible();
   await expect(page).toHaveScreenshot('settings.png', { fullPage: false });
 });
+
+test('bookmark group guidance', async ({ extension }) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  await page.locator('[data-starlit-part="settings-trigger"]').click();
+  await page.getByRole('tab', { name: 'Bookmark groups' }).click();
+  await page.getByText('How it works', { exact: true }).click();
+  await expect(
+    page.locator('[data-starlit-part="bookmark-connection-guide"]'),
+  ).toHaveAttribute('open', '');
+  await expect(page).toHaveScreenshot('bookmark-groups.png', {
+    fullPage: false,
+  });
+});

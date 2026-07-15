@@ -21,12 +21,18 @@ const ja: Translations = {
   'contextMenu.changeIcon': 'アイコンを変更',
   'contextMenu.resetIcon': 'アイコンをリセット',
   'contextMenu.delete': 'ブックマークを削除',
+  'contextMenu.deleteConfirmTitle': 'Chrome ブックマークからも削除しますか？',
+  'contextMenu.deleteConfirmDescription':
+    'このブックマークは Starlit と Chrome ブックマークの両方から削除されます。',
+  'contextMenu.deleteConfirmAction': 'Chrome から削除',
+  'contextMenu.deleteFailed':
+    'Chrome ブックマークを削除できませんでした。もう一度お試しください。',
 
   // OptionsSidebar - Primary tabs
   'sidebar.tab.appearance': '外観',
   'sidebar.tab.layout': '配置',
   'sidebar.tab.css': 'CSS',
-  'sidebar.tab.groups': 'グループ',
+  'sidebar.tab.groups': 'ブックマークグループ',
   'sidebar.tab.general': '一般',
   'sidebar.support.title': 'Starlitを応援',
   'sidebar.support.description':
@@ -175,6 +181,21 @@ const ja: Translations = {
   'groups.hide': '非表示',
   'groups.show': '表示',
   'groups.dragToReorder': 'ドラッグして順序を変更',
+  'groups.connectionTitle': 'Chrome ブックマークを使用します',
+  'groups.connectionDescription':
+    'Chrome のブックマークフォルダを Starlit に表示します。Chrome での変更は、新しいタブを開き直すと反映されます。',
+  'groups.localPreferences':
+    'ルートグループ、非表示、並び順、アイコンの設定は Starlit にのみ反映されます。',
+  'groups.openManager': 'Chrome ブックマークを開く',
+  'groups.openManagerFailed':
+    'Chrome ブックマークマネージャーを開けませんでした。もう一度お試しください。',
+  'groups.guideSummary': '仕組みを見る',
+  'groups.guideChrome':
+    'Chrome でブックマークを追加したり、名前やフォルダを変更したりすると、次に新しいタブを開いたときに Starlit に反映されます。',
+  'groups.guideStarlit':
+    'グループの非表示、並べ替え、アイコンの変更は Chrome ブックマークには影響しません。',
+  'groups.guideDelete':
+    'Starlit でブックマークを削除すると、Chrome ブックマークからも削除されます。',
 
   // PopupApp
   'popup.active': '有効',
