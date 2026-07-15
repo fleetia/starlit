@@ -419,3 +419,40 @@ test('saves settings and background drafts only after confirmation', async ({
       settings: { isOpenInNewTab: true },
     });
 });
+
+test('deletes a Chrome bookmark only after explicit confirmation', async ({
+  extension,
+}) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+  const bookmark = page.getByRole('button', { name: 'Atlas 01' });
+
+  await bookmark.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete bookmark' }).click();
+  await expect(
+    page.getByRole('alertdialog', { name: 'Delete from Chrome bookmarks?' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+  expect(
+    await extension.serviceWorker.evaluate(async () =>
+      chrome.bookmarks.search('Atlas 01'),
+    ),
+  ).toHaveLength(1);
+
+  await bookmark.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete bookmark' }).click();
+  await page
+    .getByRole('button', { name: 'Delete from Chrome', exact: true })
+    .click();
+
+  await expect
+    .poll(() =>
+      extension.serviceWorker.evaluate(async () =>
+        chrome.bookmarks.search('Atlas 01'),
+      ),
+    )
+    .toHaveLength(0);
+  await expect(page.getByRole('button', { name: 'Atlas 02' })).toBeFocused();
+});

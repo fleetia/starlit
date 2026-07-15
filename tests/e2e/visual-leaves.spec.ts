@@ -54,24 +54,33 @@ test('renders persisted visual leaves in the live surface and settings preview',
   extension,
 }) => {
   await extension.seedProfile({
-    local: {
-      bookmarks: [
+    bookmarkRoots: [
+      [
         {
-          children: [{ id: 'projects', title: 'Projects' }],
-          id: 'visual-leaves',
-          list: [
+          children: [
             {
-              id: 'atlas-01',
+              children: [
+                {
+                  title: 'Project note',
+                  url: 'https://example.com/project-note',
+                },
+              ],
+              title: 'Projects',
+            },
+            {
               title: 'Atlas 01',
               url: 'https://example.com/atlas-01',
             },
           ],
-          route: ['Seed', 'Visual leaves'],
           title: 'Visual leaves',
         },
       ],
-    },
+    ],
     sync: {
+      bookmarkTreePrefs: {
+        rootPath: ['Bookmarks Bar'],
+        siblingOrder: {},
+      },
       colorTheme: LEGACY_THEME,
       customCSS:
         '#root [data-starlit-part="bookmark-tile"] { outline-color: rgb(1, 2, 3); }\n' +

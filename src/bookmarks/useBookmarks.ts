@@ -73,11 +73,9 @@ export function useBookmarks(): UseBookmarksReturn {
       try {
         const tree = await chromeBookmarks.getTree();
         const converted = convertTree(tree);
-        if (converted.length > 0) {
-          await setBookmarks(converted);
-          await cacheFavicons(flattenItems(converted));
-          setFavicons(await loadFavicons());
-        }
+        await setBookmarks(converted);
+        await cacheFavicons(flattenItems(converted));
+        setFavicons(await loadFavicons());
       } catch (err) {
         console.warn('Bookmark sync failed:', err);
       } finally {
@@ -100,7 +98,8 @@ export function useBookmarks(): UseBookmarksReturn {
   );
 
   const handleDeleteBookmark = async (bookmarkId: string): Promise<void> => {
-    if (!import.meta.env.DEV) {
+    const isChromeSource = !import.meta.env.DEV;
+    if (isChromeSource) {
       await chrome.bookmarks.remove(bookmarkId);
     }
     const removeFromFolders = (folders: Bookmark[]): Bookmark[] =>
@@ -117,7 +116,15 @@ export function useBookmarks(): UseBookmarksReturn {
             (folder.list?.length ?? 0) > 0 ||
             (folder.children?.length ?? 0) > 0,
         );
-    await setBookmarks((prev) => removeFromFolders(prev));
+    try {
+      await setBookmarks((prev) => removeFromFolders(prev));
+    } catch (err) {
+      if (!isChromeSource) {
+        throw err;
+      }
+
+      console.warn('Bookmark cache update failed after Chrome deletion:', err);
+    }
   };
 
   const handleUpdateFavicon = async (

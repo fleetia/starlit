@@ -4,12 +4,22 @@ import type {
   MouseEvent,
   ReactElement,
 } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Button,
   ContextMenu,
   ContextMenuItem,
+  Dialog,
   Icon,
   IconButton,
+  Inline,
   Text,
   ThemeRoot,
 } from '@fleetia/lagrange';
@@ -75,6 +85,11 @@ export function NewTabApp({
   const [contextTarget, setContextTarget] = useState<ContextTarget | null>(
     null,
   );
+  const [bookmarkIdToDelete, setBookmarkIdToDelete] = useState<string | null>(
+    null,
+  );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingBookmark, setIsDeletingBookmark] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [cardPages, setCardPages] = useState<Record<string, number>>({});
   const [folderPaths, setFolderPaths] = useState<Record<string, Bookmark[]>>(
@@ -84,6 +99,36 @@ export function NewTabApp({
   const faviconInputRef = useRef<HTMLInputElement>(null);
   const faviconTargetRef = useRef<ContextTarget | null>(null);
   const groupRailRef = useRef<HTMLDivElement>(null);
+  const contextTriggerRef = useRef<HTMLElement>(null);
+  const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const deleteFocusFallbackRef = useRef<HTMLElement>(null);
+  const deleteFocusRestoreRef = useRef<HTMLElement>(null);
+  const isDeleteFocusRestorePendingRef = useRef(false);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const deleteDescriptionId = `starlit-delete-bookmark-${useId()}`;
+
+  useEffect(() => {
+    if (bookmarkIdToDelete !== null) {
+      requestAnimationFrame(() => {
+        deleteCancelRef.current?.focus();
+      });
+      return;
+    }
+
+    if (!isDeleteFocusRestorePendingRef.current) {
+      return;
+    }
+
+    const focusTarget = deleteFocusRestoreRef.current;
+    isDeleteFocusRestorePendingRef.current = false;
+    deleteFocusRestoreRef.current = null;
+    requestAnimationFrame(() => {
+      const target = focusTarget?.isConnected
+        ? focusTarget
+        : settingsTriggerRef.current;
+      target?.focus();
+    });
+  }, [bookmarkIdToDelete]);
 
   const {
     isLoaded: isSizeLoaded,
@@ -213,6 +258,25 @@ export function NewTabApp({
     isFolder: boolean,
   ): void {
     event.preventDefault();
+    const trigger = event.currentTarget;
+    contextTriggerRef.current = trigger;
+
+    if (isFolder) {
+      deleteFocusFallbackRef.current = null;
+    } else {
+      const grid = trigger.closest('[data-starlit-part="bookmark-grid"]');
+      const tiles = Array.from(
+        grid?.querySelectorAll<HTMLButtonElement>(
+          'button[data-starlit-part="bookmark-tile"]',
+        ) ?? [],
+      );
+      const triggerIndex = tiles.findIndex((tile) => tile === trigger);
+      deleteFocusFallbackRef.current =
+        triggerIndex >= 0
+          ? (tiles[triggerIndex + 1] ?? tiles[triggerIndex - 1] ?? null)
+          : null;
+    }
+
     setContextTarget({
       bookmarkId,
       folderKey,
@@ -249,6 +313,43 @@ export function NewTabApp({
     const favicon = await fileToDataUrl(file);
     await handleUpdateFavicon(0, target.bookmarkId, favicon);
     faviconTargetRef.current = null;
+  }
+
+  function closeDeleteDialog(): void {
+    if (isDeletingBookmark) {
+      return;
+    }
+
+    const focusTarget = contextTriggerRef.current;
+    deleteFocusRestoreRef.current = focusTarget;
+    isDeleteFocusRestorePendingRef.current = true;
+    setBookmarkIdToDelete(null);
+    setDeleteError(null);
+    contextTriggerRef.current = null;
+    deleteFocusFallbackRef.current = null;
+  }
+
+  async function confirmDeleteBookmark(): Promise<void> {
+    if (!bookmarkIdToDelete || isDeletingBookmark) {
+      return;
+    }
+
+    setDeleteError(null);
+    setIsDeletingBookmark(true);
+
+    try {
+      await handleDeleteBookmark(bookmarkIdToDelete);
+      const focusTarget = deleteFocusFallbackRef.current;
+      deleteFocusRestoreRef.current = focusTarget;
+      isDeleteFocusRestorePendingRef.current = true;
+      setBookmarkIdToDelete(null);
+      contextTriggerRef.current = null;
+      deleteFocusFallbackRef.current = null;
+    } catch {
+      setDeleteError(t('contextMenu.deleteFailed'));
+    } finally {
+      setIsDeletingBookmark(false);
+    }
   }
 
   const groups = orderedBookmarks.map((folder) => {
@@ -397,6 +498,7 @@ export function NewTabApp({
       </main>
 
       <IconButton
+        ref={settingsTriggerRef}
         className="starlit-settings-trigger"
         data-starlit-part="settings-trigger"
         disabled={!areSettingsSourcesLoaded}
@@ -519,7 +621,8 @@ export function NewTabApp({
           <ContextMenuItem
             onSelect={() => {
               if (contextTarget) {
-                void handleDeleteBookmark(contextTarget.bookmarkId);
+                setDeleteError(null);
+                setBookmarkIdToDelete(contextTarget.bookmarkId);
               }
             }}
             tone="critical"
@@ -528,6 +631,49 @@ export function NewTabApp({
           </ContextMenuItem>
         ) : null}
       </ContextMenu>
+
+      <Dialog
+        aria-describedby={deleteDescriptionId}
+        closeLabel={t('modal.close')}
+        footer={
+          <Inline gap="sm" justify="end">
+            <Button
+              ref={deleteCancelRef}
+              disabled={isDeletingBookmark}
+              onClick={closeDeleteDialog}
+              variant="quiet"
+            >
+              {t('confirmDialog.cancel')}
+            </Button>
+            <Button
+              isPending={isDeletingBookmark}
+              onClick={() => void confirmDeleteBookmark()}
+              variant="critical"
+            >
+              {t('contextMenu.deleteConfirmAction')}
+            </Button>
+          </Inline>
+        }
+        initialFocusRef={deleteCancelRef}
+        isOpen={bookmarkIdToDelete !== null}
+        onOpenChange={(nextIsOpen) => {
+          if (!nextIsOpen) {
+            closeDeleteDialog();
+          }
+        }}
+        role="alertdialog"
+        size="small"
+        title={t('contextMenu.deleteConfirmTitle')}
+      >
+        <Text id={deleteDescriptionId}>
+          {t('contextMenu.deleteConfirmDescription')}
+        </Text>
+        {deleteError ? (
+          <Text aria-live="polite" as="p" tone="critical">
+            {deleteError}
+          </Text>
+        ) : null}
+      </Dialog>
 
       <input
         ref={faviconInputRef}

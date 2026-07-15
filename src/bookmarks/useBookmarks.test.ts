@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Bookmark } from '../newtab/types';
 import { useBookmarks } from './useBookmarks';
@@ -100,13 +100,20 @@ beforeEach((): void => {
   faviconMocks.loadFavicons.mockResolvedValue({});
   faviconMocks.removeFavicon.mockResolvedValue(undefined);
   faviconMocks.saveFavicon.mockResolvedValue(undefined);
-  chromeBookmarkMocks.convertTree.mockReturnValue([]);
+  chromeBookmarkMocks.convertTree.mockReturnValue(
+    structuredClone(INITIAL_BOOKMARKS),
+  );
   chromeBookmarkMocks.flattenItems.mockReturnValue([]);
   chromeBookmarkMocks.getTree.mockResolvedValue([]);
 });
 
+afterEach((): void => {
+  vi.unstubAllEnvs();
+});
+
 describe('useBookmarks', () => {
   it('reports loaded only after the Chrome bookmark source finishes', async () => {
+    chromeBookmarkMocks.convertTree.mockReturnValueOnce([]);
     let resolveTree: (tree: chrome.bookmarks.BookmarkTreeNode[]) => void = () =>
       undefined;
     const treePromise = new Promise<chrome.bookmarks.BookmarkTreeNode[]>(
@@ -127,6 +134,8 @@ describe('useBookmarks', () => {
       await treePromise;
     });
     expect(result.current.isLoaded).toBe(true);
+    expect(storageState.bookmarks).toEqual([]);
+    expect(faviconMocks.cacheFavicons).toHaveBeenCalledWith([]);
   });
 
   it('removes matching bookmarks from top-level and nested folders', async () => {
@@ -146,8 +155,35 @@ describe('useBookmarks', () => {
     expect(storageState.bookmarks[0]?.children).toEqual([]);
   });
 
+  it('keeps a successful Chrome deletion when the local cache write fails', async () => {
+    vi.stubEnv('DEV', false);
+    const warning = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { result } = renderHook(() => useBookmarks());
+    await flushBookmarkEffects();
+    storageState.setBookmarks.mockRejectedValueOnce(
+      new Error('cache unavailable'),
+    );
+
+    try {
+      await act(async (): Promise<void> => {
+        await result.current.handleDeleteBookmark('bookmark-1');
+      });
+
+      expect(chrome.bookmarks.remove).toHaveBeenCalledWith('bookmark-1');
+      expect(warning).toHaveBeenCalledWith(
+        'Bookmark cache update failed after Chrome deletion:',
+        expect.any(Error),
+      );
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('persists and resets a custom favicon before refreshing resolved data', async () => {
     faviconMocks.loadFavicons
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ 'bookmark-1': 'data:image/png;base64,custom' })
       .mockResolvedValueOnce({});

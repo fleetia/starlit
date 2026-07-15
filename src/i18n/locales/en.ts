@@ -21,12 +21,18 @@ const en: Translations = {
   'contextMenu.changeIcon': 'Change icon',
   'contextMenu.resetIcon': 'Reset icon',
   'contextMenu.delete': 'Delete bookmark',
+  'contextMenu.deleteConfirmTitle': 'Delete from Chrome bookmarks?',
+  'contextMenu.deleteConfirmDescription':
+    'This bookmark will be removed from both Starlit and your Chrome bookmarks.',
+  'contextMenu.deleteConfirmAction': 'Delete from Chrome',
+  'contextMenu.deleteFailed':
+    'We could not delete this Chrome bookmark. Please try again.',
 
   // OptionsSidebar - Primary tabs
   'sidebar.tab.appearance': 'Appearance',
   'sidebar.tab.layout': 'Layout',
   'sidebar.tab.css': 'CSS',
-  'sidebar.tab.groups': 'Groups',
+  'sidebar.tab.groups': 'Bookmark groups',
   'sidebar.tab.general': 'General',
   'sidebar.support.title': 'Support Starlit',
   'sidebar.support.description':
@@ -174,6 +180,21 @@ const en: Translations = {
   'groups.hide': 'Hide',
   'groups.show': 'Show',
   'groups.dragToReorder': 'Drag to reorder',
+  'groups.connectionTitle': 'Uses Chrome bookmarks',
+  'groups.connectionDescription':
+    'Starlit displays your Chrome bookmark folders. Changes made in Chrome appear when you open a new tab again.',
+  'groups.localPreferences':
+    'Root selection, hidden groups, custom order, and icons only affect Starlit.',
+  'groups.openManager': 'Open Chrome bookmarks',
+  'groups.openManagerFailed':
+    'We could not open the Chrome bookmark manager. Please try again.',
+  'groups.guideSummary': 'How it works',
+  'groups.guideChrome':
+    'Add, rename, or move bookmarks in Chrome. Starlit picks up those changes the next time you open a new tab.',
+  'groups.guideStarlit':
+    'Hiding or reordering groups and changing icons does not change Chrome bookmarks.',
+  'groups.guideDelete':
+    'Deleting a bookmark in Starlit also deletes it from Chrome bookmarks.',
 
   // PopupApp
   'popup.active': 'Active',

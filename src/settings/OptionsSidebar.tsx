@@ -1,6 +1,7 @@
 import type { ChangeEvent, ReactElement, ReactNode } from 'react';
 import { useId, useMemo, useRef, useState } from 'react';
 import {
+  Action,
   Button,
   Choice,
   ChoiceGroup,
@@ -27,6 +28,7 @@ import { applySiblingOrder } from '../bookmarks/bookmarkTree';
 import { BookmarkTreeSelector } from '../bookmarks/BookmarkTreeSelector';
 import type { BookmarkTreePrefs } from '../bookmarks/useBookmarkTreePrefs';
 import { useTranslation, type Locale } from '../i18n';
+import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
 import { getLayoutStyle, getThemeStyle } from '../theme/starlitTheme';
 import {
   exportFull,
@@ -195,12 +197,14 @@ function ColorControl({
 }
 
 type SettingsSectionProps = {
+  aside?: ReactNode;
   children: ReactNode;
   description?: ReactNode;
   title: ReactNode;
 };
 
 function SettingsSection({
+  aside,
   children,
   description,
   title,
@@ -208,6 +212,7 @@ function SettingsSection({
   return (
     <Section boundary="weak" spacing="compact">
       <SectionHeader
+        aside={aside}
         description={description}
         headingLevel={3}
         headingVariant="label"
@@ -499,6 +504,16 @@ function OptionsSidebarSession({
       ...currentOrder,
       [parentKey]: titles,
     }));
+  }
+
+  async function handleOpenBookmarkManager(): Promise<void> {
+    setActionError(null);
+
+    try {
+      await chromeBookmarks.openManager();
+    } catch {
+      setActionError(t('groups.openManagerFailed'));
+    }
   }
 
   function requestClose(): void {
@@ -1630,19 +1645,59 @@ function OptionsSidebarSession({
               data-starlit-part="settings-groups"
               value="groups"
             >
-              <BookmarkTreeSelector
-                bookmarks={draftOrderedTree}
-                groupPreferences={draftGroupPreferences}
-                onSelectRoot={(path, nextRootId) => {
-                  setDraftRootId(nextRootId);
-                  setDraftRootPath(path);
-                }}
-                onSiblingReorder={updateDraftSiblingOrder}
-                onToggleVisibility={toggleDraftVisibility}
-                rootId={draftRootId}
-                rootPath={draftRootPath}
-                siblingOrder={draftSiblingOrder}
-              />
+              <Stack gap="lg">
+                <SettingsSection
+                  aside={
+                    <Action
+                      onClick={() => void handleOpenBookmarkManager()}
+                      size="compact"
+                    >
+                      {t('groups.openManager')}
+                    </Action>
+                  }
+                  description={
+                    <>
+                      {t('groups.connectionDescription')}
+                      <br />
+                      {t('groups.localPreferences')}
+                    </>
+                  }
+                  title={t('groups.connectionTitle')}
+                >
+                  <details
+                    className={styles.bookmarkGuide}
+                    data-starlit-part="bookmark-connection-guide"
+                  >
+                    <summary className={styles.bookmarkGuideSummary}>
+                      {t('groups.guideSummary')}
+                    </summary>
+                    <Stack className={styles.bookmarkGuideContent} gap="xs">
+                      <Text as="p" variant="caption">
+                        {t('groups.guideChrome')}
+                      </Text>
+                      <Text as="p" variant="caption">
+                        {t('groups.guideStarlit')}
+                      </Text>
+                      <Text as="p" tone="critical" variant="caption">
+                        {t('groups.guideDelete')}
+                      </Text>
+                    </Stack>
+                  </details>
+                </SettingsSection>
+                <BookmarkTreeSelector
+                  bookmarks={draftOrderedTree}
+                  groupPreferences={draftGroupPreferences}
+                  onSelectRoot={(path, nextRootId) => {
+                    setDraftRootId(nextRootId);
+                    setDraftRootPath(path);
+                  }}
+                  onSiblingReorder={updateDraftSiblingOrder}
+                  onToggleVisibility={toggleDraftVisibility}
+                  rootId={draftRootId}
+                  rootPath={draftRootPath}
+                  siblingOrder={draftSiblingOrder}
+                />
+              </Stack>
             </TabPanel>
           </Tabs>
         </div>

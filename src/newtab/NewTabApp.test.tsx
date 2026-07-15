@@ -214,6 +214,7 @@ beforeEach((): void => {
     theme: true,
   });
   Object.values(appMocks).forEach((mock) => mock.mockClear());
+  appMocks.deleteBookmark.mockResolvedValue(undefined);
 });
 
 describe('NewTabApp', () => {
@@ -289,6 +290,47 @@ describe('NewTabApp', () => {
     expect(placeholder).toContain('[data-starlit-part="bookmark-tile-label"]');
     expect(placeholder).toContain('[data-starlit-part^="bookmark-tile"]');
     expect(placeholder).toContain('data-kind="folder"');
+  });
+
+  it('explains how Chrome bookmarks appear in Starlit', async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Bookmark groups' }));
+
+    expect(
+      screen.getByText(/Starlit displays your Chrome bookmark folders/u),
+    ).toBeDefined();
+    expect(
+      screen.getByText(/Root selection, hidden groups, custom order/u),
+    ).toBeDefined();
+    expect(
+      screen.getByText(/Deleting a bookmark in Starlit also deletes it/u),
+    ).toBeDefined();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open Chrome bookmarks' }),
+    );
+
+    await waitFor(() => {
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'chrome://bookmarks/',
+      });
+    });
+
+    vi.mocked(chrome.tabs.create).mockRejectedValueOnce(
+      new Error('manager unavailable'),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open Chrome bookmarks' }),
+    );
+
+    expect(
+      await screen.findByText(
+        'We could not open the Chrome bookmark manager. Please try again.',
+      ),
+    ).toBeDefined();
   });
 
   it('edits and saves the background alpha', async () => {
@@ -411,6 +453,80 @@ describe('NewTabApp', () => {
     });
   });
 
+  it('requires confirmation before deleting a Chrome bookmark', async () => {
+    appState.bookmarks[0]?.list?.push({
+      id: 'bookmark-docs',
+      title: 'Docs',
+      url: 'https://docs.example.com',
+    });
+    appMocks.deleteBookmark.mockImplementation(
+      async (bookmarkId): Promise<void> => {
+        appState.bookmarks = appState.bookmarks.map((folder) => ({
+          ...folder,
+          list: folder.list?.filter((item) => item.id !== bookmarkId),
+        }));
+      },
+    );
+    renderApp();
+    const bookmark = screen.getByRole('button', { name: 'GitHub' });
+
+    fireEvent.contextMenu(bookmark, { clientX: 120, clientY: 80 });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete bookmark' }));
+
+    await screen.findByRole('alertdialog', {
+      name: 'Delete from Chrome bookmarks?',
+    });
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(cancel);
+    });
+    expect(
+      screen.getByText(
+        'This bookmark will be removed from both Starlit and your Chrome bookmarks.',
+      ),
+    ).toBeDefined();
+    expect(appMocks.deleteBookmark).not.toHaveBeenCalled();
+
+    fireEvent.click(cancel);
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(document.activeElement).toBe(bookmark);
+    });
+    expect(appMocks.deleteBookmark).not.toHaveBeenCalled();
+
+    appMocks.deleteBookmark.mockRejectedValueOnce(new Error('delete failed'));
+    fireEvent.contextMenu(bookmark, { clientX: 120, clientY: 80 });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete bookmark' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Delete from Chrome' }),
+    );
+
+    expect(
+      await screen.findByText(
+        'We could not delete this Chrome bookmark. Please try again.',
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByRole('alertdialog', {
+        name: 'Delete from Chrome bookmarks?',
+      }),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete from Chrome' }));
+
+    await waitFor(() => {
+      expect(appMocks.deleteBookmark).toHaveBeenCalledTimes(2);
+      expect(appMocks.deleteBookmark).toHaveBeenLastCalledWith(
+        'bookmark-github',
+      );
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Docs' }),
+      );
+    });
+  });
+
   it('persists the complete settings draft once and previews its layout', async () => {
     renderApp();
 
@@ -445,7 +561,7 @@ describe('NewTabApp', () => {
     renderApp();
 
     fireEvent.click(screen.getByRole('button', { name: 'Options' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Groups' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Bookmark groups' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
@@ -457,7 +573,7 @@ describe('NewTabApp', () => {
     renderApp();
 
     fireEvent.click(screen.getByRole('button', { name: 'Options' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Groups' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Bookmark groups' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -478,7 +594,7 @@ describe('NewTabApp', () => {
     fireEvent.click(
       screen.getByRole('switch', { name: 'Open in new tab by default' }),
     );
-    fireEvent.click(screen.getByRole('tab', { name: 'Groups' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Bookmark groups' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
