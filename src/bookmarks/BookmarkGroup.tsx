@@ -110,9 +110,13 @@ export function BookmarkGroup({
       inert={isPreview || undefined}
       spacing="compact"
     >
-      <header className="starlit-bookmark-group__header">
+      <header
+        className="starlit-bookmark-group__header"
+        data-starlit-part="bookmark-group-header"
+      >
         <Breadcrumb
           aria-label={`${folder.title} ${t('navigation.path')}`}
+          data-starlit-part="bookmark-breadcrumb"
           items={getBreadcrumbItems(
             folder,
             folderPath,
@@ -123,6 +127,7 @@ export function BookmarkGroup({
         {folder.route?.length ? (
           <Text
             className="starlit-bookmark-group__route"
+            data-starlit-part="bookmark-route"
             tone="muted"
             truncate
             variant="caption"
@@ -182,6 +187,8 @@ export function BookmarkGroup({
         >
           <Button
             aria-label={t('pagination.previousPage')}
+            data-direction="previous"
+            data-starlit-part="pagination-control"
             onClick={() =>
               onPageChange(safePage === 0 ? totalPages - 1 : safePage - 1)
             }
@@ -190,11 +197,13 @@ export function BookmarkGroup({
           >
             ←
           </Button>
-          <Text variant="data">
+          <Text data-starlit-part="pagination-status" variant="data">
             {safePage + 1} / {totalPages}
           </Text>
           <Button
             aria-label={t('pagination.nextPage')}
+            data-direction="next"
+            data-starlit-part="pagination-control"
             onClick={() =>
               onPageChange(safePage === totalPages - 1 ? 0 : safePage + 1)
             }

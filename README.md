@@ -79,5 +79,24 @@ apply step fails.
 
 Custom CSS is sanitized and applied after Lagrange styles and Starlit
 composition styles. Stable extension-owned selectors use
-`[data-starlit-part="..."]`. Legacy `--c-*` and layout variables remain as
-compatibility aliases for existing profiles.
+`[data-starlit-part="..."]`. Prefix public hooks with `#root` when overriding
+class-based composition styles:
+
+```css
+#root [data-starlit-part='bookmark-tile'][data-kind='folder'] {
+  border-style: solid;
+}
+
+#root [data-starlit-part^='bookmark-tile'] {
+  /* Matches bookmark-tile and its icon, favicon, marker, and label parts. */
+}
+```
+
+Public main-view parts include `root`, `main`, `background-media`,
+`paged-groups`, `expanded-groups`, `group-rail`, `group-navigation`,
+`settings-trigger`, `bookmark-group`, `bookmark-group-header`,
+`bookmark-breadcrumb`, `bookmark-route`, `bookmark-grid`, `bookmark-tile`, the
+`bookmark-tile-*` subparts, `pagination`, `pagination-control`, and
+`pagination-status`. Use `data-kind`, `data-layout`, and `data-direction` to
+narrow state. Legacy `--c-*` and layout variables remain as compatibility
+aliases for existing profiles.

@@ -117,8 +117,26 @@ const ko: Translations = {
 
   // OptionsSidebar - CSS section
   'sidebar.css.title': '커스텀 CSS',
+  'sidebar.css.help':
+    '공개 selector는 #root [data-starlit-part="..."] 형식입니다. ^=로 part 계열을 선택하고 data-kind, data-layout, data-direction으로 상태를 좁힐 수 있습니다.',
   'sidebar.css.placeholder':
-    '/* 최우선 적용되는 커스텀 CSS */\n.my-class-* {\n  color: red;\n}',
+    '/* 공개 part: root, main, background-media, paged-groups,\n' +
+    '   expanded-groups, group-rail, group-navigation, settings-trigger,\n' +
+    '   bookmark-group, bookmark-group-header, bookmark-breadcrumb,\n' +
+    '   bookmark-route, bookmark-grid, bookmark-tile, bookmark-tile-icon,\n' +
+    '   bookmark-tile-favicon, bookmark-tile-marker, bookmark-tile-label,\n' +
+    '   pagination, pagination-control, pagination-status */\n\n' +
+    '/* 하나의 part 선택. #root는 class 기반 기본 스타일보다 우선합니다. */\n' +
+    '#root [data-starlit-part="bookmark-tile-label"] {\n' +
+    '  font-weight: 700;\n' +
+    '}\n\n' +
+    '/* data-kind, data-layout, data-direction으로 상태를 좁힙니다. */\n' +
+    '#root [data-starlit-part="bookmark-tile"][data-kind="folder"] {\n' +
+    '  border-style: solid;\n' +
+    '}\n\n' +
+    '/* ^=는 bookmark-tile과 bookmark-tile-* 계열을 함께 선택합니다. */\n' +
+    '#root [data-starlit-part^="bookmark-tile"] {\n' +
+    '}',
 
   // OptionsSidebar - General section
   'sidebar.general.language': '언어',

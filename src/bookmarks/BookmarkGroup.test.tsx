@@ -130,4 +130,38 @@ describe('BookmarkGroup', () => {
     expect(screen.getByRole('button', { name: 'MDN' })).toBeDefined();
     expect(screen.getByText('3 / 3')).toBeDefined();
   });
+
+  it('exposes stable custom CSS parts for group chrome', () => {
+    const { container } = renderGroup(1);
+    const paginationControls = container.querySelectorAll(
+      '[data-starlit-part="pagination-control"]',
+    );
+
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-group"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-group-header"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-breadcrumb"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-route"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-grid"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="pagination"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="pagination-status"]'),
+    ).not.toBeNull();
+    expect(paginationControls).toHaveLength(2);
+    expect(paginationControls[0]?.getAttribute('data-direction')).toBe(
+      'previous',
+    );
+    expect(paginationControls[1]?.getAttribute('data-direction')).toBe('next');
+  });
 });

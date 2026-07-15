@@ -117,8 +117,26 @@ const ja: Translations = {
 
   // OptionsSidebar - CSS section
   'sidebar.css.title': 'カスタムCSS',
+  'sidebar.css.help':
+    '公開 selector は #root [data-starlit-part="..."] 形式です。^= で part 一式を選択し、data-kind、data-layout、data-direction で状態を絞り込めます。',
   'sidebar.css.placeholder':
-    '/* 最優先で適用されるカスタムCSS */\n.my-class-* {\n  color: red;\n}',
+    '/* 公開 part: root, main, background-media, paged-groups,\n' +
+    '   expanded-groups, group-rail, group-navigation, settings-trigger,\n' +
+    '   bookmark-group, bookmark-group-header, bookmark-breadcrumb,\n' +
+    '   bookmark-route, bookmark-grid, bookmark-tile, bookmark-tile-icon,\n' +
+    '   bookmark-tile-favicon, bookmark-tile-marker, bookmark-tile-label,\n' +
+    '   pagination, pagination-control, pagination-status */\n\n' +
+    '/* 1つの part を選択。#root は class ベースの標準スタイルより優先します。 */\n' +
+    '#root [data-starlit-part="bookmark-tile-label"] {\n' +
+    '  font-weight: 700;\n' +
+    '}\n\n' +
+    '/* data-kind、data-layout、data-direction で状態を絞り込みます。 */\n' +
+    '#root [data-starlit-part="bookmark-tile"][data-kind="folder"] {\n' +
+    '  border-style: solid;\n' +
+    '}\n\n' +
+    '/* ^= は bookmark-tile と bookmark-tile-* をまとめて選択します。 */\n' +
+    '#root [data-starlit-part^="bookmark-tile"] {\n' +
+    '}',
 
   // OptionsSidebar - General section
   'sidebar.general.language': '言語',
