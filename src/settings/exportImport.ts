@@ -2,6 +2,7 @@ import type { Locale } from '../i18n/types';
 import type {
   GridSettings,
   GroupPreference,
+  PersistedSettings,
   Placement,
   Settings,
   StarlitTheme,
@@ -16,6 +17,7 @@ import {
   saveMedia,
 } from '../platform/storage/mediaStorage';
 import storage from '../platform/storage/storage';
+import { isFontFamily, normalizeSettings } from './normalizeSettings';
 
 export const BACKUP_SCHEMA_VERSION = 2;
 
@@ -171,6 +173,7 @@ function isGridHeading(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.titleColor === 'string' &&
+    isOptionalString(value, 'titleBackgroundColor') &&
     isOptionalFiniteNumber(value, 'titleSize') &&
     typeof value.subtitleColor === 'string' &&
     isOptionalFiniteNumber(value, 'subtitleSize') &&
@@ -215,13 +218,14 @@ function isGridSettings(value: unknown): value is GridSettings {
   );
 }
 
-function isSettings(value: unknown): value is Settings {
+function isSettings(value: unknown): value is PersistedSettings {
   return (
     isRecord(value) &&
     typeof value.isFolderEnabled === 'boolean' &&
     typeof value.isVisibleOnce === 'boolean' &&
     typeof value.isOpenInNewTab === 'boolean' &&
     typeof value.isExpandView === 'boolean' &&
+    (value.fontFamily === undefined || isFontFamily(value.fontFamily)) &&
     (value.iconLayout === undefined ||
       value.iconLayout === 'vertical' ||
       value.iconLayout === 'horizontal')
@@ -409,7 +413,7 @@ function parseExportData(value: unknown): ImportData {
   const coreData: BackupCoreData = {
     colorTheme: value.colorTheme,
     gridSettings: value.gridSettings,
-    settings: value.settings,
+    settings: normalizeSettings(value.settings),
   };
   const optionalData = getOptionalBackupData(value);
 

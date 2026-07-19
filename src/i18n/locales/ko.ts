@@ -45,14 +45,29 @@ const ko: Translations = {
   'sidebar.appearance.folder': '폴더',
 
   // OptionsSidebar - Background section
-  'sidebar.background.image': '배경 이미지',
+  'sidebar.background.image': '배경 미디어',
+  'sidebar.background.source': '배경 가져오기 방식',
+  'sidebar.background.sourceDescription':
+    'URL은 모든 기기에서 같은 주소를 불러오고, 업로드 파일은 이 기기에만 저장됩니다.',
+  'sidebar.background.sourceUrl': 'URL',
+  'sidebar.background.sourceFile': '기기 파일',
+  'sidebar.background.url': '이미지·동영상 URL',
+  'sidebar.background.urlDescription':
+    '공개된 이미지, GIF 또는 동영상 주소를 입력하세요. 입력한 주소는 저장할 때 기기 간 동기화됩니다.',
   'sidebar.background.urlPlaceholder': 'URL을 입력하세요',
-  'sidebar.background.apply': '적용',
   'sidebar.background.fileUpload': '파일 업로드',
+  'sidebar.background.fileDescription':
+    '파일을 선택한 뒤 저장하면 이미지는 WebP, GIF는 WebM으로 변환하고 동영상은 원본 그대로 저장합니다. 업로드 파일은 이 기기에만 저장됩니다.',
+  'sidebar.background.fileSelect': '파일 선택',
   'sidebar.background.remove': '제거',
+  'sidebar.background.current': '현재 배경',
+  'sidebar.background.selected': '저장할 배경',
+  'sidebar.background.pendingRemoval': '저장하면 현재 배경을 제거합니다.',
+  'sidebar.background.imageType': '이미지',
+  'sidebar.background.video': '동영상',
   'sidebar.background.box': '배경 박스',
   'sidebar.background.color': '색상',
-  'sidebar.background.processing': '처리 중',
+  'sidebar.background.processing': '배경 파일 처리·저장 중',
   'sidebar.background.preview': '배경 미리보기',
   'sidebar.tokens.surfaceTitle': 'Starlit 표면',
   'sidebar.tokens.surface': '표면',
@@ -67,6 +82,7 @@ const ko: Translations = {
 
   // OptionsSidebar - Container section
   'sidebar.container.title': '제목',
+  'sidebar.container.titleBackground': '제목 배경',
   'sidebar.container.text': '텍스트',
   'sidebar.container.size': '크기',
   'sidebar.container.hover': '호버',
@@ -150,6 +166,11 @@ const ko: Translations = {
 
   // OptionsSidebar - General section
   'sidebar.general.language': '언어',
+  'sidebar.general.fontFamily': '폰트',
+  'sidebar.general.fontDescription':
+    'IBM Plex Sans는 선택한 언어에 맞는 글꼴을 사용합니다. 시스템 폰트는 브라우저와 운영체제 설정을 따릅니다.',
+  'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
+  'sidebar.general.fontSystem': '시스템 폰트',
   'sidebar.general.openInNewTab': '기본적으로 새 탭에서 열기',
   'sidebar.general.exportImport': '내보내기 / 가져오기',
   'sidebar.general.export': '내보내기',

@@ -46,14 +46,29 @@ const ja: Translations = {
   'sidebar.appearance.folder': 'フォルダ',
 
   // OptionsSidebar - Background section
-  'sidebar.background.image': '背景画像',
+  'sidebar.background.image': '背景メディア',
+  'sidebar.background.source': '背景の取得方法',
+  'sidebar.background.sourceDescription':
+    'URLはデバイス間で同期されます。アップロードしたファイルはこのデバイスにのみ保存されます。',
+  'sidebar.background.sourceUrl': 'URL',
+  'sidebar.background.sourceFile': 'デバイスのファイル',
+  'sidebar.background.url': '画像・動画URL',
+  'sidebar.background.urlDescription':
+    '公開されている画像、GIF、動画のURLを入力してください。保存するとURLがデバイス間で同期されます。',
   'sidebar.background.urlPlaceholder': 'URLを入力してください',
-  'sidebar.background.apply': '適用',
   'sidebar.background.fileUpload': 'ファイルアップロード',
+  'sidebar.background.fileDescription':
+    'ファイルを選択して保存すると、画像はWebP、GIFはWebMに変換され、動画は元の形式のまま保存されます。アップロードしたファイルはこのデバイスにのみ保存されます。',
+  'sidebar.background.fileSelect': 'ファイルを選択',
   'sidebar.background.remove': '削除',
+  'sidebar.background.current': '現在の背景',
+  'sidebar.background.selected': '保存する背景',
+  'sidebar.background.pendingRemoval': '保存すると現在の背景が削除されます。',
+  'sidebar.background.imageType': '画像',
+  'sidebar.background.video': '動画',
   'sidebar.background.box': '背景ボックス',
   'sidebar.background.color': '色',
-  'sidebar.background.processing': '処理中',
+  'sidebar.background.processing': '背景ファイルを処理・保存中',
   'sidebar.background.preview': '背景プレビュー',
   'sidebar.tokens.surfaceTitle': 'Starlit サーフェス',
   'sidebar.tokens.surface': 'サーフェス',
@@ -68,6 +83,7 @@ const ja: Translations = {
 
   // OptionsSidebar - Container section
   'sidebar.container.title': 'タイトル',
+  'sidebar.container.titleBackground': 'タイトル背景',
   'sidebar.container.text': 'テキスト',
   'sidebar.container.size': 'サイズ',
   'sidebar.container.hover': 'ホバー',
@@ -151,6 +167,11 @@ const ja: Translations = {
 
   // OptionsSidebar - General section
   'sidebar.general.language': '言語',
+  'sidebar.general.fontFamily': 'フォント',
+  'sidebar.general.fontDescription':
+    'IBM Plex Sans は選択した言語に合う書体を使用します。システムフォントはブラウザーと OS の設定に従います。',
+  'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
+  'sidebar.general.fontSystem': 'システムフォント',
   'sidebar.general.openInNewTab': 'デフォルトで新しいタブで開く',
   'sidebar.general.exportImport': 'エクスポート / インポート',
   'sidebar.general.export': 'エクスポート',

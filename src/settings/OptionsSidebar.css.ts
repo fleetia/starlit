@@ -1,4 +1,4 @@
-import { style } from '@vanilla-extract/css';
+import { keyframes, style } from '@vanilla-extract/css';
 import { componentVars, semanticVars } from '@fleetia/lagrange/theme';
 
 export const content = style({
@@ -93,6 +93,39 @@ export const panel = style({
 export const appearanceTabs = style({
   minWidth: 0,
   minHeight: '22rem',
+});
+
+const spin = keyframes({
+  from: { transform: 'rotate(0deg)' },
+  to: { transform: 'rotate(360deg)' },
+});
+
+export const processingStatus = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: semanticVars.space.xs,
+  width: 'fit-content',
+});
+
+export const processingSpinner = style({
+  width: semanticVars.space.sm,
+  height: semanticVars.space.sm,
+  flexShrink: 0,
+  border: `${semanticVars.border.width.hairline} solid currentColor`,
+  borderInlineEndColor: 'transparent',
+  borderRadius: '50%',
+  animation: `${spin} 0.7s linear infinite`,
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animation: 'none',
+    },
+  },
+});
+
+export const backgroundStatus = style({
+  display: 'block',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
 });
 
 export const bookmarkGuide = style({

@@ -46,14 +46,30 @@ const en: Translations = {
   'sidebar.appearance.folder': 'Folder',
 
   // OptionsSidebar - Background section
-  'sidebar.background.image': 'Background image',
+  'sidebar.background.image': 'Background media',
+  'sidebar.background.source': 'Background source',
+  'sidebar.background.sourceDescription':
+    'URLs sync across devices. Uploaded files are stored only on this device.',
+  'sidebar.background.sourceUrl': 'URL',
+  'sidebar.background.sourceFile': 'Device file',
+  'sidebar.background.url': 'Image or video URL',
+  'sidebar.background.urlDescription':
+    'Enter a public image, GIF, or video URL. The address is synced when you save.',
   'sidebar.background.urlPlaceholder': 'Enter URL',
-  'sidebar.background.apply': 'Apply',
   'sidebar.background.fileUpload': 'Upload file',
+  'sidebar.background.fileDescription':
+    'After you choose a file, saving converts images to WebP and GIFs to WebM; videos are stored unchanged. Uploaded files stay only on this device.',
+  'sidebar.background.fileSelect': 'Choose file',
   'sidebar.background.remove': 'Remove',
+  'sidebar.background.current': 'Current background',
+  'sidebar.background.selected': 'Background to save',
+  'sidebar.background.pendingRemoval':
+    'The current background will be removed when you save.',
+  'sidebar.background.imageType': 'Image',
+  'sidebar.background.video': 'Video',
   'sidebar.background.box': 'Background box',
   'sidebar.background.color': 'Color',
-  'sidebar.background.processing': 'Processing',
+  'sidebar.background.processing': 'Processing and saving background file',
   'sidebar.background.preview': 'Background preview',
   'sidebar.tokens.surfaceTitle': 'Starlit surface',
   'sidebar.tokens.surface': 'Surface',
@@ -68,6 +84,7 @@ const en: Translations = {
 
   // OptionsSidebar - Container section
   'sidebar.container.title': 'Title',
+  'sidebar.container.titleBackground': 'Title background',
   'sidebar.container.text': 'Text',
   'sidebar.container.size': 'Size',
   'sidebar.container.hover': 'Hover',
@@ -151,6 +168,11 @@ const en: Translations = {
 
   // OptionsSidebar - General section
   'sidebar.general.language': 'Language',
+  'sidebar.general.fontFamily': 'Font',
+  'sidebar.general.fontDescription':
+    'IBM Plex Sans follows the selected language. System uses your browser and operating system defaults.',
+  'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
+  'sidebar.general.fontSystem': 'System font',
   'sidebar.general.openInNewTab': 'Open in new tab by default',
   'sidebar.general.exportImport': 'Export / Import',
   'sidebar.general.export': 'Export',

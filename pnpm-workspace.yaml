@@ -2,6 +2,7 @@ packages:
   - '.'
 
 allowBuilds:
+  '@ibm/plex-sans-variable': false
   esbuild: true
 
 minimumReleaseAgeExclude:

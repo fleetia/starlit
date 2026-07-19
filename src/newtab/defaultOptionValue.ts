@@ -1,6 +1,13 @@
 import { primitiveTokens } from '@fleetia/lagrange/theme';
 
-import type { GridSettings, OptionsType, StarlitTheme } from './types';
+import type {
+  FontFamily,
+  GridSettings,
+  OptionsType,
+  StarlitTheme,
+} from './types';
+
+export const DEFAULT_FONT_FAMILY: FontFamily = 'ibm-plex-sans';
 
 export const LEGACY_DEFAULT_THEME: StarlitTheme = {
   accent: '#000000',
@@ -70,6 +77,7 @@ export const DEFAULT_GRID_SETTINGS: GridSettings = {
     iconRadius: 1,
   },
   heading: {
+    titleBackgroundColor: primitiveTokens.palette.periwinkleWash,
     titleColor: primitiveTokens.palette.aubergine,
     subtitleColor: primitiveTokens.palette.inkMuted,
     borderEnabled: false,
@@ -105,6 +113,7 @@ export const defaultOptionValue: OptionsType = {
   ],
   gridSettings: DEFAULT_GRID_SETTINGS,
   settings: {
+    fontFamily: DEFAULT_FONT_FAMILY,
     isFolderEnabled: true,
     isVisibleOnce: false,
     isOpenInNewTab: false,

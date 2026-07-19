@@ -34,6 +34,9 @@ describe('resetAllSettings', () => {
     expect(resetMocks.syncSet).toHaveBeenCalledWith(
       expect.objectContaining({
         iconSize: 28,
+        settings: expect.objectContaining({
+          fontFamily: 'ibm-plex-sans',
+        }),
         size: 16,
         storageSchemaVersion: 2,
       }),

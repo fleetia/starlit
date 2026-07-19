@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { themeVars } from '@fleetia/lagrange/theme';
 
-import type { GridSettings, StarlitTheme } from '../newtab/types';
+import type { Locale } from '../i18n';
+import type { FontFamily, GridSettings, StarlitTheme } from '../newtab/types';
 
 export type CssVariableStyle = CSSProperties &
   Record<`--${string}`, string | number | undefined>;
@@ -16,6 +17,32 @@ function getCssVariableName(reference: string): `--${string}` {
   }
 
   return match[1] as `--${string}`;
+}
+
+const IBM_PLEX_FONT_FAMILIES: Record<Locale, string> = {
+  en: '"IBM Plex Sans", system-ui, sans-serif',
+  ja: '"IBM Plex Sans JP", "IBM Plex Sans", system-ui, sans-serif',
+  ko: '"IBM Plex Sans KR", "IBM Plex Sans", system-ui, sans-serif',
+};
+
+export function getFontFamilyStyle(
+  fontFamily: FontFamily,
+  locale: Locale,
+): CssVariableStyle {
+  const resolvedFamily =
+    fontFamily === 'system'
+      ? 'system-ui, sans-serif'
+      : IBM_PLEX_FONT_FAMILIES[locale];
+
+  return {
+    fontFamily: resolvedFamily,
+    [getCssVariableName(themeVars.semantic.typography.family.display)]:
+      resolvedFamily,
+    [getCssVariableName(themeVars.semantic.typography.family.ui)]:
+      resolvedFamily,
+    [getCssVariableName(themeVars.semantic.typography.family.data)]:
+      resolvedFamily,
+  };
 }
 
 export function getThemeStyle(theme: StarlitTheme): CssVariableStyle {
@@ -74,6 +101,7 @@ export function getLayoutStyle(
     '--icon-height': `${size * (icon.height ?? 4)}px`,
     '--masonry-card-width': `calc(var(--em) * ${gridSettings.columns} * ${icon.width ?? 4} + var(--gap) * ${Math.max(0, gridSettings.columns - 1)} + var(--gap) * 2)`,
     '--heading-title-color': heading?.titleColor,
+    '--heading-title-background-color': heading?.titleBackgroundColor,
     '--heading-title-size': heading?.titleSize
       ? `${heading.titleSize}px`
       : undefined,

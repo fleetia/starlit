@@ -1,8 +1,11 @@
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../i18n';
 import { getBookmarkIdKey } from '../bookmarks/bookmarkRoute';
+import type { ExpandedGroupsState } from './expandedLayout';
 import { NewTabApp } from './NewTabApp';
 import type { Bookmark, GridSettings, Settings, StarlitTheme } from './types';
 
@@ -30,6 +33,10 @@ const appState = vi.hoisted(() => ({
     surface: '#fffdf7',
     text: '#19171c',
   } as StarlitTheme,
+  expandedGroupsState: {
+    knownKeys: [],
+    openKeys: [],
+  } as ExpandedGroupsState,
   gridSettings: {
     background: { border: '1px solid black', color: 'white', text: 'black' },
     columns: 2,
@@ -39,6 +46,7 @@ const appState = vi.hoisted(() => ({
     rows: 2,
   } as GridSettings,
   settings: {
+    fontFamily: 'ibm-plex-sans',
     iconLayout: 'vertical',
     isExpandView: false,
     isFolderEnabled: true,
@@ -49,9 +57,11 @@ const appState = vi.hoisted(() => ({
 
 const loadingState = vi.hoisted(() => ({
   background: true,
+  backgroundProcessing: false,
   bookmarks: true,
   bookmarkTreePrefs: true,
   customCSS: true,
+  expandedGroupsState: true,
   gridSettings: true,
   groupPreferences: true,
   iconSize: true,
@@ -62,6 +72,9 @@ const loadingState = vi.hoisted(() => ({
 
 const initialSettings = structuredClone(appState.settings);
 const initialBookmarks = structuredClone(appState.bookmarks);
+const initialExpandedGroupsState = structuredClone(
+  appState.expandedGroupsState,
+);
 const initialGridSettings = structuredClone(appState.gridSettings);
 
 const appMocks = vi.hoisted(() => ({
@@ -72,6 +85,14 @@ const appMocks = vi.hoisted(() => ({
   resetFavicon: vi.fn<(bookmarkId: string) => Promise<void>>(),
   resetTheme: vi.fn<() => Promise<void>>(),
   setCustomCSS: vi.fn<(value: string) => Promise<void>>(),
+  setExpandedGroupsState:
+    vi.fn<
+      (
+        value:
+          | ExpandedGroupsState
+          | ((previous: ExpandedGroupsState) => ExpandedGroupsState),
+      ) => Promise<void>
+    >(),
   setIconSize: vi.fn<(value: number) => Promise<void>>(),
   setRootPath: vi.fn<(path: string[]) => Promise<void>>(),
   setSize: vi.fn<(value: number) => Promise<void>>(),
@@ -140,6 +161,14 @@ vi.mock('../hooks/useStorageState', () => ({
       };
     }
 
+    if (key === 'expandedGroupsState') {
+      return {
+        isLoaded: loadingState.expandedGroupsState,
+        setValue: appMocks.setExpandedGroupsState,
+        value: appState.expandedGroupsState,
+      };
+    }
+
     return {
       isLoaded: loadingState.size,
       setValue: appMocks.setSize,
@@ -155,7 +184,7 @@ vi.mock('../settings/useBackgroundImage', () => ({
     clear: appMocks.clearBackground,
     isMediaMissing: false,
     isLoaded: loadingState.background,
-    isProcessing: false,
+    isProcessing: loadingState.backgroundProcessing,
     meta: null,
     updateFromFile: appMocks.updateBackgroundFromFile,
     updateFromUrl: appMocks.updateBackgroundFromUrl,
@@ -189,6 +218,22 @@ vi.mock('../settings/useTheme', () => ({
   }),
 }));
 
+vi.mock('../theme/FontStylesheets', () => ({
+  FontStylesheets: ({
+    fontFamily,
+    locale,
+  }: {
+    fontFamily: Settings['fontFamily'];
+    locale: string;
+  }): ReactElement => (
+    <span
+      data-font-family={fontFamily}
+      data-font-locale={locale}
+      data-testid="font-stylesheets"
+    />
+  ),
+}));
+
 function renderApp(): ReturnType<typeof render> {
   return render(
     <I18nProvider locale="en">
@@ -199,13 +244,16 @@ function renderApp(): ReturnType<typeof render> {
 
 beforeEach((): void => {
   appState.bookmarks = structuredClone(initialBookmarks);
+  appState.expandedGroupsState = structuredClone(initialExpandedGroupsState);
   appState.gridSettings = structuredClone(initialGridSettings);
   appState.settings = structuredClone(initialSettings);
   Object.assign(loadingState, {
     background: true,
+    backgroundProcessing: false,
     bookmarks: true,
     bookmarkTreePrefs: true,
     customCSS: true,
+    expandedGroupsState: true,
     gridSettings: true,
     groupPreferences: true,
     iconSize: true,
@@ -215,6 +263,14 @@ beforeEach((): void => {
   });
   Object.values(appMocks).forEach((mock) => mock.mockClear());
   appMocks.deleteBookmark.mockResolvedValue(undefined);
+  appMocks.setExpandedGroupsState.mockImplementation(
+    async (value): Promise<void> => {
+      appState.expandedGroupsState =
+        typeof value === 'function'
+          ? value(appState.expandedGroupsState)
+          : value;
+    },
+  );
 });
 
 describe('NewTabApp', () => {
@@ -268,6 +324,70 @@ describe('NewTabApp', () => {
     expect(fairyLink.getAttribute('rel')).toBe('noopener noreferrer');
     expect(coffeeLink.getAttribute('target')).toBe('_blank');
     expect(coffeeLink.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('keeps the settings dialog on the default Lagrange theme', async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Options' });
+
+    expect(dialog.classList.contains(lagrangeThemeClass)).toBe(true);
+  });
+
+  it('distinguishes background sources and announces file processing', async () => {
+    const view = renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    expect(
+      screen.getByRole('group', { name: 'Background source' }),
+    ).toBeDefined();
+    expect(
+      screen.getByText(
+        'URLs sync across devices. Uploaded files are stored only on this device.',
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByRole('textbox', { name: 'Image or video URL' }),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Upload file' }));
+
+    expect(
+      screen.getByText(
+        /saving converts images to WebP and GIFs to WebM; videos are stored unchanged/u,
+      ),
+    ).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Choose file' })).toBeDefined();
+
+    loadingState.backgroundProcessing = true;
+    view.rerender(
+      <I18nProvider locale="en">
+        <NewTabApp locale="en" onLocaleChange={appMocks.onLocaleChange} />
+      </I18nProvider>,
+    );
+
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Choose file' })
+        .disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('tab', { name: 'Layout' }));
+
+    const status = screen.getByRole('status');
+    const spinner = status.querySelector('[aria-hidden="true"]');
+
+    expect(status.textContent).toContain(
+      'Processing and saving background file',
+    );
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.firstElementChild).toBe(spinner);
+    expect(spinner).not.toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled,
+    ).toBe(true);
   });
 
   it('documents stable selectors in the custom CSS placeholder', async () => {
@@ -366,12 +486,43 @@ describe('NewTabApp', () => {
     });
   });
 
+  it('edits and saves the bookmark heading background', async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Container' }));
+
+    const color = screen.getByRole('textbox', { name: 'Title background' });
+    fireEvent.change(color, { target: { value: '#123456' } });
+    fireEvent.blur(color);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(appMocks.updateGridSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          heading: expect.objectContaining({
+            titleBackgroundColor: '#123456ff',
+          }),
+        }),
+      );
+    });
+  });
+
   it('waits for persisted settings before creating the settings session', async () => {
     loadingState.settings = false;
     const view = renderApp();
     const trigger = screen.getByRole('button', { name: 'Options' });
+    const root = document.querySelector<HTMLElement>(
+      '[data-starlit-part="root"]',
+    );
 
     expect(trigger.hasAttribute('disabled')).toBe(true);
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toBe('system-ui, sans-serif');
+    expect(screen.queryByTestId('font-stylesheets')).toBeNull();
     fireEvent.click(trigger);
     expect(screen.queryByRole('dialog', { name: 'Options' })).toBeNull();
 
@@ -384,6 +535,12 @@ describe('NewTabApp', () => {
     );
 
     expect(trigger.hasAttribute('disabled')).toBe(false);
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toContain('IBM Plex Sans');
+    expect(
+      screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+    ).toBe('ibm-plex-sans');
     fireEvent.click(trigger);
     fireEvent.click(
       await screen.findByRole('switch', {
@@ -554,6 +711,97 @@ describe('NewTabApp', () => {
       ...appState.settings,
       iconLayout: 'horizontal',
       isOpenInNewTab: true,
+    });
+  });
+
+  it('previews and saves the system font through the settings transaction', async () => {
+    renderApp();
+    const root = document.querySelector<HTMLElement>(
+      '[data-starlit-part="root"]',
+    );
+
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toContain('IBM Plex Sans');
+    expect(
+      screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+    ).toBe('ibm-plex-sans');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const settingsDialog = await screen.findByRole('dialog', {
+      name: 'Options',
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Font' }), {
+      target: { value: 'system' },
+    });
+
+    expect(
+      settingsDialog.style.getPropertyValue(
+        '--lagrange-semantic-typography-family-ui',
+      ),
+    ).toBe('system-ui, sans-serif');
+    await waitFor(() => {
+      expect(
+        root?.style.getPropertyValue(
+          '--lagrange-semantic-typography-family-ui',
+        ),
+      ).toBe('system-ui, sans-serif');
+      expect(
+        screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+      ).toBe('system');
+    });
+    expect(appMocks.updateSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(appMocks.updateSettings).toHaveBeenCalledWith({
+        ...appState.settings,
+        fontFamily: 'system',
+      });
+    });
+  });
+
+  it('loads an IBM font preview before saving over a system font', async () => {
+    appState.settings.fontFamily = 'system';
+    renderApp();
+    const root = document.querySelector<HTMLElement>(
+      '[data-starlit-part="root"]',
+    );
+
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toBe('system-ui, sans-serif');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Font' }), {
+      target: { value: 'ibm-plex-sans' },
+    });
+
+    await waitFor(() => {
+      expect(
+        root?.style.getPropertyValue(
+          '--lagrange-semantic-typography-family-ui',
+        ),
+      ).toContain('IBM Plex Sans');
+      expect(
+        screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+      ).toBe('ibm-plex-sans');
+    });
+    expect(appMocks.updateSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+
+    await waitFor(() => {
+      expect(
+        root?.style.getPropertyValue(
+          '--lagrange-semantic-typography-family-ui',
+        ),
+      ).toBe('system-ui, sans-serif');
+      expect(
+        screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+      ).toBe('system');
     });
   });
 

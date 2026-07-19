@@ -38,6 +38,7 @@ type ExtensionHarness = {
   backgroundVideo: Buffer;
   context: BrowserContext;
   extensionId: string;
+  getFontStylesheetRequestCount: () => number;
   openNewTab: () => Promise<Page>;
   readIndexedDbBlobBase64: (
     databaseName: string,
@@ -59,6 +60,36 @@ type ExtensionFixtures = {
 };
 
 const EXTENSION_PATH = resolve(process.cwd(), 'dist');
+const TEST_FONT_ROMAN_PATH = resolve(
+  process.cwd(),
+  'node_modules/@ibm/plex-sans-variable/fonts/complete/woff2/IBM Plex Sans Var-Roman.woff2',
+);
+const TEST_FONT_ITALIC_PATH = resolve(
+  process.cwd(),
+  'node_modules/@ibm/plex-sans-variable/fonts/complete/woff2/IBM Plex Sans Var-Italic.woff2',
+);
+const TEST_FONT_ROMAN_URL =
+  'https://fonts.gstatic.com/starlit/ibm-plex-sans-variable-roman-0.2.0.woff2';
+const TEST_FONT_ITALIC_URL =
+  'https://fonts.gstatic.com/starlit/ibm-plex-sans-variable-italic-0.2.0.woff2';
+const TEST_FONT_CSS = `
+  @font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-stretch: 75% 100%;
+    font-weight: 100 700;
+    font-display: block;
+    src: url('${TEST_FONT_ROMAN_URL}') format('woff2');
+  }
+  @font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: italic;
+    font-stretch: 75% 100%;
+    font-weight: 100 700;
+    font-display: block;
+    src: url('${TEST_FONT_ITALIC_URL}') format('woff2');
+  }
+`;
 const TEST_BACKGROUND_GIF = Buffer.from(
   'R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
   'base64',
@@ -180,8 +211,33 @@ export const test = base.extend<ExtensionFixtures>({
     await waitForInitialInstall(serviceWorker);
     const extensionId = new URL(serviceWorker.url()).host;
     const backgroundVideo = await createBackgroundVideo(context);
+    let fontStylesheetRequestCount = 0;
 
     await Promise.all(context.pages().map((page) => page.close()));
+    await context.route('https://fonts.googleapis.com/**', async (route) => {
+      fontStylesheetRequestCount += 1;
+      await route.fulfill({
+        body: TEST_FONT_CSS,
+        contentType: 'text/css',
+        status: 200,
+      });
+    });
+    await context.route(TEST_FONT_ROMAN_URL, async (route) =>
+      route.fulfill({
+        contentType: 'font/woff2',
+        headers: { 'access-control-allow-origin': '*' },
+        path: TEST_FONT_ROMAN_PATH,
+        status: 200,
+      }),
+    );
+    await context.route(TEST_FONT_ITALIC_URL, async (route) =>
+      route.fulfill({
+        contentType: 'font/woff2',
+        headers: { 'access-control-allow-origin': '*' },
+        path: TEST_FONT_ITALIC_PATH,
+        status: 200,
+      }),
+    );
     await context.route('https://www.google.com/s2/favicons**', async (route) =>
       route.fulfill({
         body: STABLE_FAVICON,
@@ -336,7 +392,40 @@ export const test = base.extend<ExtensionFixtures>({
     async function openNewTab(): Promise<Page> {
       const page = await context.newPage();
       await page.goto(`chrome-extension://${extensionId}/newtab/index.html`);
+      await page.waitForFunction(() => {
+        const status = document.documentElement.dataset.starlitFontStatus;
+        return status === 'loaded' || status === 'system';
+      });
+      const fontStatus = await page.evaluate(
+        () => document.documentElement.dataset.starlitFontStatus,
+      );
+
+      if (fontStatus === 'loaded') {
+        await page.evaluate(async () => {
+          const [romanFaces, italicFaces] = await Promise.all([
+            document.fonts.load('16px "IBM Plex Sans"'),
+            document.fonts.load('italic 16px "IBM Plex Sans"'),
+          ]);
+          await document.fonts.ready;
+
+          if (
+            romanFaces.length === 0 ||
+            italicFaces.length === 0 ||
+            [...romanFaces, ...italicFaces].some(
+              (fontFace) => fontFace.status !== 'loaded',
+            ) ||
+            !document.fonts.check('16px "IBM Plex Sans"') ||
+            !document.fonts.check('italic 16px "IBM Plex Sans"')
+          ) {
+            throw new Error('Pinned IBM Plex Sans test font did not load.');
+          }
+        });
+      }
       return page;
+    }
+
+    function getFontStylesheetRequestCount(): number {
+      return fontStylesheetRequestCount;
     }
 
     async function readStorage(
@@ -440,6 +529,7 @@ export const test = base.extend<ExtensionFixtures>({
       backgroundVideo,
       context,
       extensionId,
+      getFontStylesheetRequestCount,
       openNewTab,
       readIndexedDbBlobBase64,
       readIndexedDbBlobText,

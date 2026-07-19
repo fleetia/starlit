@@ -95,6 +95,9 @@ describe('migrateStorage', () => {
           type: 'image',
           url: 'https://example.com/background.jpg',
         },
+        settings: expect.objectContaining({
+          fontFamily: 'ibm-plex-sans',
+        }),
       }),
     );
     expect(dependencies.syncSet).toHaveBeenLastCalledWith({

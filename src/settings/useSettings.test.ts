@@ -2,12 +2,13 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { Settings } from '../newtab/types';
+import type { PersistedSettings, Settings } from '../newtab/types';
+import { normalizeSettings } from './normalizeSettings';
 import { useSettings } from './useSettings';
 
 const storageState = vi.hoisted(() => ({
   setSettings: vi.fn<(settings: Settings) => Promise<void>>(),
-  settings: null as Settings | null,
+  settings: null as PersistedSettings | null,
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
@@ -24,6 +25,27 @@ beforeEach((): void => {
 });
 
 describe('useSettings', () => {
+  it('normalizes an unknown stored font to IBM Plex Sans', () => {
+    expect(
+      normalizeSettings({
+        ...defaultOptionValue.settings,
+        fontFamily: 'unknown-font',
+      }).fontFamily,
+    ).toBe('ibm-plex-sans');
+  });
+
+  it('defaults a legacy profile to IBM Plex Sans', () => {
+    const legacySettings: PersistedSettings = structuredClone(
+      defaultOptionValue.settings,
+    );
+    delete legacySettings.fontFamily;
+    storageState.settings = legacySettings;
+
+    const { result } = renderHook(() => useSettings());
+
+    expect(result.current.settings.fontFamily).toBe('ibm-plex-sans');
+  });
+
   it('returns persisted settings and saves a complete update', async () => {
     const { result } = renderHook(() => useSettings());
     const nextSettings: Settings = {

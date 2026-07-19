@@ -6,6 +6,7 @@ import {
 } from '../../newtab/defaultOptionValue';
 import type { GridSettings, StarlitTheme } from '../../newtab/types';
 import type { BackgroundMedia } from '../../settings/useBackgroundImage';
+import { normalizeSettings } from '../../settings/normalizeSettings';
 import { loadLegacyMediaBlob, loadMediaBlob, saveMedia } from './mediaStorage';
 import storage from './storage';
 import { STORAGE_SCHEMA_VERSION } from './schema';
@@ -127,6 +128,7 @@ export async function migrateStorage(
       size,
       displaySize,
       iconSize,
+      settings,
       backgroundMeta,
       backgroundImage,
     ] = await Promise.all([
@@ -135,6 +137,7 @@ export async function migrateStorage(
       dependencies.sync.get('size'),
       dependencies.sync.get('displaySize'),
       dependencies.sync.get('iconSize'),
+      dependencies.sync.get('settings'),
       dependencies.sync.get('backgroundMeta'),
       dependencies.sync.get('backgroundImage'),
     ]);
@@ -143,6 +146,7 @@ export async function migrateStorage(
       colorTheme: normalizeTheme(colorTheme),
       size: getSize(size, displaySize),
       iconSize: getIconSize(iconSize),
+      settings: normalizeSettings(settings),
     };
     const legacyBackground = getLegacyBackground(backgroundImage);
 
