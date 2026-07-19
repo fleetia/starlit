@@ -167,6 +167,11 @@ const ja: Translations = {
 
   // OptionsSidebar - General section
   'sidebar.general.language': '言語',
+  'sidebar.general.fontFamily': 'フォント',
+  'sidebar.general.fontDescription':
+    'IBM Plex Sans は選択した言語に合う書体を使用します。システムフォントはブラウザーと OS の設定に従います。',
+  'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
+  'sidebar.general.fontSystem': 'システムフォント',
   'sidebar.general.openInNewTab': 'デフォルトで新しいタブで開く',
   'sidebar.general.exportImport': 'エクスポート / インポート',
   'sidebar.general.export': 'エクスポート',

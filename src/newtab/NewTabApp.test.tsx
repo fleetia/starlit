@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -45,6 +46,7 @@ const appState = vi.hoisted(() => ({
     rows: 2,
   } as GridSettings,
   settings: {
+    fontFamily: 'ibm-plex-sans',
     iconLayout: 'vertical',
     isExpandView: false,
     isFolderEnabled: true,
@@ -214,6 +216,22 @@ vi.mock('../settings/useTheme', () => ({
     themeStyle: {},
     updateTheme: appMocks.updateTheme,
   }),
+}));
+
+vi.mock('../theme/FontStylesheets', () => ({
+  FontStylesheets: ({
+    fontFamily,
+    locale,
+  }: {
+    fontFamily: Settings['fontFamily'];
+    locale: string;
+  }): ReactElement => (
+    <span
+      data-font-family={fontFamily}
+      data-font-locale={locale}
+      data-testid="font-stylesheets"
+    />
+  ),
 }));
 
 function renderApp(): ReturnType<typeof render> {
@@ -496,8 +514,15 @@ describe('NewTabApp', () => {
     loadingState.settings = false;
     const view = renderApp();
     const trigger = screen.getByRole('button', { name: 'Options' });
+    const root = document.querySelector<HTMLElement>(
+      '[data-starlit-part="root"]',
+    );
 
     expect(trigger.hasAttribute('disabled')).toBe(true);
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toBe('system-ui, sans-serif');
+    expect(screen.queryByTestId('font-stylesheets')).toBeNull();
     fireEvent.click(trigger);
     expect(screen.queryByRole('dialog', { name: 'Options' })).toBeNull();
 
@@ -510,6 +535,12 @@ describe('NewTabApp', () => {
     );
 
     expect(trigger.hasAttribute('disabled')).toBe(false);
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toContain('IBM Plex Sans');
+    expect(
+      screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+    ).toBe('ibm-plex-sans');
     fireEvent.click(trigger);
     fireEvent.click(
       await screen.findByRole('switch', {
@@ -680,6 +711,97 @@ describe('NewTabApp', () => {
       ...appState.settings,
       iconLayout: 'horizontal',
       isOpenInNewTab: true,
+    });
+  });
+
+  it('previews and saves the system font through the settings transaction', async () => {
+    renderApp();
+    const root = document.querySelector<HTMLElement>(
+      '[data-starlit-part="root"]',
+    );
+
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toContain('IBM Plex Sans');
+    expect(
+      screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+    ).toBe('ibm-plex-sans');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const settingsDialog = await screen.findByRole('dialog', {
+      name: 'Options',
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Font' }), {
+      target: { value: 'system' },
+    });
+
+    expect(
+      settingsDialog.style.getPropertyValue(
+        '--lagrange-semantic-typography-family-ui',
+      ),
+    ).toBe('system-ui, sans-serif');
+    await waitFor(() => {
+      expect(
+        root?.style.getPropertyValue(
+          '--lagrange-semantic-typography-family-ui',
+        ),
+      ).toBe('system-ui, sans-serif');
+      expect(
+        screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+      ).toBe('system');
+    });
+    expect(appMocks.updateSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(appMocks.updateSettings).toHaveBeenCalledWith({
+        ...appState.settings,
+        fontFamily: 'system',
+      });
+    });
+  });
+
+  it('loads an IBM font preview before saving over a system font', async () => {
+    appState.settings.fontFamily = 'system';
+    renderApp();
+    const root = document.querySelector<HTMLElement>(
+      '[data-starlit-part="root"]',
+    );
+
+    expect(
+      root?.style.getPropertyValue('--lagrange-semantic-typography-family-ui'),
+    ).toBe('system-ui, sans-serif');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Font' }), {
+      target: { value: 'ibm-plex-sans' },
+    });
+
+    await waitFor(() => {
+      expect(
+        root?.style.getPropertyValue(
+          '--lagrange-semantic-typography-family-ui',
+        ),
+      ).toContain('IBM Plex Sans');
+      expect(
+        screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+      ).toBe('ibm-plex-sans');
+    });
+    expect(appMocks.updateSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+
+    await waitFor(() => {
+      expect(
+        root?.style.getPropertyValue(
+          '--lagrange-semantic-typography-family-ui',
+        ),
+      ).toBe('system-ui, sans-serif');
+      expect(
+        screen.getByTestId('font-stylesheets').getAttribute('data-font-family'),
+      ).toBe('system');
     });
   });
 

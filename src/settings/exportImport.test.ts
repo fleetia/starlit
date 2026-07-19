@@ -87,6 +87,7 @@ const GRID_SETTINGS: GridSettings = {
 };
 
 const SETTINGS: Settings = {
+  fontFamily: 'ibm-plex-sans',
   isExpandView: false,
   isFolderEnabled: true,
   isOpenInNewTab: false,
@@ -163,6 +164,7 @@ describe('exportFull', () => {
       size: 18,
       iconSize: 30,
       locale: 'ja',
+      settings: { fontFamily: 'ibm-plex-sans' },
       groupPreferences: [{ key: 'Work', visible: false }],
       bookmarkTreePrefs: {
         rootId: 'bookmarks-bar',
@@ -187,6 +189,40 @@ describe('importFromJson', () => {
     });
 
     await expect(importFromJson(file)).resolves.toMatchObject(legacyData);
+  });
+
+  it('defaults a legacy backup without a font to IBM Plex Sans', async () => {
+    const legacySettings: Record<string, unknown> = structuredClone(SETTINGS);
+    delete legacySettings.fontFamily;
+    const file = new File(
+      [
+        JSON.stringify({
+          colorTheme: STARLIT_THEME,
+          gridSettings: GRID_SETTINGS,
+          settings: legacySettings,
+        }),
+      ],
+      'legacy-without-font.json',
+      { type: 'application/json' },
+    );
+
+    await expect(importFromJson(file)).resolves.toMatchObject({
+      settings: { fontFamily: 'ibm-plex-sans' },
+    });
+  });
+
+  it('rejects an unknown font family', async () => {
+    const invalidData = {
+      ...createExportData(),
+      settings: { ...SETTINGS, fontFamily: 'comic-sans' },
+    };
+    const file = new File([JSON.stringify(invalidData)], 'invalid-font.json', {
+      type: 'application/json',
+    });
+
+    await expect(importFromJson(file)).rejects.toThrow(
+      'settings가 올바르지 않습니다.',
+    );
   });
 
   it('normalizes only untouched V1 visual defaults', async () => {

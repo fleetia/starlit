@@ -166,6 +166,11 @@ const ko: Translations = {
 
   // OptionsSidebar - General section
   'sidebar.general.language': '언어',
+  'sidebar.general.fontFamily': '폰트',
+  'sidebar.general.fontDescription':
+    'IBM Plex Sans는 선택한 언어에 맞는 글꼴을 사용합니다. 시스템 폰트는 브라우저와 운영체제 설정을 따릅니다.',
+  'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
+  'sidebar.general.fontSystem': '시스템 폰트',
   'sidebar.general.openInNewTab': '기본적으로 새 탭에서 열기',
   'sidebar.general.exportImport': '내보내기 / 가져오기',
   'sidebar.general.export': '내보내기',

@@ -133,6 +133,7 @@ export function createExpandedColumnsProfileSeed(
       },
       locale: 'en',
       settings: {
+        fontFamily: 'ibm-plex-sans',
         iconLayout: 'horizontal',
         isExpandView: true,
         isFolderEnabled: true,

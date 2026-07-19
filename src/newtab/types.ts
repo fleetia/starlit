@@ -83,12 +83,19 @@ export type StarlitTheme = {
   muted: string;
 };
 
+export type FontFamily = 'ibm-plex-sans' | 'system';
+
 export type Settings = {
+  fontFamily: FontFamily;
   isFolderEnabled: boolean;
   isVisibleOnce: boolean;
   isOpenInNewTab: boolean;
   isExpandView: boolean;
   iconLayout?: 'vertical' | 'horizontal';
+};
+
+export type PersistedSettings = Omit<Settings, 'fontFamily'> & {
+  fontFamily?: FontFamily;
 };
 
 export type GroupPreference = {

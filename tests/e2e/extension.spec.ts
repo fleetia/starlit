@@ -63,6 +63,17 @@ test('loads the built MV3 artifact with fresh Lagrange defaults', async ({
     accent: '#4d2d57',
     surface: '#faf6e9',
   });
+  expect(syncStorage.settings).toMatchObject({
+    fontFamily: 'ibm-plex-sans',
+  });
+  await expect(page.locator('[data-starlit-part="root"]')).toHaveCSS(
+    'font-family',
+    /IBM Plex Sans/,
+  );
+  expect(
+    await page.locator('link[data-starlit-font-stylesheet]').count(),
+  ).toBeGreaterThan(0);
+  expect(extension.getFontStylesheetRequestCount()).toBeGreaterThan(0);
   await expect(
     page.locator('[data-starlit-part="paged-groups"]'),
   ).toBeVisible();
@@ -94,6 +105,7 @@ test('upgrades a V1 profile while preserving behavior and custom leaves', async 
       iconSize: 26,
       locale: 'ja',
       settings: {
+        fontFamily: 'system',
         iconLayout: 'horizontal',
         isExpandView: false,
         isFolderEnabled: false,
@@ -126,6 +138,7 @@ test('upgrades a V1 profile while preserving behavior and custom leaves', async 
   expect(syncStorage.iconSize).toBe(26);
   expect(syncStorage.locale).toBe('ja');
   expect(syncStorage.settings).toMatchObject({
+    fontFamily: 'system',
     iconLayout: 'horizontal',
     isOpenInNewTab: true,
   });
@@ -144,6 +157,46 @@ test('upgrades a V1 profile while preserving behavior and custom leaves', async 
   await expect(
     page.locator('[data-layout="horizontal"]').first(),
   ).toBeVisible();
+  await expect(page.locator('[data-starlit-part="root"]')).toHaveCSS(
+    'font-family',
+    'system-ui, sans-serif',
+  );
+  await expect(page.locator('link[data-starlit-font-stylesheet]')).toHaveCount(
+    0,
+  );
+  expect(extension.getFontStylesheetRequestCount()).toBe(0);
+  await page.locator('[data-starlit-part="settings-trigger"]').click();
+  const fontSelect = page.locator(
+    '[data-starlit-part="settings-general"] select',
+  );
+  await fontSelect.selectOption('ibm-plex-sans');
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.starlitFontStatus),
+    )
+    .toBe('loaded');
+  expect(
+    await page.locator('link[data-starlit-font-stylesheet]').count(),
+  ).toBeGreaterThan(0);
+  expect(extension.getFontStylesheetRequestCount()).toBeGreaterThan(0);
+  expect(
+    await page.evaluate(async () => {
+      const faces = await document.fonts.load('16px "IBM Plex Sans"');
+      return (
+        faces.length > 0 &&
+        faces.every((fontFace) => fontFace.status === 'loaded')
+      );
+    }),
+  ).toBe(true);
+  await fontSelect.selectOption('system');
+  await expect(page.locator('link[data-starlit-font-stylesheet]')).toHaveCount(
+    0,
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.starlitFontStatus),
+    )
+    .toBe('system');
   await expect(
     page.locator('[data-starlit-part="background-media"]'),
   ).toBeVisible();
@@ -369,6 +422,7 @@ test('saves settings and background drafts only after confirmation', async ({
     await openInNewTab.focus();
     await openInNewTab.press('Space');
     await expect(openInNewTab).toBeChecked();
+    await page.getByRole('combobox', { name: 'Font' }).selectOption('system');
     await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
     await page
       .getByPlaceholder('Enter URL')
@@ -414,8 +468,12 @@ test('saves settings and background drafts only after confirmation', async ({
         type: 'image',
         url: 'https://example.test/draft-background.png',
       },
-      settings: { isOpenInNewTab: true },
+      settings: { fontFamily: 'system', isOpenInNewTab: true },
     });
+  await expect(page.locator('[data-starlit-part="root"]')).toHaveCSS(
+    'font-family',
+    'system-ui, sans-serif',
+  );
 });
 
 test('deletes a Chrome bookmark only after explicit confirmation', async ({

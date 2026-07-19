@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactElement, ReactNode } from 'react';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Action,
   Button,
@@ -13,6 +13,7 @@ import {
   RangeField,
   Section,
   SectionHeader,
+  Select,
   Stack,
   Switch,
   Tab,
@@ -31,13 +32,18 @@ import type { BookmarkTreePrefs } from '../bookmarks/useBookmarkTreePrefs';
 import { useTranslation, type Locale } from '../i18n';
 import { DEFAULT_GRID_SETTINGS } from '../newtab/defaultOptionValue';
 import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
-import { getLayoutStyle, getThemeStyle } from '../theme/starlitTheme';
+import {
+  getFontFamilyStyle,
+  getLayoutStyle,
+  getThemeStyle,
+} from '../theme/starlitTheme';
 import {
   exportFull,
   exportToJson,
   importFromJson,
   importFull,
 } from './exportImport';
+import { isFontFamily } from './normalizeSettings';
 import { resetAllSettings } from './resetSettings';
 import type { BackgroundMedia } from './useBackgroundImage';
 import type {
@@ -65,6 +71,11 @@ export type OptionsPreviewState = {
   settings: Settings;
   size: number;
   theme: StarlitTheme;
+};
+
+export type FontPreviewState = {
+  fontFamily: Settings['fontFamily'];
+  locale: Locale;
 };
 
 const PRIMARY_TABS: readonly PrimaryTab[] = [
@@ -97,6 +108,7 @@ export type OptionsSidebarProps = {
   onClose: () => void;
   onCustomCSSChange: (css: string) => Promise<void>;
   onExport?: () => Promise<void>;
+  onFontPreviewChange: (preview: FontPreviewState | null) => void;
   onBookmarkTreePreferencesUpdate: (
     preferences: BookmarkTreePrefs,
   ) => Promise<void>;
@@ -335,6 +347,7 @@ function OptionsSidebarSession({
   onClose,
   onCustomCSSChange,
   onExport,
+  onFontPreviewChange,
   onGridSettingsUpdate,
   onGroupPreferencesUpdate,
   onIconSizeChange,
@@ -392,6 +405,21 @@ function OptionsSidebarSession({
   const backgroundFileRef = useRef<HTMLInputElement | null>(null);
   const discardCancelRef = useRef<HTMLButtonElement | null>(null);
   const discardDescriptionId = `starlit-discard-${useId()}`;
+
+  useEffect(() => {
+    onFontPreviewChange({
+      fontFamily: draftSettings.fontFamily,
+      locale: draftLocale,
+    });
+  }, [draftLocale, draftSettings.fontFamily, onFontPreviewChange]);
+
+  useEffect(
+    () => () => {
+      onFontPreviewChange(null);
+    },
+    [onFontPreviewChange],
+  );
+
   const [snapshot] = useState<SettingsSnapshot>(() => ({
     customCSS,
     gridSettings: structuredClone(gridSettings),
@@ -435,12 +463,17 @@ function OptionsSidebarSession({
       snapshot,
     ],
   );
+  const fontFamilyStyle = useMemo(
+    () => getFontFamilyStyle(draftSettings.fontFamily, draftLocale),
+    [draftLocale, draftSettings.fontFamily],
+  );
   const previewStyle = useMemo(
     () => ({
+      ...fontFamilyStyle,
       ...getThemeStyle(draftTheme),
       ...getLayoutStyle(draftGrid, draftSize, draftIconSize),
     }),
-    [draftGrid, draftIconSize, draftSize, draftTheme],
+    [draftGrid, draftIconSize, draftSize, draftTheme, fontFamilyStyle],
   );
   const draftOrderedTree = useMemo(
     () => applySiblingOrder(orderedTree, draftSiblingOrder),
@@ -1527,6 +1560,31 @@ function OptionsSidebarSession({
             <Choice value="ja">日本語</Choice>
           </ChoiceGroup>
         </SettingsSection>
+        <SettingsSection
+          description={t('sidebar.general.fontDescription')}
+          title={t('sidebar.general.fontFamily')}
+        >
+          <FormField label={t('sidebar.general.fontFamily')}>
+            <Select
+              onChange={(event) => {
+                const fontFamily = event.currentTarget.value;
+
+                if (isFontFamily(fontFamily)) {
+                  setDraftSettings((currentSettings) => ({
+                    ...currentSettings,
+                    fontFamily,
+                  }));
+                }
+              }}
+              value={draftSettings.fontFamily}
+            >
+              <option value="ibm-plex-sans">
+                {t('sidebar.general.fontIbmPlexSans')}
+              </option>
+              <option value="system">{t('sidebar.general.fontSystem')}</option>
+            </Select>
+          </FormField>
+        </SettingsSection>
         <SettingsSection title={t('sidebar.tab.general')}>
           <Switch
             checked={draftSettings.isOpenInNewTab}
@@ -1639,6 +1697,7 @@ function OptionsSidebarSession({
         isOpen={isOpen}
         onOpenChange={handleDialogOpenChange}
         size="large"
+        style={fontFamilyStyle}
         title={t('newtab.options')}
       >
         <div className={styles.content} data-starlit-part="settings-content">
@@ -1817,6 +1876,7 @@ function OptionsSidebarSession({
         onOpenChange={setIsDiscardOpen}
         role="alertdialog"
         size="small"
+        style={fontFamilyStyle}
         title={t('sidebar.cancel')}
       >
         <Text id={discardDescriptionId}>

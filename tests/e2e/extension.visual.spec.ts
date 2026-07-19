@@ -85,7 +85,7 @@ async function getPlacementMetrics(
 }
 
 test('paged Lagrange canvas', async ({ extension }) => {
-  await extension.seedProfile(createProfileSeed());
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
   const page = await extension.openNewTab();
   await waitForBookmarks(page);
 
@@ -95,7 +95,9 @@ test('paged Lagrange canvas', async ({ extension }) => {
 test('masonry with horizontal bookmark tiles', async ({ extension }) => {
   await extension.seedProfile(
     createProfileSeed({
+      locale: 'en',
       settings: {
+        fontFamily: 'ibm-plex-sans',
         iconLayout: 'horizontal',
         isExpandView: true,
         isFolderEnabled: true,
@@ -443,7 +445,7 @@ test('expanded placement anchors compact columns and collapsed stacks', async ({
 });
 
 test('settings dialog', async ({ extension }) => {
-  await extension.seedProfile(createProfileSeed());
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
   const page = await extension.openNewTab();
   await waitForBookmarks(page);
 

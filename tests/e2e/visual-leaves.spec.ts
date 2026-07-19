@@ -90,6 +90,7 @@ test('renders persisted visual leaves in the live surface and settings preview',
       iconSize: 24,
       locale: 'en',
       settings: {
+        fontFamily: 'ibm-plex-sans',
         iconLayout: 'vertical',
         isExpandView: false,
         isFolderEnabled: true,

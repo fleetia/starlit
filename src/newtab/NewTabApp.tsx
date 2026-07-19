@@ -36,9 +36,17 @@ import { useBookmarkTreePrefs } from '../bookmarks/useBookmarkTreePrefs';
 import { useGroupPreferences } from '../bookmarks/useGroupPreferences';
 import { useStorageState } from '../hooks/useStorageState';
 import { type Locale, useTranslation } from '../i18n';
-import { getLayoutStyle, type CssVariableStyle } from '../theme/starlitTheme';
+import { FontStylesheets } from '../theme/FontStylesheets';
+import {
+  getFontFamilyStyle,
+  getLayoutStyle,
+  type CssVariableStyle,
+} from '../theme/starlitTheme';
 import { fileToDataUrl } from '../platform/files/fileToDataUrl';
-import { OptionsSidebar } from '../settings/OptionsSidebar';
+import {
+  OptionsSidebar,
+  type FontPreviewState,
+} from '../settings/OptionsSidebar';
 import { sanitizeCSS } from '../settings/sanitizeCSS';
 import { useBackgroundImage } from '../settings/useBackgroundImage';
 import { useGridSettings } from '../settings/useGridSettings';
@@ -126,6 +134,7 @@ export function NewTabApp({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeletingBookmark, setIsDeletingBookmark] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [fontPreview, setFontPreview] = useState<FontPreviewState | null>(null);
   const [cardPages, setCardPages] = useState<Record<string, number>>({});
   const [folderPaths, setFolderPaths] = useState<Record<string, Bookmark[]>>(
     {},
@@ -342,8 +351,14 @@ export function NewTabApp({
     isThemeLoaded &&
     areBookmarkTreePrefsLoaded &&
     areGroupPreferencesLoaded;
+  const persistedFontFamily = areSettingsLoaded
+    ? settings.fontFamily
+    : 'system';
+  const activeFontFamily = fontPreview?.fontFamily ?? persistedFontFamily;
+  const activeFontLocale = fontPreview?.locale ?? locale;
   const appStyle: AppStyle = {
     ...themeStyle,
+    ...getFontFamilyStyle(activeFontFamily, activeFontLocale),
     ...getLayoutStyle(gridSettings, size, iconSize),
     '--background-image': backgroundImage,
     '--starlit-background-image': backgroundImage,
@@ -552,6 +567,12 @@ export function NewTabApp({
       data-starlit-part="root"
       style={appStyle}
     >
+      {areSettingsLoaded ? (
+        <FontStylesheets
+          fontFamily={activeFontFamily}
+          locale={activeFontLocale}
+        />
+      ) : null}
       {sanitizedCustomCSS ? (
         <style data-starlit-part="custom-css">{sanitizedCustomCSS}</style>
       ) : null}
@@ -703,6 +724,7 @@ export function NewTabApp({
           onBookmarkTreePreferencesUpdate={updatePreferences}
           onClose={() => setIsSettingsOpen(false)}
           onCustomCSSChange={setCustomCSS}
+          onFontPreviewChange={setFontPreview}
           onGridSettingsUpdate={updateGridSettings}
           onGroupPreferencesUpdate={updateGroupPreferences}
           onIconSizeChange={setIconSize}

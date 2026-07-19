@@ -21,6 +21,7 @@ const GRID_SETTINGS: GridSettings = {
 };
 
 const SETTINGS: Settings = {
+  fontFamily: 'ibm-plex-sans',
   iconLayout: 'vertical',
   isExpandView: false,
   isFolderEnabled: true,

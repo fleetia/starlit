@@ -168,6 +168,11 @@ const en: Translations = {
 
   // OptionsSidebar - General section
   'sidebar.general.language': 'Language',
+  'sidebar.general.fontFamily': 'Font',
+  'sidebar.general.fontDescription':
+    'IBM Plex Sans follows the selected language. System uses your browser and operating system defaults.',
+  'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
+  'sidebar.general.fontSystem': 'System font',
   'sidebar.general.openInNewTab': 'Open in new tab by default',
   'sidebar.general.exportImport': 'Export / Import',
   'sidebar.general.export': 'Export',
