@@ -1,4 +1,11 @@
 import type { BookmarkSeed, ProfileSeed } from './extension.fixture';
+import type { Placement } from '../../src/newtab/types';
+
+type ExpandedColumnsProfileSeedOptions = {
+  groupCount?: number;
+  masonryColumns?: number;
+  position?: Placement;
+};
 
 const directBookmarks: BookmarkSeed[] = Array.from(
   { length: 18 },
@@ -6,6 +13,23 @@ const directBookmarks: BookmarkSeed[] = Array.from(
     title: `Atlas ${String(index + 1).padStart(2, '0')}`,
     url: `https://example.com/atlas-${index + 1}`,
   }),
+);
+
+const expandedColumnGroups: BookmarkSeed[] = Array.from(
+  { length: 9 },
+  (_, index) => {
+    const groupNumber = String(index + 1).padStart(2, '0');
+
+    return {
+      children: [
+        {
+          title: `Entry ${groupNumber}`,
+          url: `https://example.com/entry-${index + 1}`,
+        },
+      ],
+      title: `Group ${groupNumber}`,
+    };
+  },
 );
 
 export const BOOKMARK_ROOTS: BookmarkSeed[][] = [
@@ -82,5 +106,40 @@ export function createProfileSeed(
       bookmarks: [{ title: 'Local V1 backup' }],
     },
     sync,
+  };
+}
+
+export function createExpandedColumnsProfileSeed(
+  options: ExpandedColumnsProfileSeedOptions = {},
+): ProfileSeed {
+  const {
+    groupCount = expandedColumnGroups.length,
+    masonryColumns = 2,
+    position = 'center-center',
+  } = options;
+
+  return {
+    bookmarkRoots: [expandedColumnGroups.slice(0, groupCount)],
+    sync: {
+      bookmarkTreePrefs: {
+        rootPath: ['Bookmarks Bar'],
+        siblingOrder: {},
+      },
+      gridSettings: {
+        ...LEGACY_GRID_SETTINGS,
+        cardGap: '1rem',
+        masonryColumns,
+        position,
+      },
+      locale: 'en',
+      settings: {
+        iconLayout: 'horizontal',
+        isExpandView: true,
+        isFolderEnabled: true,
+        isOpenInNewTab: false,
+        isVisibleOnce: false,
+      },
+      storageSchemaVersion: 2,
+    },
   };
 }

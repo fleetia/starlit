@@ -31,6 +31,9 @@ describe('getLayoutStyle', () => {
     expect(style['--icon-width']).toBe('64px');
     expect(style['--icon-height']).toBe('64px');
     expect(style['--heading-text-stroke']).toBe('0 transparent');
+    expect(style['--heading-title-background-color']).toBe(
+      DEFAULT_GRID_SETTINGS.heading?.titleBackgroundColor,
+    );
     expect(style['--masonry-card-width']).toContain('var(--em)');
   });
 });

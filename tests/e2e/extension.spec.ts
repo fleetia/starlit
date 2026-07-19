@@ -215,7 +215,6 @@ for (const backgroundCase of BACKGROUND_URL_CASES) {
     const mediaResponsePromise = page.waitForResponse(
       (response) => response.url() === backgroundCase.url,
     );
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
 
     const mediaResponse = await mediaResponsePromise;
@@ -374,7 +373,6 @@ test('saves settings and background drafts only after confirmation', async ({
     await page
       .getByPlaceholder('Enter URL')
       .fill('https://example.test/draft-background.png');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
   }
 
   await stageDraft();

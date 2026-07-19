@@ -171,6 +171,7 @@ function isGridHeading(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.titleColor === 'string' &&
+    isOptionalString(value, 'titleBackgroundColor') &&
     isOptionalFiniteNumber(value, 'titleSize') &&
     typeof value.subtitleColor === 'string' &&
     isOptionalFiniteNumber(value, 'subtitleSize') &&

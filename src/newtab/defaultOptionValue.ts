@@ -70,6 +70,7 @@ export const DEFAULT_GRID_SETTINGS: GridSettings = {
     iconRadius: 1,
   },
   heading: {
+    titleBackgroundColor: primitiveTokens.palette.periwinkleWash,
     titleColor: primitiveTokens.palette.aubergine,
     subtitleColor: primitiveTokens.palette.inkMuted,
     borderEnabled: false,

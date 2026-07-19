@@ -45,6 +45,21 @@ import { useGridSettings } from '../settings/useGridSettings';
 import { useSettings } from '../settings/useSettings';
 import { useTheme } from '../settings/useTheme';
 import type { Bookmark, BookmarkItem } from './types';
+import {
+  COLLAPSED_GROUP_HEIGHT_PX,
+  EXPANDED_GROUP_MIN_HEIGHT_PX,
+  distributeGroupKeys,
+  getExpandedColumnCapacity,
+  getExpandedColumnVisualOrder,
+  getExpandedSurfaceWidth,
+  getExpandedViewAvailableHeight,
+  getExpandedViewAvailableWidth,
+  getExpandedViewTrackCount,
+  parseCssLengthInPixels,
+  reconcileExpandedGroups,
+  setExpandedGroupOpen,
+  type ExpandedGroupsState,
+} from './expandedLayout';
 import { positionToPlaceSelf } from './utils/positionToPlaceSelf';
 
 type ContextTarget = {
@@ -63,10 +78,30 @@ type SurfaceStyle = CSSProperties & {
   '--starlit-paged-width': string;
 };
 
+type ExpandedSurfaceStyle = SurfaceStyle & {
+  '--starlit-collapsed-group-height': string;
+  '--starlit-expanded-group-min-height': string;
+  '--starlit-masonry-columns': number;
+};
+
+type BookmarkGroupDescriptor = {
+  folder: Bookmark;
+  key: string;
+};
+
+type ViewportSize = {
+  height: number;
+  width: number;
+};
+
 type NewTabAppProps = {
   locale: Locale;
   onLocaleChange: (locale: Locale) => Promise<void>;
 };
+
+function getViewportSize(): ViewportSize {
+  return { height: window.innerHeight, width: window.innerWidth };
+}
 
 function SettingsIcon(): ReactElement {
   return (
@@ -96,6 +131,8 @@ export function NewTabApp({
     {},
   );
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const [viewportSize, setViewportSize] =
+    useState<ViewportSize>(getViewportSize);
   const faviconInputRef = useRef<HTMLInputElement>(null);
   const faviconTargetRef = useRef<ContextTarget | null>(null);
   const groupRailRef = useRef<HTMLDivElement>(null);
@@ -106,6 +143,15 @@ export function NewTabApp({
   const isDeleteFocusRestorePendingRef = useRef(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const deleteDescriptionId = `starlit-delete-bookmark-${useId()}`;
+
+  useEffect(() => {
+    function updateViewportSize(): void {
+      setViewportSize(getViewportSize());
+    }
+
+    window.addEventListener('resize', updateViewportSize);
+    return () => window.removeEventListener('resize', updateViewportSize);
+  }, []);
 
   useEffect(() => {
     if (bookmarkIdToDelete !== null) {
@@ -145,6 +191,15 @@ export function NewTabApp({
     value: customCSS,
     setValue: setCustomCSS,
   } = useStorageState<string>('customCSS', '');
+  const {
+    isLoaded: isExpandedGroupsStateLoaded,
+    value: expandedGroupsState,
+    setValue: setExpandedGroupsState,
+  } = useStorageState<ExpandedGroupsState>(
+    'expandedGroupsState',
+    { knownKeys: [], openKeys: [] },
+    'local',
+  );
   const {
     bookmarks,
     handleDeleteBookmark,
@@ -202,10 +257,84 @@ export function NewTabApp({
     orderedBookmarks,
     updateGroupPreferences,
   } = useGroupPreferences(rootBookmarks, orderedTree);
+  const groupDescriptors = useMemo<BookmarkGroupDescriptor[]>(
+    () =>
+      orderedBookmarks.map((folder) => ({
+        folder,
+        key: getGroupKey(folder),
+      })),
+    [orderedBookmarks],
+  );
+  const groupDescriptorByKey = useMemo(
+    () =>
+      new Map(
+        groupDescriptors.map(
+          (descriptor) => [descriptor.key, descriptor] as const,
+        ),
+      ),
+    [groupDescriptors],
+  );
+  const groupKeys = useMemo(
+    () => groupDescriptors.map((descriptor) => descriptor.key),
+    [groupDescriptors],
+  );
+  const expandedTrackCount = getExpandedViewTrackCount(
+    gridSettings.masonryColumns,
+    viewportSize.width,
+  );
+  const expandedGroupColumns = useMemo(
+    () => distributeGroupKeys(groupKeys, expandedTrackCount),
+    [expandedTrackCount, groupKeys],
+  );
+  const expandedAvailableHeight = getExpandedViewAvailableHeight(
+    viewportSize.height,
+    viewportSize.width,
+    gridSettings.margin,
+  );
+  const expandedCardGap = parseCssLengthInPixels(
+    gridSettings.cardGap ?? '1rem',
+  );
+  const expandedAvailableWidth = getExpandedViewAvailableWidth(
+    viewportSize.width,
+    gridSettings.margin,
+  );
+  const expandedSurfaceWidth = getExpandedSurfaceWidth(
+    expandedAvailableWidth,
+    expandedTrackCount,
+    expandedGroupColumns.length,
+    expandedCardGap,
+  );
+  const expandedColumnCapacities = useMemo(
+    () =>
+      expandedGroupColumns.map((column) =>
+        getExpandedColumnCapacity(
+          column.length,
+          expandedAvailableHeight,
+          expandedCardGap,
+        ),
+      ),
+    [expandedAvailableHeight, expandedCardGap, expandedGroupColumns],
+  );
+
+  const reconciledExpandedGroupsState = useMemo(
+    () =>
+      reconcileExpandedGroups(
+        expandedGroupsState,
+        expandedGroupColumns,
+        expandedColumnCapacities,
+      ),
+    [expandedColumnCapacities, expandedGroupColumns, expandedGroupsState],
+  );
+  const expandedOpenKeySet = useMemo(
+    () => new Set(reconciledExpandedGroupsState.openKeys),
+    [reconciledExpandedGroupsState.openKeys],
+  );
+
   const areSettingsSourcesLoaded =
     isSizeLoaded &&
     isIconSizeLoaded &&
     isCustomCSSLoaded &&
+    isExpandedGroupsStateLoaded &&
     areBookmarksLoaded &&
     isGridSettingsLoaded &&
     areSettingsLoaded &&
@@ -352,8 +481,12 @@ export function NewTabApp({
     }
   }
 
-  const groups = orderedBookmarks.map((folder) => {
-    const folderKey = getGroupKey(folder);
+  function renderBookmarkGroup(
+    descriptor: BookmarkGroupDescriptor,
+    isContentExpanded?: boolean,
+    onContentExpandedChange?: (isExpanded: boolean) => void,
+  ): ReactElement {
+    const { folder, key: folderKey } = descriptor;
     const path = folderPaths[folderKey] ?? [];
     const currentFolder = getCurrentFolder(folder, path);
 
@@ -364,6 +497,7 @@ export function NewTabApp({
         folder={folder}
         folderPath={path}
         gridSettings={gridSettings}
+        isContentExpanded={isContentExpanded}
         isExpanded={settings.isExpandView}
         onActivateBookmark={openBookmark}
         onActivateFolder={(child) => enterFolder(folderKey, child)}
@@ -376,6 +510,7 @@ export function NewTabApp({
           }
         }}
         onNavigateToLevel={(level) => navigateToLevel(folderKey, level)}
+        onContentExpandedChange={onContentExpandedChange}
         onPageChange={(page) =>
           setCardPages((previous) => ({ ...previous, [folderKey]: page }))
         }
@@ -383,7 +518,11 @@ export function NewTabApp({
         settings={settings}
       />
     );
-  });
+  }
+
+  const groups = groupDescriptors.map((descriptor) =>
+    renderBookmarkGroup(descriptor),
+  );
 
   const tileWidth = gridSettings.icon.width ?? 4;
   const gapCount = Math.max(
@@ -398,6 +537,13 @@ export function NewTabApp({
   const surfaceStyle: SurfaceStyle = {
     '--starlit-paged-width': `calc(${pagedWidth}px${gapWidth ? ` + ${gapWidth}` : ''})`,
     placeSelf: positionToPlaceSelf(gridSettings.position),
+  };
+  const expandedSurfaceStyle: ExpandedSurfaceStyle = {
+    ...surfaceStyle,
+    '--starlit-collapsed-group-height': `${COLLAPSED_GROUP_HEIGHT_PX}px`,
+    '--starlit-expanded-group-min-height': `${EXPANDED_GROUP_MIN_HEIGHT_PX}px`,
+    '--starlit-masonry-columns': expandedGroupColumns.length,
+    width: expandedSurfaceWidth,
   };
 
   return (
@@ -450,12 +596,40 @@ export function NewTabApp({
             className="starlit-masonry"
             data-position={gridSettings.position}
             data-starlit-part="expanded-groups"
-            style={{
-              ...surfaceStyle,
-              columnCount: gridSettings.masonryColumns ?? 2,
-            }}
+            style={expandedSurfaceStyle}
           >
-            {groups}
+            {expandedGroupColumns.map((column, columnIndex) => (
+              <div
+                key={`expanded-column-${columnIndex}`}
+                className="starlit-masonry__column"
+                data-column-index={columnIndex}
+              >
+                {getExpandedColumnVisualOrder(
+                  column,
+                  gridSettings.position,
+                ).map((groupKey) => {
+                  const descriptor = groupDescriptorByKey.get(groupKey);
+
+                  return descriptor
+                    ? renderBookmarkGroup(
+                        descriptor,
+                        expandedOpenKeySet.has(groupKey),
+                        (isOpen) => {
+                          void setExpandedGroupsState((currentState) =>
+                            setExpandedGroupOpen(
+                              currentState,
+                              groupKey,
+                              isOpen,
+                              expandedGroupColumns,
+                              expandedColumnCapacities,
+                            ),
+                          );
+                        },
+                      )
+                    : null;
+                })}
+              </div>
+            ))}
           </section>
         ) : (
           <section

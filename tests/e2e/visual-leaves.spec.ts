@@ -13,6 +13,7 @@ const CUSTOM_GRID_SETTINGS = {
   columns: 5,
   gap: '2rem',
   heading: {
+    titleBackgroundColor: '#ead6a8',
     borderColor: '#c15b73',
     borderEnabled: true,
     borderRadius: 13,
@@ -116,6 +117,7 @@ test('renders persisted visual leaves in the live surface and settings preview',
   await expect(group).toHaveCSS('border-radius', '13px');
   await expect(group).toHaveCSS('color', 'rgb(230, 231, 232)');
   await expect(title).toHaveCSS('color', 'rgb(91, 32, 111)');
+  await expect(title).toHaveCSS('background-color', 'rgb(234, 214, 168)');
   await expect(title).toHaveCSS('font-size', '18px');
   expect(
     await title.evaluate((element) => {
@@ -169,6 +171,12 @@ test('renders persisted visual leaves in the live surface and settings preview',
   await expect(folderIcon).toHaveCSS('border-radius', '9px');
 
   await page.locator('[data-starlit-part="settings-trigger"]').click();
+  const settingsDialog = page.locator('[data-starlit-part="settings-dialog"]');
+  await expect(settingsDialog).toHaveCSS(
+    'background-color',
+    'rgb(250, 246, 233)',
+  );
+  await expect(settingsDialog).toHaveCSS('color', 'rgb(48, 42, 51)');
   await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
   const preview = page
     .locator('[data-starlit-part="settings-preview"]:visible')
@@ -186,6 +194,10 @@ test('renders persisted visual leaves in the live surface and settings preview',
   await expect(previewGroup.locator('[aria-current="page"]')).toHaveCSS(
     'font-size',
     '18px',
+  );
+  await expect(previewGroup.locator('[aria-current="page"]')).toHaveCSS(
+    'background-color',
+    'rgb(234, 214, 168)',
   );
   await expect(previewBookmark).toHaveCSS(
     'background-color',

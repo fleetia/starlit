@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,13 +55,18 @@ const callbacks = {
   onActivateBookmark: vi.fn<(bookmark: BookmarkItem) => void>(),
   onActivateFolder: vi.fn<(folder: Bookmark) => void>(),
   onBookmarkContextMenu: vi.fn<BookmarkGroupProps['onBookmarkContextMenu']>(),
+  onContentExpandedChange:
+    vi.fn<NonNullable<BookmarkGroupProps['onContentExpandedChange']>>(),
   onFolderContextMenu: vi.fn<BookmarkGroupProps['onFolderContextMenu']>(),
   onNavigateToLevel: vi.fn<(level: number) => void>(),
   onPageChange: vi.fn<(page: number) => void>(),
 };
 
-function renderGroup(page: number): ReturnType<typeof render> {
-  return render(
+function getGroupElement(
+  page: number,
+  props: Partial<BookmarkGroupProps> = {},
+): ReactElement {
+  return (
     <I18nProvider locale="en">
       <BookmarkGroup
         {...callbacks}
@@ -71,9 +77,17 @@ function renderGroup(page: number): ReturnType<typeof render> {
         isExpanded={false}
         page={page}
         settings={SETTINGS}
+        {...props}
       />
-    </I18nProvider>,
+    </I18nProvider>
   );
+}
+
+function renderGroup(
+  page: number,
+  props: Partial<BookmarkGroupProps> = {},
+): ReturnType<typeof render> {
+  return render(getGroupElement(page, props));
 }
 
 beforeEach((): void => {
@@ -81,6 +95,46 @@ beforeEach((): void => {
 });
 
 describe('BookmarkGroup', () => {
+  it('requests controlled content changes in expanded view', () => {
+    const { rerender } = renderGroup(0, {
+      isContentExpanded: true,
+      isExpanded: true,
+    });
+    const collapse = screen.getByRole('button', { name: 'Work: Collapse' });
+
+    expect(collapse.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'GitHub' })).toBeDefined();
+
+    fireEvent.click(collapse);
+
+    expect(callbacks.onContentExpandedChange).toHaveBeenCalledWith(false);
+    rerender(
+      getGroupElement(0, {
+        isContentExpanded: false,
+        isExpanded: true,
+      }),
+    );
+
+    const expand = screen.getByRole('button', { name: 'Work: Expand' });
+    expect(expand.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'GitHub' })).toBeNull();
+
+    fireEvent.click(expand);
+
+    expect(callbacks.onContentExpandedChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it('does not expose collapse controls in paged view or preview', () => {
+    const paged = renderGroup(0);
+
+    expect(paged.container.querySelector('button[aria-expanded]')).toBeNull();
+    paged.unmount();
+
+    const preview = renderGroup(0, { isExpanded: true, isPreview: true });
+
+    expect(preview.container.querySelector('button[aria-expanded]')).toBeNull();
+  });
+
   it('opens a folder and forwards its context-menu interaction', () => {
     renderGroup(0);
     const folder = screen.getByRole('button', { name: 'Reference' });
@@ -112,20 +166,7 @@ describe('BookmarkGroup', () => {
     expect(callbacks.onPageChange).toHaveBeenNthCalledWith(1, 2);
     expect(callbacks.onPageChange).toHaveBeenNthCalledWith(2, 0);
 
-    rerender(
-      <I18nProvider locale="en">
-        <BookmarkGroup
-          {...callbacks}
-          currentFolder={ROOT_FOLDER}
-          folder={ROOT_FOLDER}
-          folderPath={[]}
-          gridSettings={GRID_SETTINGS}
-          isExpanded={false}
-          page={2}
-          settings={SETTINGS}
-        />
-      </I18nProvider>,
-    );
+    rerender(getGroupElement(2));
 
     expect(screen.getByRole('button', { name: 'MDN' })).toBeDefined();
     expect(screen.getByText('3 / 3')).toBeDefined();

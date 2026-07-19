@@ -53,6 +53,7 @@ export type GridSettings = {
   };
   heading?: {
     titleColor: string;
+    titleBackgroundColor?: string;
     titleSize?: number;
     subtitleColor: string;
     subtitleSize?: number;

@@ -1,7 +1,8 @@
-import type { CSSProperties, MouseEvent, ReactElement } from 'react';
+import { type CSSProperties, type MouseEvent, type ReactElement } from 'react';
 import {
   Breadcrumb,
   Button,
+  IconButton,
   Section,
   Text,
   type BreadcrumbItem,
@@ -27,6 +28,7 @@ export type BookmarkGroupProps = {
   folder: Bookmark;
   folderPath: Bookmark[];
   gridSettings: GridSettings;
+  isContentExpanded?: boolean;
   isExpanded: boolean;
   isPreview?: boolean;
   onActivateBookmark: (bookmark: BookmarkItem) => void;
@@ -40,6 +42,7 @@ export type BookmarkGroupProps = {
     folder: Bookmark,
   ) => void;
   onNavigateToLevel: (level: number) => void;
+  onContentExpandedChange?: (isExpanded: boolean) => void;
   onPageChange: (page: number) => void;
   page: number;
   settings: Settings;
@@ -70,6 +73,7 @@ export function BookmarkGroup({
   folder,
   folderPath,
   gridSettings,
+  isContentExpanded = true,
   isExpanded,
   isPreview = false,
   onActivateBookmark,
@@ -77,12 +81,17 @@ export function BookmarkGroup({
   onBookmarkContextMenu,
   onFolderContextMenu,
   onNavigateToLevel,
+  onContentExpandedChange,
   onPageChange,
   page,
   settings,
 }: BookmarkGroupProps): ReactElement {
   const { t } = useTranslation();
   const isHorizontal = settings.iconLayout === 'horizontal';
+  const isExpandedView = isExpanded && !isPreview;
+  const canCollapse = isExpandedView && onContentExpandedChange !== undefined;
+  const isContentVisible = !canCollapse || isContentExpanded;
+  const hasRoute = Boolean(folder.route?.length);
   const columns = isHorizontal
     ? (gridSettings.horizontalColumns ?? 1)
     : gridSettings.columns;
@@ -104,7 +113,8 @@ export function BookmarkGroup({
     <Section
       aria-hidden={isPreview || undefined}
       boundary="structural"
-      className={`starlit-bookmark-group${isPreview ? ' starlit-bookmark-group--preview' : ''}`}
+      className={`starlit-bookmark-group${isPreview ? ' starlit-bookmark-group--preview' : ''}${isExpandedView ? ' starlit-bookmark-group--expanded' : ''}${isExpandedView && !isContentVisible ? ' starlit-bookmark-group--collapsed' : ''}`}
+      data-expanded={isExpandedView ? isContentVisible : undefined}
       data-preview={isPreview || undefined}
       data-starlit-part="bookmark-group"
       inert={isPreview || undefined}
@@ -124,60 +134,81 @@ export function BookmarkGroup({
             isPreview,
           )}
         />
-        {folder.route?.length ? (
-          <Text
-            className="starlit-bookmark-group__route"
-            data-starlit-part="bookmark-route"
-            tone="muted"
-            truncate
-            variant="caption"
-          >
-            {folder.route.join(' / ')}
-          </Text>
+        {hasRoute || canCollapse ? (
+          <div className="starlit-bookmark-group__header-actions">
+            {hasRoute ? (
+              <Text
+                className="starlit-bookmark-group__route"
+                data-starlit-part="bookmark-route"
+                tone="muted"
+                truncate
+                variant="caption"
+              >
+                {folder.route?.join(' / ')}
+              </Text>
+            ) : null}
+            {canCollapse ? (
+              <IconButton
+                aria-expanded={isContentExpanded}
+                label={`${folder.title}: ${t(
+                  isContentExpanded ? 'tree.collapse' : 'tree.expand',
+                )}`}
+                onClick={() => onContentExpandedChange(!isContentExpanded)}
+                size="compact"
+                variant="quiet"
+              >
+                <span aria-hidden="true">{isContentExpanded ? '−' : '+'}</span>
+              </IconButton>
+            ) : null}
+          </div>
         ) : null}
       </header>
 
-      <div
-        className="starlit-bookmark-grid"
-        data-layout={settings.iconLayout ?? 'vertical'}
-        data-starlit-part="bookmark-grid"
-        style={gridStyle}
-      >
-        {visibleEntries.map((entry) =>
-          entry.type === 'folder' ? (
-            <BookmarkTile
-              key={entry.data.id ?? entry.data.title}
-              favicon={entry.data.favicon}
-              isPreview={isPreview}
-              kind="folder"
-              layout={settings.iconLayout}
-              onActivate={() => onActivateFolder(entry.data)}
-              onContextMenu={(event) => onFolderContextMenu(event, entry.data)}
-              title={entry.data.title}
+      {isContentVisible ? (
+        <div
+          className="starlit-bookmark-grid"
+          data-layout={settings.iconLayout ?? 'vertical'}
+          data-starlit-part="bookmark-grid"
+          style={gridStyle}
+        >
+          {visibleEntries.map((entry) =>
+            entry.type === 'folder' ? (
+              <BookmarkTile
+                key={entry.data.id ?? entry.data.title}
+                favicon={entry.data.favicon}
+                isPreview={isPreview}
+                kind="folder"
+                layout={settings.iconLayout}
+                onActivate={() => onActivateFolder(entry.data)}
+                onContextMenu={(event) =>
+                  onFolderContextMenu(event, entry.data)
+                }
+                title={entry.data.title}
+              />
+            ) : (
+              <BookmarkTile
+                key={entry.data.id}
+                favicon={entry.data.favicon}
+                isPreview={isPreview}
+                kind="bookmark"
+                layout={settings.iconLayout}
+                onActivate={() => onActivateBookmark(entry.data)}
+                onContextMenu={(event) =>
+                  onBookmarkContextMenu(event, entry.data)
+                }
+                title={entry.data.title}
+              />
+            ),
+          )}
+          {Array.from({ length: placeholderCount }, (_, index) => (
+            <span
+              key={`placeholder-${index}`}
+              aria-hidden="true"
+              className="starlit-bookmark-grid__placeholder"
             />
-          ) : (
-            <BookmarkTile
-              key={entry.data.id}
-              favicon={entry.data.favicon}
-              isPreview={isPreview}
-              kind="bookmark"
-              layout={settings.iconLayout}
-              onActivate={() => onActivateBookmark(entry.data)}
-              onContextMenu={(event) =>
-                onBookmarkContextMenu(event, entry.data)
-              }
-              title={entry.data.title}
-            />
-          ),
-        )}
-        {Array.from({ length: placeholderCount }, (_, index) => (
-          <span
-            key={`placeholder-${index}`}
-            aria-hidden="true"
-            className="starlit-bookmark-grid__placeholder"
-          />
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
 
       {!isPreview && !isExpanded && totalPages > 1 ? (
         <nav

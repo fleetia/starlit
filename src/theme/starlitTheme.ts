@@ -74,6 +74,7 @@ export function getLayoutStyle(
     '--icon-height': `${size * (icon.height ?? 4)}px`,
     '--masonry-card-width': `calc(var(--em) * ${gridSettings.columns} * ${icon.width ?? 4} + var(--gap) * ${Math.max(0, gridSettings.columns - 1)} + var(--gap) * 2)`,
     '--heading-title-color': heading?.titleColor,
+    '--heading-title-background-color': heading?.titleBackgroundColor,
     '--heading-title-size': heading?.titleSize
       ? `${heading.titleSize}px`
       : undefined,

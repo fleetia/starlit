@@ -23,11 +23,13 @@ import {
   TextArea,
   TextField,
 } from '@fleetia/lagrange';
+import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
 
 import { applySiblingOrder } from '../bookmarks/bookmarkTree';
 import { BookmarkTreeSelector } from '../bookmarks/BookmarkTreeSelector';
 import type { BookmarkTreePrefs } from '../bookmarks/useBookmarkTreePrefs';
 import { useTranslation, type Locale } from '../i18n';
+import { DEFAULT_GRID_SETTINGS } from '../newtab/defaultOptionValue';
 import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
 import { getLayoutStyle, getThemeStyle } from '../theme/starlitTheme';
 import {
@@ -278,20 +280,27 @@ function isAppearanceTab(value: string): value is AppearanceTab {
   return APPEARANCE_TABS.some((tab) => tab === value);
 }
 
+function isBackgroundSource(value: string): value is BackgroundMedia['source'] {
+  return value === 'file' || value === 'url';
+}
+
 function getHeadingSettings(
   gridSettings: GridSettings,
   theme: StarlitTheme,
 ): HeadingSettings {
-  return (
-    gridSettings.heading ?? {
-      borderColor: theme.border,
-      borderEnabled: false,
-      borderWidth: 1,
-      subtitleColor: theme.muted,
-      subtitleHoverColor: theme.accent,
-      titleColor: theme.accent,
-    }
-  );
+  const fallback = {
+    borderColor: theme.border,
+    borderEnabled: false,
+    borderWidth: 1,
+    subtitleColor: theme.muted,
+    subtitleHoverColor: theme.accent,
+    titleBackgroundColor: DEFAULT_GRID_SETTINGS.heading?.titleBackgroundColor,
+    titleColor: theme.accent,
+  };
+
+  return gridSettings.heading
+    ? { ...fallback, ...gridSettings.heading }
+    : fallback;
 }
 
 function getFolderSettings(
@@ -347,7 +356,12 @@ function OptionsSidebarSession({
   const [primaryTab, setPrimaryTab] = useState<PrimaryTab>('general');
   const [appearanceTab, setAppearanceTab] =
     useState<AppearanceTab>('background');
-  const [backgroundUrl, setBackgroundUrl] = useState('');
+  const [backgroundSource, setBackgroundSource] = useState<
+    BackgroundMedia['source']
+  >(() => backgroundMeta?.source ?? 'url');
+  const [backgroundUrl, setBackgroundUrl] = useState(() =>
+    backgroundMeta?.source === 'url' ? backgroundMeta.url : '',
+  );
   const [draftBackground, setDraftBackground] =
     useState<BackgroundDraft | null>(null);
   const [draftGrid, setDraftGrid] = useState(() =>
@@ -644,15 +658,37 @@ function OptionsSidebarSession({
     onClose();
   }
 
-  function handleBackgroundUrlApply(): void {
-    const nextUrl = backgroundUrl.trim();
+  function handleBackgroundSourceChange(value: string): void {
+    if (!isBackgroundSource(value)) {
+      return;
+    }
 
-    if (!nextUrl) {
+    setBackgroundSource(value);
+    setDraftBackground(null);
+
+    if (value === 'url') {
+      setBackgroundUrl(
+        backgroundMeta?.source === 'url' ? backgroundMeta.url : '',
+      );
+    }
+  }
+
+  function handleBackgroundUrlChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ): void {
+    const value = event.currentTarget.value;
+    const nextUrl = value.trim();
+    setBackgroundUrl(value);
+
+    if (
+      !nextUrl ||
+      (backgroundMeta?.source === 'url' && nextUrl === backgroundMeta.url)
+    ) {
+      setDraftBackground(null);
       return;
     }
 
     setDraftBackground({ kind: 'url', url: nextUrl });
-    setBackgroundUrl('');
   }
 
   function handleBackgroundFileChange(
@@ -665,6 +701,7 @@ function OptionsSidebarSession({
       return;
     }
 
+    setBackgroundSource('file');
     setDraftBackground({ file, kind: 'file' });
     setBackgroundUrl('');
   }
@@ -674,41 +711,46 @@ function OptionsSidebarSession({
     setBackgroundUrl('');
   }
 
-  function getDraftBackgroundDescription(): string | null {
-    if (!draftBackground) {
-      return null;
-    }
-
-    switch (draftBackground.kind) {
-      case 'clear':
-        return t('sidebar.background.remove');
-      case 'file':
-        return `${draftBackground.file.type || 'file'} · ${draftBackground.file.name}`;
-      case 'url':
-        return `URL · ${draftBackground.url}`;
-    }
-  }
-
-  function renderBackgroundStatus(): ReactElement | null {
-    const draftDescription = getDraftBackgroundDescription();
-
-    if (draftDescription) {
-      return (
-        <Text tone="muted" variant="caption">
-          {draftDescription}
-        </Text>
-      );
+  function getBackgroundStatus(): string | null {
+    if (draftBackground) {
+      switch (draftBackground.kind) {
+        case 'clear':
+          return t('sidebar.background.pendingRemoval');
+        case 'file':
+          return `${t('sidebar.background.selected')}: ${draftBackground.file.name}`;
+        case 'url':
+          return `${t('sidebar.background.selected')}: ${t('sidebar.background.sourceUrl')} · ${draftBackground.url}`;
+      }
     }
 
     if (backgroundMeta) {
-      return (
-        <Text tone="muted" variant="caption">
-          {backgroundMeta.type} · {backgroundMeta.source}
-        </Text>
+      const mediaType = t(
+        backgroundMeta.type === 'video'
+          ? 'sidebar.background.video'
+          : 'sidebar.background.imageType',
       );
+      const source = t(
+        backgroundMeta.source === 'url'
+          ? 'sidebar.background.sourceUrl'
+          : 'sidebar.background.sourceFile',
+      );
+      const detail =
+        backgroundMeta.source === 'url' ? ` · ${backgroundMeta.url}` : '';
+
+      return `${t('sidebar.background.current')}: ${mediaType} · ${source}${detail}`;
     }
 
     return null;
+  }
+
+  function renderBackgroundStatus(): ReactElement | null {
+    const status = getBackgroundStatus();
+
+    return status ? (
+      <Text className={styles.backgroundStatus} tone="muted" variant="caption">
+        {status}
+      </Text>
+    ) : null;
   }
 
   async function handleExport(): Promise<void> {
@@ -845,49 +887,65 @@ function OptionsSidebarSession({
   }
 
   function renderBackgroundSettings(): ReactElement {
+    const hasBackground =
+      (backgroundMeta !== null && backgroundMeta !== undefined) ||
+      draftBackground !== null;
+
     return (
       <Stack gap="lg">
         <SettingsSection title={t('sidebar.background.image')}>
-          <Stack gap="sm">
-            <FormField label={t('sidebar.background.image')}>
-              <TextField
-                onChange={(event) =>
-                  setBackgroundUrl(event.currentTarget.value)
-                }
-                placeholder={t('sidebar.background.urlPlaceholder')}
-                value={backgroundUrl}
-              />
-            </FormField>
-            <Inline gap="sm">
-              <Button
-                disabled={isSaving || !backgroundUrl.trim()}
-                onClick={handleBackgroundUrlApply}
-                size="compact"
-              >
-                {t('sidebar.background.apply')}
-              </Button>
-              <Button
+          <Stack gap="md">
+            <ChoiceGroup
+              description={t('sidebar.background.sourceDescription')}
+              label={t('sidebar.background.source')}
+              onValueChange={handleBackgroundSourceChange}
+              value={backgroundSource}
+            >
+              <Choice disabled={isBackgroundProcessing || isSaving} value="url">
+                {t('sidebar.background.sourceUrl')}
+              </Choice>
+              <Choice
                 disabled={isBackgroundProcessing || isSaving}
-                onClick={() => backgroundFileRef.current?.click()}
-                size="compact"
-                variant="secondary"
+                value="file"
               >
                 {t('sidebar.background.fileUpload')}
-              </Button>
-              <Button
-                disabled={
-                  isBackgroundProcessing ||
-                  isSaving ||
-                  draftBackground?.kind === 'clear' ||
-                  (!backgroundMeta && draftBackground === null)
-                }
-                onClick={handleBackgroundClear}
-                size="compact"
-                variant="critical"
-              >
-                {t('sidebar.background.remove')}
-              </Button>
-            </Inline>
+              </Choice>
+            </ChoiceGroup>
+            {backgroundSource === 'url' ? (
+              <Section boundary="weak" spacing="compact">
+                <FormField
+                  description={t('sidebar.background.urlDescription')}
+                  label={t('sidebar.background.url')}
+                >
+                  <TextField
+                    disabled={isBackgroundProcessing || isSaving}
+                    inputMode="url"
+                    onChange={handleBackgroundUrlChange}
+                    placeholder={t('sidebar.background.urlPlaceholder')}
+                    type="url"
+                    value={backgroundUrl}
+                  />
+                </FormField>
+              </Section>
+            ) : (
+              <Section boundary="weak" spacing="compact">
+                <SectionHeader
+                  description={t('sidebar.background.fileDescription')}
+                  headingLevel={4}
+                  headingVariant="label"
+                  rule="none"
+                  title={t('sidebar.background.fileUpload')}
+                />
+                <Button
+                  disabled={isBackgroundProcessing || isSaving}
+                  onClick={() => backgroundFileRef.current?.click()}
+                  size="compact"
+                  variant="secondary"
+                >
+                  {t('sidebar.background.fileSelect')}
+                </Button>
+              </Section>
+            )}
             <input
               ref={backgroundFileRef}
               accept="image/*,video/*,.gif"
@@ -895,12 +953,23 @@ function OptionsSidebarSession({
               onChange={handleBackgroundFileChange}
               type="file"
             />
-            {isBackgroundProcessing ? (
-              <Text aria-live="polite" tone="muted" variant="caption">
-                {t('sidebar.background.processing')}
-              </Text>
+            {hasBackground ? (
+              <Inline align="center" gap="sm" justify="between" wrap>
+                {renderBackgroundStatus()}
+                <Button
+                  disabled={
+                    isBackgroundProcessing ||
+                    isSaving ||
+                    draftBackground?.kind === 'clear'
+                  }
+                  onClick={handleBackgroundClear}
+                  size="compact"
+                  variant="critical"
+                >
+                  {t('sidebar.background.remove')}
+                </Button>
+              </Inline>
             ) : null}
-            {renderBackgroundStatus()}
           </Stack>
         </SettingsSection>
         <SettingsSection title={t('sidebar.tokens.surfaceTitle')}>
@@ -959,6 +1028,17 @@ function OptionsSidebarSession({
               label={`${t('sidebar.container.title')} ${t('sidebar.container.text')}`}
               onValueChange={(value) => updateHeading({ titleColor: value })}
               value={heading.titleColor}
+            />
+            <ColorControl
+              label={t('sidebar.container.titleBackground')}
+              onValueChange={(value) =>
+                updateHeading({ titleBackgroundColor: value })
+              }
+              value={
+                heading.titleBackgroundColor ??
+                DEFAULT_GRID_SETTINGS.heading?.titleBackgroundColor ??
+                'transparent'
+              }
             />
             <RangeControl
               label={t('sidebar.container.size')}
@@ -1214,7 +1294,6 @@ function OptionsSidebarSession({
         <Tabs
           className={styles.appearanceTabs}
           onValueChange={handleAppearanceTabChange}
-          orientation="vertical"
           value={appearanceTab}
         >
           <TabList aria-label={t('sidebar.tab.appearance')}>
@@ -1527,10 +1606,24 @@ function OptionsSidebarSession({
   return (
     <>
       <Dialog
+        className={lagrangeThemeClass}
         closeLabel={t('modal.close')}
         data-starlit-part="settings-dialog"
         footer={
-          <Inline gap="sm" justify="end">
+          <Inline align="center" gap="sm" justify="end" wrap>
+            {isBackgroundProcessing ? (
+              <Text
+                aria-atomic="true"
+                aria-live="polite"
+                className={styles.processingStatus}
+                role="status"
+                tone="muted"
+                variant="caption"
+              >
+                <span aria-hidden="true" className={styles.processingSpinner} />
+                <span>{t('sidebar.background.processing')}</span>
+              </Text>
+            ) : null}
             <Button onClick={requestClose} variant="quiet">
               {t('sidebar.cancel')}
             </Button>
@@ -1704,6 +1797,7 @@ function OptionsSidebarSession({
       </Dialog>
       <Dialog
         aria-describedby={discardDescriptionId}
+        className={lagrangeThemeClass}
         footer={
           <Inline gap="sm" justify="end">
             <Button
