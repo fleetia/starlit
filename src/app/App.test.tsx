@@ -5,9 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../i18n';
 import { getBookmarkIdKey } from '../bookmarks/bookmarkRoute';
-import type { ExpandedGroupsState } from './expandedLayout';
-import { NewTabApp } from './NewTabApp';
-import type { Bookmark, GridSettings, Settings, StarlitTheme } from './types';
+import type { Bookmark } from '../bookmarks/types';
+import type { ExpandedGroupsState } from '../layout/expandedLayout';
+import type { GridSettings } from '../layout/types';
+import type { Settings } from '../settings/types';
+import type { StarlitTheme } from '../theme/types';
+import { App } from './App';
 
 const appState = vi.hoisted(() => ({
   bookmarks: [
@@ -169,11 +172,15 @@ vi.mock('../hooks/useStorageState', () => ({
       };
     }
 
-    return {
-      isLoaded: loadingState.size,
-      setValue: appMocks.setSize,
-      value: 16,
-    };
+    if (key === 'size') {
+      return {
+        isLoaded: loadingState.size,
+        setValue: appMocks.setSize,
+        value: 16,
+      };
+    }
+
+    throw new Error(`Unexpected storage key: ${key}`);
   },
 }));
 
@@ -237,7 +244,7 @@ vi.mock('../theme/FontStylesheets', () => ({
 function renderApp(): ReturnType<typeof render> {
   return render(
     <I18nProvider locale="en">
-      <NewTabApp locale="en" onLocaleChange={appMocks.onLocaleChange} />
+      <App locale="en" onLocaleChange={appMocks.onLocaleChange} />
     </I18nProvider>,
   );
 }
@@ -273,7 +280,7 @@ beforeEach((): void => {
   );
 });
 
-describe('NewTabApp', () => {
+describe('App', () => {
   it('exposes stable custom CSS parts for paged group navigation', () => {
     appState.bookmarks = [
       ...appState.bookmarks,
@@ -366,7 +373,7 @@ describe('NewTabApp', () => {
     loadingState.backgroundProcessing = true;
     view.rerender(
       <I18nProvider locale="en">
-        <NewTabApp locale="en" onLocaleChange={appMocks.onLocaleChange} />
+        <App locale="en" onLocaleChange={appMocks.onLocaleChange} />
       </I18nProvider>,
     );
 
@@ -530,7 +537,7 @@ describe('NewTabApp', () => {
     loadingState.settings = true;
     view.rerender(
       <I18nProvider locale="en">
-        <NewTabApp locale="en" onLocaleChange={appMocks.onLocaleChange} />
+        <App locale="en" onLocaleChange={appMocks.onLocaleChange} />
       </I18nProvider>,
     );
 

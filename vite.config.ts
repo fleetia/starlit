@@ -14,7 +14,7 @@ export default defineConfig(({ command }) => ({
       outDir: 'dist',
       rollupOptions: {
         input: {
-          newtab: resolve(__dirname, 'src/newtab/index.html'),
+          app: resolve(__dirname, 'index.html'),
           background: resolve(__dirname, 'src/background/index.ts'),
         },
         output: {

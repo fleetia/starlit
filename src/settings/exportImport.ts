@@ -1,12 +1,6 @@
 import type { Locale } from '../i18n/types';
-import type {
-  GridSettings,
-  GroupPreference,
-  PersistedSettings,
-  Placement,
-  Settings,
-  StarlitTheme,
-} from '../newtab/types';
+import type { GroupPreference } from '../bookmarks/types';
+import type { GridSettings, Placement } from '../layout/types';
 import {
   normalizeGridSettings,
   normalizeTheme,
@@ -17,13 +11,15 @@ import {
   saveMedia,
 } from '../platform/storage/mediaStorage';
 import storage from '../platform/storage/storage';
+import type { StarlitTheme } from '../theme/types';
+import type { BackgroundMedia } from './backgroundMedia';
+import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from './defaults';
 import { isFontFamily, normalizeSettings } from './normalizeSettings';
+import type { PersistedSettings, Settings } from './types';
 
 export const BACKUP_SCHEMA_VERSION = 2;
 
 const MEDIA_KEY = 'backgroundMedia';
-const DEFAULT_SIZE = 16;
-const DEFAULT_ICON_SIZE = 28;
 const DEFAULT_LOCALE: Locale = 'ko';
 const SYNC_SNAPSHOT_KEYS = [
   'gridSettings',
@@ -43,12 +39,6 @@ export type BookmarkTreePreferences = {
   rootId?: string;
   rootPath: string[];
   siblingOrder: Record<string, string[]>;
-};
-
-type BackgroundMedia = {
-  source: 'file' | 'url';
-  type: 'image' | 'video';
-  url: string;
 };
 
 type OptionalBackupData = {

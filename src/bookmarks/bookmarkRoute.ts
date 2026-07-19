@@ -1,4 +1,4 @@
-import type { Bookmark } from '../newtab/types';
+import type { Bookmark } from './types';
 
 const ESCAPED_ROUTE_PREFIX = '~starlit-route-v2~';
 const BOOKMARK_ID_PREFIX = '~starlit-bookmark-id~';

@@ -1,4 +1,4 @@
-import type { Bookmark } from '../newtab/types';
+import type { Bookmark } from './types';
 import {
   canUseLegacyBookmarkRouteKey,
   getBookmarkRouteKey,

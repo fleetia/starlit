@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { FormField, IconButton, Select, Text } from '@fleetia/lagrange';
 
 import { useTranslation } from '../i18n';
-import type { Bookmark, GroupPreference } from '../newtab/types';
 import { getBookmarksAtRoot } from './bookmarkTree';
 import {
   getBookmarkRouteKey,
@@ -11,6 +10,7 @@ import {
   getLegacyGroupKey,
   getRouteGroupKey,
 } from './bookmarkRoute';
+import type { Bookmark, GroupPreference } from './types';
 import * as styles from './BookmarkTreeSelector.css';
 
 export type BookmarkTreeSelectorProps = {

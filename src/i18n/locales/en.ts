@@ -14,7 +14,7 @@ const en: Translations = {
   'pagination.nextPage': 'Next page',
   'pagination.pages': 'pages',
 
-  // NewTabApp
+  // App
   'newtab.options': 'Options',
   'newtab.empty': 'No bookmark groups are available.',
   'contextMenu.label': 'Bookmark actions',

@@ -5,8 +5,8 @@ import '@fleetia/lagrange/styles.css';
 import { useLocale } from '../hooks/useLocale';
 import { I18nProvider } from '../i18n';
 import { runStorageMigration } from '../platform/storage/migrateStorage';
-import { NewTabApp } from './NewTabApp';
-import './newtab.css';
+import { App } from './App';
+import './app.css';
 
 type RootContainer = HTMLElement & {
   starlitRoot?: ReactRoot;
@@ -14,15 +14,19 @@ type RootContainer = HTMLElement & {
 
 function Root(): React.ReactElement | null {
   const { locale, setLocale, isLoaded } = useLocale();
-  if (!isLoaded) return null;
+
+  if (!isLoaded) {
+    return null;
+  }
+
   return (
     <I18nProvider locale={locale}>
-      <NewTabApp locale={locale} onLocaleChange={setLocale} />
+      <App locale={locale} onLocaleChange={setLocale} />
     </I18nProvider>
   );
 }
 
-async function initializeNewTab(): Promise<void> {
+async function initializeApp(): Promise<void> {
   await runStorageMigration();
 
   const container = document.getElementById('root') as RootContainer | null;
@@ -35,7 +39,7 @@ async function initializeNewTab(): Promise<void> {
   root.render(<Root />);
 }
 
-void initializeNewTab().catch((error: unknown) => {
+void initializeApp().catch((error: unknown) => {
   if (typeof globalThis.reportError === 'function') {
     globalThis.reportError(error);
     return;

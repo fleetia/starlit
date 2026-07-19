@@ -1,10 +1,3 @@
-export type BookmarkItem = {
-  id: string;
-  title: string;
-  url: string;
-  favicon?: string;
-};
-
 export type Placement =
   | 'top-left'
   | 'top-center'
@@ -15,17 +8,6 @@ export type Placement =
   | 'bottom-left'
   | 'bottom-center'
   | 'bottom-right';
-
-export type Bookmark = {
-  id?: string;
-  title: string;
-  description?: string;
-  url?: string;
-  favicon?: string;
-  route?: string[];
-  list?: BookmarkItem[];
-  children?: Bookmark[];
-};
 
 export type GridSettings = {
   columns: number;
@@ -70,45 +52,4 @@ export type GridSettings = {
     text: string;
     border: string;
   };
-};
-
-export type StarlitTheme = {
-  accent: string;
-  accentText: string;
-  surface: string;
-  text: string;
-  border: string;
-  hoverBg: string;
-  hoverText: string;
-  muted: string;
-};
-
-export type FontFamily = 'ibm-plex-sans' | 'system';
-
-export type Settings = {
-  fontFamily: FontFamily;
-  isFolderEnabled: boolean;
-  isVisibleOnce: boolean;
-  isOpenInNewTab: boolean;
-  isExpandView: boolean;
-  iconLayout?: 'vertical' | 'horizontal';
-};
-
-export type PersistedSettings = Omit<Settings, 'fontFamily'> & {
-  fontFamily?: FontFamily;
-};
-
-export type GroupPreference = {
-  key: string;
-  visible: boolean;
-};
-
-export type OptionsType = {
-  bookmarks: Bookmark[];
-  colorTheme: StarlitTheme;
-  customCSS?: string;
-  gridSettings: GridSettings;
-  iconSize: number;
-  settings: Settings;
-  size: number;
 };

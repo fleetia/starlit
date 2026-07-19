@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Bookmark, GroupPreference } from '../newtab/types';
 import { getBookmarkIdKey, getBookmarkRouteKey } from './bookmarkRoute';
 import { useGroupPreferences } from './useGroupPreferences';
+import type { Bookmark, GroupPreference } from './types';
 
 type PreferenceUpdate =
   GroupPreference[] | ((previous: GroupPreference[]) => GroupPreference[]);

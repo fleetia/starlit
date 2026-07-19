@@ -391,7 +391,7 @@ export const test = base.extend<ExtensionFixtures>({
 
     async function openNewTab(): Promise<Page> {
       const page = await context.newPage();
-      await page.goto(`chrome-extension://${extensionId}/newtab/index.html`);
+      await page.goto(`chrome-extension://${extensionId}/index.html`);
       await page.waitForFunction(() => {
         const status = document.documentElement.dataset.starlitFontStatus;
         return status === 'loaded' || status === 'system';

@@ -1,7 +1,9 @@
 import type { MouseEvent, ReactElement } from 'react';
 import { Text } from '@fleetia/lagrange';
 
-export type BookmarkTileLayout = 'horizontal' | 'vertical';
+import type { BookmarkLayout } from './types';
+
+export type BookmarkTileLayout = BookmarkLayout;
 export type BookmarkTileKind = 'bookmark' | 'folder';
 
 export type BookmarkTileProps = {

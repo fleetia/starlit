@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Bookmark } from '../newtab/types';
 import { applySiblingOrder, getBookmarksAtRoot } from './bookmarkTree';
 import { getBookmarkIdKey, getBookmarkRouteKey } from './bookmarkRoute';
+import type { Bookmark } from './types';
 
 const TREE: Bookmark[] = [
   {

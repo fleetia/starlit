@@ -1,11 +1,10 @@
 import { useStorageState } from '../hooks/useStorageState';
-import { getThemeStyle, type CssVariableStyle } from '../theme/starlitTheme';
-
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { StarlitTheme } from '../newtab/types';
+import { DEFAULT_STARLIT_THEME } from '../theme/defaults';
+import { getThemeStyle } from '../theme/starlitTheme';
+import type { CssVariableStyle, StarlitTheme } from '../theme/types';
 
 export const themePresets = {
-  light: defaultOptionValue.colorTheme,
+  light: DEFAULT_STARLIT_THEME,
 } satisfies Record<string, StarlitTheme>;
 
 type UseThemeReturn = {
@@ -22,10 +21,7 @@ export function useTheme(): UseThemeReturn {
     isLoaded,
     value: colorTheme,
     setValue: setColorTheme,
-  } = useStorageState<StarlitTheme>(
-    'colorTheme',
-    defaultOptionValue.colorTheme,
-  );
+  } = useStorageState<StarlitTheme>('colorTheme', DEFAULT_STARLIT_THEME);
 
   const updateTheme = async (
     key: keyof StarlitTheme,

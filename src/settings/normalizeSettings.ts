@@ -1,8 +1,7 @@
-import {
-  DEFAULT_FONT_FAMILY,
-  defaultOptionValue,
-} from '../newtab/defaultOptionValue';
-import type { FontFamily, Settings } from '../newtab/types';
+import { DEFAULT_FONT_FAMILY } from '../theme/defaults';
+import type { FontFamily } from '../theme/types';
+import { DEFAULT_SETTINGS } from './defaults';
+import type { Settings } from './types';
 
 export function isFontFamily(value: unknown): value is FontFamily {
   return value === 'ibm-plex-sans' || value === 'system';
@@ -14,7 +13,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeSettings(value: unknown): Settings {
   const stored = isRecord(value) ? value : {};
-  const defaults = defaultOptionValue.settings;
+  const defaults = DEFAULT_SETTINGS;
   const iconLayout =
     stored.iconLayout === 'horizontal' || stored.iconLayout === 'vertical'
       ? stored.iconLayout

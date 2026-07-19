@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { StarlitTheme } from '../newtab/types';
+import { DEFAULT_STARLIT_THEME } from '../theme/defaults';
+import type { StarlitTheme } from '../theme/types';
 import { themePresets, useTheme } from './useTheme';
 
 type ThemeUpdate = StarlitTheme | ((previous: StarlitTheme) => StarlitTheme);
@@ -21,7 +21,7 @@ vi.mock('../hooks/useStorageState', () => ({
 }));
 
 beforeEach((): void => {
-  storageState.colorTheme = structuredClone(defaultOptionValue.colorTheme);
+  storageState.colorTheme = structuredClone(DEFAULT_STARLIT_THEME);
   storageState.setColorTheme.mockResolvedValue(undefined);
 });
 
@@ -39,11 +39,9 @@ describe('useTheme', () => {
 
     expect(typeof update).toBe('function');
     expect(
-      typeof update === 'function'
-        ? update(defaultOptionValue.colorTheme)
-        : update,
+      typeof update === 'function' ? update(DEFAULT_STARLIT_THEME) : update,
     ).toEqual({
-      ...defaultOptionValue.colorTheme,
+      ...DEFAULT_STARLIT_THEME,
       accent: '#ff0000',
     });
   });
@@ -71,6 +69,6 @@ describe('useTheme', () => {
       2,
       themePresets.light,
     );
-    expect(themePresets.light).toEqual(defaultOptionValue.colorTheme);
+    expect(themePresets.light).toEqual(DEFAULT_STARLIT_THEME);
   });
 });

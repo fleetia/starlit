@@ -1,0 +1,102 @@
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.starlit-root {
+  --starlit-canvas: color-mix(in srgb, var(--c-surface) 82%, var(--c-muted));
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--c-text);
+  background-color: var(--starlit-canvas);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--c-border) 38%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 16px 16px;
+}
+
+.starlit-background-media,
+.starlit-background-image {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.starlit-background-image {
+  background-image: var(--starlit-background-image);
+  background-position: center;
+  background-size: cover;
+}
+
+.starlit-main {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 100vh;
+  padding: calc(24px + var(--grid-margin-top, 0px))
+    calc(24px + var(--grid-margin-right, 0px))
+    calc(24px + var(--grid-margin-bottom, 0px))
+    calc(24px + var(--grid-margin-left, 0px));
+}
+
+.starlit-grid-texture {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.starlit-settings-trigger {
+  position: fixed;
+  z-index: 4;
+  right: 18px;
+  bottom: 18px;
+}
+
+.starlit-visually-hidden {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 720px) {
+  .starlit-main {
+    padding: calc(12px + var(--grid-margin-top, 0px))
+      calc(12px + var(--grid-margin-right, 0px))
+      calc(12px + var(--grid-margin-bottom, 0px))
+      calc(12px + var(--grid-margin-left, 0px));
+  }
+}

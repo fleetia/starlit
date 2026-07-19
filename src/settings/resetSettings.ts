@@ -1,6 +1,6 @@
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import { STORAGE_SCHEMA_VERSION } from '../platform/storage/schema';
+import { DEFAULT_SYNC_STORAGE_VALUES } from '../platform/storage/defaults';
 import { deleteMedia } from '../platform/storage/mediaStorage';
+import { STORAGE_SCHEMA_VERSION } from '../platform/storage/schema';
 import storage from '../platform/storage/storage';
 
 const BACKGROUND_MEDIA_KEY = 'backgroundMedia';
@@ -17,11 +17,7 @@ const SYNC_KEYS_TO_REMOVE = [
 
 export async function resetAllSettings(): Promise<void> {
   await storage.sync.set({
-    colorTheme: defaultOptionValue.colorTheme,
-    gridSettings: defaultOptionValue.gridSettings,
-    iconSize: defaultOptionValue.iconSize,
-    settings: defaultOptionValue.settings,
-    size: defaultOptionValue.size,
+    ...DEFAULT_SYNC_STORAGE_VALUES,
     storageSchemaVersion: STORAGE_SCHEMA_VERSION,
   });
   await storage.sync.remove([...SYNC_KEYS_TO_REMOVE]);

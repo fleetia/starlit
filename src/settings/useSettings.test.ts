@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { PersistedSettings, Settings } from '../newtab/types';
+import { DEFAULT_SETTINGS } from './defaults';
 import { normalizeSettings } from './normalizeSettings';
+import type { PersistedSettings, Settings } from './types';
 import { useSettings } from './useSettings';
 
 const storageState = vi.hoisted(() => ({
@@ -20,7 +20,7 @@ vi.mock('../hooks/useStorageState', () => ({
 }));
 
 beforeEach((): void => {
-  storageState.settings = structuredClone(defaultOptionValue.settings);
+  storageState.settings = structuredClone(DEFAULT_SETTINGS);
   storageState.setSettings.mockResolvedValue(undefined);
 });
 
@@ -28,16 +28,14 @@ describe('useSettings', () => {
   it('normalizes an unknown stored font to IBM Plex Sans', () => {
     expect(
       normalizeSettings({
-        ...defaultOptionValue.settings,
+        ...DEFAULT_SETTINGS,
         fontFamily: 'unknown-font',
       }).fontFamily,
     ).toBe('ibm-plex-sans');
   });
 
   it('defaults a legacy profile to IBM Plex Sans', () => {
-    const legacySettings: PersistedSettings = structuredClone(
-      defaultOptionValue.settings,
-    );
+    const legacySettings: PersistedSettings = structuredClone(DEFAULT_SETTINGS);
     delete legacySettings.fontFamily;
     storageState.settings = legacySettings;
 
@@ -49,13 +47,13 @@ describe('useSettings', () => {
   it('returns persisted settings and saves a complete update', async () => {
     const { result } = renderHook(() => useSettings());
     const nextSettings: Settings = {
-      ...defaultOptionValue.settings,
+      ...DEFAULT_SETTINGS,
       iconLayout: 'horizontal',
       isExpandView: true,
       isOpenInNewTab: true,
     };
 
-    expect(result.current.settings).toEqual(defaultOptionValue.settings);
+    expect(result.current.settings).toEqual(DEFAULT_SETTINGS);
     expect(result.current.isLoaded).toBe(true);
 
     await act(async (): Promise<void> => {

@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../i18n';
-import type { Bookmark } from '../newtab/types';
 import { getBookmarkIdKey } from './bookmarkRoute';
 import { BookmarkTreeSelector } from './BookmarkTreeSelector';
+import type { Bookmark } from './types';
 
 describe('BookmarkTreeSelector', () => {
   it('selects a direct-bookmark folder whose title contains a slash', () => {

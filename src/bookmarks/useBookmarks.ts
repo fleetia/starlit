@@ -12,9 +12,8 @@ import chromeBookmarks, {
   convertTree,
   flattenItems,
 } from '../platform/bookmarks/chromeBookmarks';
-
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { Bookmark } from '../newtab/types';
+import { DEFAULT_BOOKMARKS } from './defaults';
+import type { Bookmark } from './types';
 
 type UseBookmarksReturn = {
   bookmarks: Bookmark[];
@@ -52,11 +51,7 @@ export function useBookmarks(): UseBookmarksReturn {
     value: bookmarks,
     setValue: setBookmarks,
     isLoaded: isStorageLoaded,
-  } = useStorageState<Bookmark[]>(
-    'bookmarks',
-    defaultOptionValue.bookmarks,
-    'local',
-  );
+  } = useStorageState<Bookmark[]>('bookmarks', DEFAULT_BOOKMARKS, 'local');
   const [favicons, setFavicons] = useState<Record<string, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
 

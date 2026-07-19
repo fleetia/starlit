@@ -1,13 +1,13 @@
 import { useMemo, useCallback } from 'react';
 
 import { useStorageState } from '../hooks/useStorageState';
-import type { Bookmark, GroupPreference } from '../newtab/types';
 import {
   canUseLegacyBookmarkRouteKey,
   getGroupKey,
   getLegacyGroupKey,
   getRouteGroupKey,
 } from './bookmarkRoute';
+import type { Bookmark, GroupPreference } from './types';
 
 type UseGroupPreferencesReturn = {
   groupPreferences: GroupPreference[];

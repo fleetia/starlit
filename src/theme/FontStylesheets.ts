@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import type { Locale } from '../i18n';
-import type { FontFamily } from '../newtab/types';
+import type { FontFamily } from './types';
 
 const IBM_PLEX_SANS_URL =
   'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&display=swap';

@@ -2,7 +2,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ParsedFrame, ParsedGif } from 'gifuct-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type BackgroundMedia, useBackgroundImage } from './useBackgroundImage';
+import type { BackgroundMedia } from './backgroundMedia';
+import { useBackgroundImage } from './useBackgroundImage';
 
 const storageState = vi.hoisted(() => ({
   meta: null as BackgroundMedia | null,

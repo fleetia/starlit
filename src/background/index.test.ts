@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
+import { DEFAULT_SYNC_STORAGE_VALUES } from '../platform/storage/defaults';
 
 const backgroundMocks = vi.hoisted(() => ({
   runStorageMigration: vi.fn(async (): Promise<void> => undefined),
@@ -37,7 +37,7 @@ beforeEach(() => {
 describe('initializeInstallDefaults', () => {
   it('sets only missing defaults before running storage migration', async () => {
     const existingTheme = {
-      ...defaultOptionValue.colorTheme,
+      ...DEFAULT_SYNC_STORAGE_VALUES.colorTheme,
       accent: '#123456',
     };
     backgroundMocks.syncValues = {
@@ -48,9 +48,9 @@ describe('initializeInstallDefaults', () => {
     await initializeInstallDefaults();
 
     expect(backgroundMocks.set).toHaveBeenCalledWith({
-      gridSettings: defaultOptionValue.gridSettings,
-      iconSize: defaultOptionValue.iconSize,
-      settings: defaultOptionValue.settings,
+      gridSettings: DEFAULT_SYNC_STORAGE_VALUES.gridSettings,
+      iconSize: DEFAULT_SYNC_STORAGE_VALUES.iconSize,
+      settings: DEFAULT_SYNC_STORAGE_VALUES.settings,
     });
     expect(backgroundMocks.set).toHaveBeenCalledOnce();
     expect(backgroundMocks.runStorageMigration).toHaveBeenCalledOnce();
@@ -61,11 +61,7 @@ describe('initializeInstallDefaults', () => {
 
   it('preserves a complete existing profile', async () => {
     backgroundMocks.syncValues = {
-      colorTheme: defaultOptionValue.colorTheme,
-      gridSettings: defaultOptionValue.gridSettings,
-      iconSize: defaultOptionValue.iconSize,
-      settings: defaultOptionValue.settings,
-      size: defaultOptionValue.size,
+      ...DEFAULT_SYNC_STORAGE_VALUES,
     };
 
     await initializeInstallDefaults();

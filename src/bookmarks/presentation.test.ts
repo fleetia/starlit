@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Bookmark } from '../newtab/types';
 import {
   getBookmarkEntries,
   getCurrentFolder,
   paginateBookmarkEntries,
 } from './presentation';
+import type { Bookmark } from './types';
 
 const ROOT: Bookmark = {
   id: 'root',

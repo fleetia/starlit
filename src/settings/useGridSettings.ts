@@ -1,7 +1,6 @@
 import { useStorageState } from '../hooks/useStorageState';
-
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { GridSettings } from '../newtab/types';
+import { DEFAULT_GRID_SETTINGS } from '../layout/defaults';
+import type { GridSettings } from '../layout/types';
 
 type UseGridSettingsReturn = {
   gridSettings: GridSettings;
@@ -16,10 +15,7 @@ export function useGridSettings(): UseGridSettingsReturn {
     isLoaded,
     value: gridSettings,
     setValue: updateGridSettings,
-  } = useStorageState<GridSettings>(
-    'gridSettings',
-    defaultOptionValue.gridSettings,
-  );
+  } = useStorageState<GridSettings>('gridSettings', DEFAULT_GRID_SETTINGS);
 
   return { gridSettings, isLoaded, updateGridSettings };
 }

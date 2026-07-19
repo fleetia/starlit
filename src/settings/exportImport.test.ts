@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_GRID_SETTINGS,
-  DEFAULT_STARLIT_THEME,
   LEGACY_DEFAULT_GRID_SETTINGS,
-  LEGACY_DEFAULT_THEME,
-} from '../newtab/defaultOptionValue';
-import type { GridSettings, Settings, StarlitTheme } from '../newtab/types';
+} from '../layout/defaults';
+import type { GridSettings } from '../layout/types';
+import { DEFAULT_STARLIT_THEME, LEGACY_DEFAULT_THEME } from '../theme/defaults';
+import type { StarlitTheme } from '../theme/types';
+import type { Settings } from './types';
 
 const mockState = vi.hoisted(() => ({
   failLocalSetOnce: false,

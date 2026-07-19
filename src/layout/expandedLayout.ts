@@ -1,4 +1,4 @@
-import type { Placement } from './types';
+import type { GridSettings, Placement } from './types';
 
 export const EXPANDED_VIEW_BREAKPOINT_PX = 720;
 export const EXPANDED_GROUP_MIN_HEIGHT_PX = 160;
@@ -10,15 +10,9 @@ export type ExpandedGroupsState = {
   openKeys: string[];
 };
 
-type VerticalMargin = {
-  bottom: number;
-  top: number;
-};
-
-type HorizontalMargin = {
-  left: number;
-  right: number;
-};
+type GridMargin = NonNullable<GridSettings['margin']>;
+type VerticalMargin = Pick<GridMargin, 'bottom' | 'top'>;
+type HorizontalMargin = Pick<GridMargin, 'left' | 'right'>;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));

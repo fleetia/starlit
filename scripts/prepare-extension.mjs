@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rename, rm } from 'node:fs/promises';
+import { cp, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -14,13 +14,8 @@ async function pathExists(path) {
 }
 
 async function prepareExtension() {
-  const sourceHtml = resolve(DIST, 'src/newtab/index.html');
-  const targetDirectory = resolve(DIST, 'newtab');
-  const targetHtml = resolve(targetDirectory, 'index.html');
+  const entryHtml = resolve(DIST, 'index.html');
 
-  await mkdir(targetDirectory, { recursive: true });
-  await rename(sourceHtml, targetHtml);
-  await rm(resolve(DIST, 'src'), { recursive: true, force: true });
   await cp(resolve(ROOT, 'manifest.json'), resolve(DIST, 'manifest.json'));
   await cp(resolve(ROOT, 'assets'), resolve(DIST, 'assets'), {
     recursive: true,
@@ -29,7 +24,7 @@ async function prepareExtension() {
   const requiredPaths = [
     resolve(DIST, 'manifest.json'),
     resolve(DIST, 'background/index.js'),
-    targetHtml,
+    entryHtml,
   ];
   const missingPaths = [];
 
@@ -75,14 +70,14 @@ async function prepareExtension() {
     }
   }
 
-  const html = await readFile(targetHtml, 'utf8');
+  const html = await readFile(entryHtml, 'utf8');
   const assetReferences = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
     .map((match) => match[1])
     .filter((reference) => reference?.startsWith('/'));
 
   for (const reference of assetReferences) {
     if (!(await pathExists(resolve(DIST, `.${reference}`)))) {
-      throw new Error(`Invalid new-tab asset reference: ${reference}`);
+      throw new Error(`Invalid app asset reference: ${reference}`);
     }
   }
 }

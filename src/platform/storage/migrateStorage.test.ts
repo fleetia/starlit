@@ -10,10 +10,12 @@ import {
 } from './migrateStorage';
 import {
   DEFAULT_GRID_SETTINGS,
-  DEFAULT_STARLIT_THEME,
   LEGACY_DEFAULT_GRID_SETTINGS,
+} from '../../layout/defaults';
+import {
+  DEFAULT_STARLIT_THEME,
   LEGACY_DEFAULT_THEME,
-} from '../../newtab/defaultOptionValue';
+} from '../../theme/defaults';
 
 function createDependencies(
   syncValues: Record<string, unknown>,

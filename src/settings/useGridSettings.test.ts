@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultOptionValue } from '../newtab/defaultOptionValue';
-import type { GridSettings } from '../newtab/types';
+import { DEFAULT_GRID_SETTINGS } from '../layout/defaults';
+import type { GridSettings } from '../layout/types';
 import { useGridSettings } from './useGridSettings';
 
 type GridSettingsUpdate =
@@ -22,7 +22,7 @@ vi.mock('../hooks/useStorageState', () => ({
 }));
 
 beforeEach((): void => {
-  storageState.gridSettings = structuredClone(defaultOptionValue.gridSettings);
+  storageState.gridSettings = structuredClone(DEFAULT_GRID_SETTINGS);
   storageState.setGridSettings.mockResolvedValue(undefined);
 });
 
@@ -30,16 +30,14 @@ describe('useGridSettings', () => {
   it('returns the persisted grid settings', () => {
     const { result } = renderHook(() => useGridSettings());
 
-    expect(result.current.gridSettings).toEqual(
-      defaultOptionValue.gridSettings,
-    );
+    expect(result.current.gridSettings).toEqual(DEFAULT_GRID_SETTINGS);
     expect(result.current.isLoaded).toBe(true);
   });
 
   it('forwards complete and functional updates to storage', async () => {
     const { result } = renderHook(() => useGridSettings());
     const nextSettings: GridSettings = {
-      ...defaultOptionValue.gridSettings,
+      ...DEFAULT_GRID_SETTINGS,
       columns: 8,
       rows: 4,
     };

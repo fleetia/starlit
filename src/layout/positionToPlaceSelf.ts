@@ -1,4 +1,6 @@
-const POSITION_MAP: Record<string, string> = {
+import type { Placement } from './types';
+
+const POSITION_MAP: Record<Placement, string> = {
   'top-left': 'start start',
   'top-center': 'start center',
   'top-right': 'start end',
@@ -10,6 +12,6 @@ const POSITION_MAP: Record<string, string> = {
   'bottom-right': 'end end',
 };
 
-export function positionToPlaceSelf(position?: string): string {
-  return POSITION_MAP[position ?? 'center-center'] ?? 'center center';
+export function positionToPlaceSelf(position: Placement): string {
+  return POSITION_MAP[position] ?? POSITION_MAP['center-center'];
 }

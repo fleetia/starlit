@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import type { GridSettings } from '../../src/newtab/types';
+import type { GridSettings } from '../../src/layout/types';
 import { expect, test } from './extension.fixture';
 import { LEGACY_THEME } from './profile';
 

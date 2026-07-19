@@ -1,4 +1,4 @@
-import type { Bookmark, BookmarkItem } from '../newtab/types';
+import type { Bookmark, BookmarkItem } from './types';
 
 export type BookmarkEntry =
   { data: Bookmark; type: 'folder' } | { data: BookmarkItem; type: 'bookmark' };

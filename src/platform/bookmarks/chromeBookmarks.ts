@@ -1,4 +1,4 @@
-import type { Bookmark, BookmarkItem } from '../../newtab/types';
+import type { Bookmark, BookmarkItem } from '../../bookmarks/types';
 
 type ChromeBookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 

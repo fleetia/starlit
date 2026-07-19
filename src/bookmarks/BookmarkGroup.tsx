@@ -8,15 +8,12 @@ import {
   type BreadcrumbItem,
 } from '@fleetia/lagrange';
 
-import type {
-  Bookmark,
-  BookmarkItem,
-  GridSettings,
-  Settings,
-} from '../newtab/types';
 import { useTranslation } from '../i18n';
+import type { GridSettings } from '../layout/types';
 import { BookmarkTile } from './BookmarkTile';
 import { getBookmarkEntries, paginateBookmarkEntries } from './presentation';
+import type { Bookmark, BookmarkItem, BookmarkLayout } from './types';
+import './bookmarks.css';
 
 type GridStyle = CSSProperties & {
   '--starlit-columns': number;
@@ -31,6 +28,7 @@ export type BookmarkGroupProps = {
   isContentExpanded?: boolean;
   isExpanded: boolean;
   isPreview?: boolean;
+  layout?: BookmarkLayout;
   onActivateBookmark: (bookmark: BookmarkItem) => void;
   onActivateFolder: (folder: Bookmark) => void;
   onBookmarkContextMenu: (
@@ -45,7 +43,6 @@ export type BookmarkGroupProps = {
   onContentExpandedChange?: (isExpanded: boolean) => void;
   onPageChange: (page: number) => void;
   page: number;
-  settings: Settings;
 };
 
 function getBreadcrumbItems(
@@ -76,6 +73,7 @@ export function BookmarkGroup({
   isContentExpanded = true,
   isExpanded,
   isPreview = false,
+  layout,
   onActivateBookmark,
   onActivateFolder,
   onBookmarkContextMenu,
@@ -84,10 +82,9 @@ export function BookmarkGroup({
   onContentExpandedChange,
   onPageChange,
   page,
-  settings,
 }: BookmarkGroupProps): ReactElement {
   const { t } = useTranslation();
-  const isHorizontal = settings.iconLayout === 'horizontal';
+  const isHorizontal = layout === 'horizontal';
   const isExpandedView = isExpanded && !isPreview;
   const canCollapse = isExpandedView && onContentExpandedChange !== undefined;
   const isContentVisible = !canCollapse || isContentExpanded;
@@ -167,7 +164,7 @@ export function BookmarkGroup({
       {isContentVisible ? (
         <div
           className="starlit-bookmark-grid"
-          data-layout={settings.iconLayout ?? 'vertical'}
+          data-layout={layout ?? 'vertical'}
           data-starlit-part="bookmark-grid"
           style={gridStyle}
         >
@@ -178,7 +175,7 @@ export function BookmarkGroup({
                 favicon={entry.data.favicon}
                 isPreview={isPreview}
                 kind="folder"
-                layout={settings.iconLayout}
+                layout={layout}
                 onActivate={() => onActivateFolder(entry.data)}
                 onContextMenu={(event) =>
                   onFolderContextMenu(event, entry.data)
@@ -191,7 +188,7 @@ export function BookmarkGroup({
                 favicon={entry.data.favicon}
                 isPreview={isPreview}
                 kind="bookmark"
-                layout={settings.iconLayout}
+                layout={layout}
                 onActivate={() => onActivateBookmark(entry.data)}
                 onContextMenu={(event) =>
                   onBookmarkContextMenu(event, entry.data)

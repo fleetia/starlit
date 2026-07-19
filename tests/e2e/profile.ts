@@ -1,5 +1,5 @@
 import type { BookmarkSeed, ProfileSeed } from './extension.fixture';
-import type { Placement } from '../../src/newtab/types';
+import type { Placement } from '../../src/layout/types';
 
 type ExpandedColumnsProfileSeedOptions = {
   groupCount?: number;

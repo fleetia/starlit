@@ -2,14 +2,10 @@ import type { ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  Bookmark,
-  BookmarkItem,
-  GridSettings,
-  Settings,
-} from '../newtab/types';
 import { I18nProvider } from '../i18n';
+import type { GridSettings } from '../layout/types';
 import { BookmarkGroup, type BookmarkGroupProps } from './BookmarkGroup';
+import type { Bookmark, BookmarkItem } from './types';
 
 const GRID_SETTINGS: GridSettings = {
   background: { border: 'none', color: 'white', text: 'black' },
@@ -18,15 +14,6 @@ const GRID_SETTINGS: GridSettings = {
   icon: { border: 'none', color: 'white', text: 'black' },
   position: 'center-center',
   rows: 1,
-};
-
-const SETTINGS: Settings = {
-  fontFamily: 'ibm-plex-sans',
-  iconLayout: 'vertical',
-  isExpandView: false,
-  isFolderEnabled: true,
-  isOpenInNewTab: false,
-  isVisibleOnce: false,
 };
 
 const CHILD_FOLDER: Bookmark = {
@@ -76,8 +63,8 @@ function getGroupElement(
         folderPath={[]}
         gridSettings={GRID_SETTINGS}
         isExpanded={false}
+        layout="vertical"
         page={page}
-        settings={SETTINGS}
         {...props}
       />
     </I18nProvider>

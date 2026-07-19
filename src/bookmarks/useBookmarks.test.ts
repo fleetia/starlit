@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Bookmark } from '../newtab/types';
 import { useBookmarks } from './useBookmarks';
+import type { Bookmark } from './types';
 
 type BookmarkUpdate = Bookmark[] | ((previous: Bookmark[]) => Bookmark[]);
 

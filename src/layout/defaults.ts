@@ -1,35 +1,6 @@
 import { primitiveTokens } from '@fleetia/lagrange/theme';
 
-import type {
-  FontFamily,
-  GridSettings,
-  OptionsType,
-  StarlitTheme,
-} from './types';
-
-export const DEFAULT_FONT_FAMILY: FontFamily = 'ibm-plex-sans';
-
-export const LEGACY_DEFAULT_THEME: StarlitTheme = {
-  accent: '#000000',
-  accentText: '#ffffff',
-  surface: '#ffffff',
-  text: '#000000',
-  border: '#000000',
-  hoverBg: '#000000',
-  hoverText: '#ffffff',
-  muted: '#999999',
-};
-
-export const DEFAULT_STARLIT_THEME: StarlitTheme = {
-  accent: primitiveTokens.palette.aubergine,
-  accentText: primitiveTokens.palette.paperRaised,
-  surface: primitiveTokens.palette.paperRaised,
-  text: primitiveTokens.palette.ink,
-  border: primitiveTokens.palette.rule,
-  hoverBg: primitiveTokens.palette.periwinkleWash,
-  hoverText: primitiveTokens.palette.aubergine,
-  muted: primitiveTokens.palette.inkMuted,
-};
+import type { GridSettings } from './types';
 
 export const LEGACY_DEFAULT_GRID_SETTINGS: GridSettings = {
   columns: 5,
@@ -93,33 +64,4 @@ export const DEFAULT_GRID_SETTINGS: GridSettings = {
     text: primitiveTokens.palette.ink,
     border: primitiveTokens.palette.rule,
   },
-};
-
-export const defaultOptionValue: OptionsType = {
-  bookmarks: [
-    {
-      title: 'default',
-      description: 'default list',
-      list: [
-        {
-          id: '000',
-          title: 'Buy me a coffee',
-          url: 'https://coff.ee/starlight.space',
-          favicon:
-            'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://buymeacoffee.com&size=32',
-        },
-      ],
-    },
-  ],
-  gridSettings: DEFAULT_GRID_SETTINGS,
-  settings: {
-    fontFamily: DEFAULT_FONT_FAMILY,
-    isFolderEnabled: true,
-    isVisibleOnce: false,
-    isOpenInNewTab: false,
-    isExpandView: false,
-  },
-  colorTheme: DEFAULT_STARLIT_THEME,
-  iconSize: 28,
-  size: 16,
 };

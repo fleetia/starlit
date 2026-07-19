@@ -14,7 +14,7 @@ const ko: Translations = {
   'pagination.nextPage': '다음 페이지',
   'pagination.pages': '페이지',
 
-  // NewTabApp
+  // App
   'newtab.options': '옵션',
   'newtab.empty': '사용할 수 있는 북마크 그룹이 없습니다.',
   'contextMenu.label': '북마크 작업',

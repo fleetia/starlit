@@ -8,12 +8,9 @@ import {
   loadMediaBlob,
   deleteMedia,
 } from '../platform/storage/mediaStorage';
+import type { BackgroundMedia } from './backgroundMedia';
 
-export type BackgroundMedia = {
-  type: 'image' | 'video';
-  source: 'url' | 'file';
-  url: string;
-};
+export type { BackgroundMedia } from './backgroundMedia';
 
 const MEDIA_KEY = 'backgroundMedia';
 

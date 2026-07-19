@@ -97,12 +97,13 @@ used.
 - `src/bookmarks`: bookmark normalization, ordering, navigation, pagination,
   and bookmark tiles
 - `src/settings`: settings drafts, save/discard behavior, and settings sections
+- `src/layout`: grid geometry, placement, and expanded-view behavior
 - `src/theme`: persisted Starlit theme mapping to Lagrange CSS variables
 - `src/i18n`: Korean, English, and Japanese dictionaries and provider
-- `src/newtab`: new-tab composition and layout modes
+- `src/app`: application composition and the new-tab entry point
 
 Application imports use relative module resolution. The app imports
-`@fleetia/lagrange/styles.css` once at the new-tab entry point and consumes the
+`@fleetia/lagrange/styles.css` once at the application entry point and consumes the
 published `@fleetia/lagrange@0.1.0` package.
 
 ## Stored data and migration

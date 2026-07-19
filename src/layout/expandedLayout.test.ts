@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   distributeGroupKeys,
-  getExpandedColumnVisualOrder,
   getExpandedColumnCapacity,
+  getExpandedColumnVisualOrder,
   getExpandedSurfaceWidth,
   getExpandedViewAvailableHeight,
   getExpandedViewAvailableWidth,

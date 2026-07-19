@@ -1,12 +1,16 @@
 import {
   DEFAULT_GRID_SETTINGS,
-  DEFAULT_STARLIT_THEME,
   LEGACY_DEFAULT_GRID_SETTINGS,
-  LEGACY_DEFAULT_THEME,
-} from '../../newtab/defaultOptionValue';
-import type { GridSettings, StarlitTheme } from '../../newtab/types';
-import type { BackgroundMedia } from '../../settings/useBackgroundImage';
+} from '../../layout/defaults';
+import type { GridSettings } from '../../layout/types';
+import type { BackgroundMedia } from '../../settings/backgroundMedia';
+import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from '../../settings/defaults';
 import { normalizeSettings } from '../../settings/normalizeSettings';
+import {
+  DEFAULT_STARLIT_THEME,
+  LEGACY_DEFAULT_THEME,
+} from '../../theme/defaults';
+import type { StarlitTheme } from '../../theme/types';
 import { loadLegacyMediaBlob, loadMediaBlob, saveMedia } from './mediaStorage';
 import storage from './storage';
 import { STORAGE_SCHEMA_VERSION } from './schema';
@@ -86,12 +90,16 @@ function getFiniteNumber(value: unknown): number | null {
 
 function getSize(size: unknown, displaySize: unknown): number {
   const currentSize = getFiniteNumber(size) ?? getFiniteNumber(displaySize);
-  return currentSize === null || currentSize === 20 ? 16 : currentSize;
+  return currentSize === null || currentSize === 20
+    ? DEFAULT_SIZE
+    : currentSize;
 }
 
 function getIconSize(iconSize: unknown): number {
   const currentSize = getFiniteNumber(iconSize);
-  return currentSize === null || currentSize === 32 ? 28 : currentSize;
+  return currentSize === null || currentSize === 32
+    ? DEFAULT_ICON_SIZE
+    : currentSize;
 }
 
 function getLegacyBackground(value: unknown): BackgroundMedia | null {

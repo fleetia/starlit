@@ -14,7 +14,7 @@ const ja: Translations = {
   'pagination.nextPage': '次のページ',
   'pagination.pages': 'ページ',
 
-  // NewTabApp
+  // App
   'newtab.options': 'オプション',
   'newtab.empty': '利用できるブックマークグループがありません。',
   'contextMenu.label': 'ブックマーク操作',
