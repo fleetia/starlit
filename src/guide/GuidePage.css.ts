@@ -137,7 +137,6 @@ export const badge = style({
   padding: `${semanticVars.space.xs} ${semanticVars.space.sm}`,
   color: semanticVars.color.content.accent,
   backgroundColor: semanticVars.color.surface.muted,
-  borderInlineStart: `${semanticVars.space.xs} solid ${semanticVars.color.selection.indicator}`,
   fontFamily: semanticVars.typography.family.data,
   letterSpacing: '0.06em',
 });
@@ -231,7 +230,6 @@ export const contents = style({
   overflowY: 'auto',
   padding: semanticVars.space.lg,
   backgroundColor: semanticVars.color.surface.muted,
-  borderInlineStart: `${semanticVars.space.xs} solid ${semanticVars.color.selection.indicator}`,
   '@media': {
     '(max-width: 52rem)': {
       position: 'static',
@@ -301,7 +299,6 @@ export const screenshotNote = style({
   padding: `${semanticVars.space.md} ${semanticVars.space.lg}`,
   color: semanticVars.color.content.secondary,
   backgroundColor: semanticVars.color.surface.muted,
-  borderInlineStart: `${semanticVars.space.xs} solid ${semanticVars.color.selection.indicator}`,
   fontFamily: semanticVars.typography.family.ui,
   fontSize: semanticVars.typography.size.label,
   lineHeight: semanticVars.typography.lineHeight.body,
@@ -339,7 +336,6 @@ export const dataGrid = style({
 export const dataCard = style({
   padding: semanticVars.space.lg,
   backgroundColor: semanticVars.color.surface.muted,
-  borderInlineStart: `${semanticVars.space.xs} solid ${semanticVars.color.border.strong}`,
   fontFamily: semanticVars.typography.family.ui,
 });
 
@@ -524,7 +520,6 @@ export const factsPanel = style({
   alignSelf: 'start',
   padding: semanticVars.space.lg,
   backgroundColor: semanticVars.color.surface.muted,
-  borderInlineStart: `${semanticVars.space.xs} solid ${semanticVars.color.selection.indicator}`,
 });
 
 export const factsList = style({
@@ -542,13 +537,7 @@ export const callout = style({
   marginTop: semanticVars.space.xl,
   padding: semanticVars.space.lg,
   backgroundColor: semanticVars.color.surface.muted,
-  borderInlineStart: `${semanticVars.space.xs} solid ${semanticVars.color.selection.indicator}`,
   fontFamily: semanticVars.typography.family.ui,
-  selectors: {
-    '&[data-tone="warning"]': {
-      borderInlineStartColor: semanticVars.color.content.accent,
-    },
-  },
 });
 
 export const calloutBody = style({

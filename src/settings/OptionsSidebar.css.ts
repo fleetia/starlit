@@ -15,7 +15,6 @@ export const support = style({
   padding: semanticVars.space.md,
   backgroundColor: semanticVars.color.interaction.focusSurface,
   border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.border.strong}`,
-  boxShadow: `inset ${semanticVars.space.xs} 0 ${semanticVars.color.interaction.primary}`,
   '@media': {
     '(max-width: 42rem)': {
       gridTemplateColumns: 'minmax(0, 1fr)',
