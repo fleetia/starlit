@@ -34,6 +34,7 @@ const ja: Translations = {
   'sidebar.tab.css': 'CSS',
   'sidebar.tab.groups': 'ブックマークグループ',
   'sidebar.tab.general': '一般',
+  'sidebar.tab.layers': 'レイヤー',
   'sidebar.support.title': 'Starlitを応援',
   'sidebar.support.description':
     'Starlitを気に入っていただけたら、これからの開発を応援してください。',
@@ -199,6 +200,48 @@ const ja: Translations = {
     '保存されていない変更があります。閉じますか？',
   'sidebar.confirm.yes': 'はい',
   'sidebar.confirm.no': 'いいえ',
+
+  // Overlay image layers
+  'layers.title': 'オーバーレイ画像レイヤー',
+  'layers.description':
+    '画像をブックマークの後ろまたは前に配置できます。上の行ほど手前に表示されます。',
+  'layers.add': '画像を追加',
+  'layers.processing': 'オーバーレイ画像を処理中',
+  'layers.empty': 'オーバーレイ画像はまだ追加されていません。',
+  'layers.bookmarks': 'ブックマーク',
+  'layers.bookmarksDescription': 'ブックマーク画面全体',
+  'layers.front': '前',
+  'layers.back': '後ろ',
+  'layers.frontToBackDescription':
+    'レイヤーは前から後ろの順です。ブックマークを画像の間に移動して、どの画像を手前に表示するか決めます。',
+  'layers.layerList': 'オーバーレイレイヤーの順序',
+  'layers.moveForward': '前へ移動',
+  'layers.moveBackward': '後ろへ移動',
+  'layers.remove': '画像を削除',
+  'layers.dragToReorder': 'ドラッグしてレイヤーを並べ替え',
+  'layers.editPositions': '位置を編集',
+  'layers.fileDescription':
+    '画像はWebPに変換され、このデバイスにのみ保存されます。',
+  'layers.editor.title': 'オーバーレイ位置を編集',
+  'layers.editor.done': '設定に戻る',
+  'layers.editor.image': '画像',
+  'layers.editor.anchor': '基準点',
+  'layers.editor.rotation': '回転',
+  'layers.editor.zoom': '拡大・縮小',
+  'layers.editor.empty': '位置を編集する前に画像を追加してください。',
+  'layers.editor.resetPosition': '位置をリセット',
+  'layers.editor.instructions':
+    '画像をドラッグするか矢印キーで移動します。Shiftを押すと10pxずつ移動します。',
+  'layers.editor.moveToolbar': 'ツールバーを移動',
+  'layers.anchor.topLeft': '左上',
+  'layers.anchor.topCenter': '上中央',
+  'layers.anchor.topRight': '右上',
+  'layers.anchor.centerLeft': '左中央',
+  'layers.anchor.centerCenter': '中央',
+  'layers.anchor.centerRight': '右中央',
+  'layers.anchor.bottomLeft': '左下',
+  'layers.anchor.bottomCenter': '下中央',
+  'layers.anchor.bottomRight': '右下',
 
   // BookmarkTreeSelector
   'groups.rootGroup': 'ルートグループ',

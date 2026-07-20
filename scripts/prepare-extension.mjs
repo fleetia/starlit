@@ -34,6 +34,7 @@ async function prepareExtension() {
     resolve(DIST, 'assets/guide/settings-custom-css.jpg'),
     resolve(DIST, 'assets/guide/settings-general.jpg'),
     resolve(DIST, 'assets/guide/settings-layout.jpg'),
+    resolve(DIST, 'assets/overlays/getting.png'),
   ];
   const missingPaths = [];
 

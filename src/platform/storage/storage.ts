@@ -47,7 +47,7 @@ const local = {
   get: async (key: string): Promise<unknown> => {
     if (import.meta.env.DEV) {
       const data = localStorage.getItem(`__local__${key}`);
-      if (data == null) return data;
+      if (data == null) return undefined;
       try {
         return JSON.parse(data);
       } catch {
@@ -57,6 +57,35 @@ const local = {
       const result = await chrome.storage.local.get(key);
       return result[key];
     }
+  },
+  getAll: async (): Promise<Record<string, unknown>> => {
+    if (import.meta.env.DEV) {
+      const prefix = '__local__';
+      const entries: Array<[string, unknown]> = [];
+
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const storageKey = localStorage.key(index);
+        if (!storageKey?.startsWith(prefix)) {
+          continue;
+        }
+
+        const key = storageKey.slice(prefix.length);
+        const value = localStorage.getItem(storageKey);
+        if (value === null) {
+          continue;
+        }
+
+        try {
+          entries.push([key, JSON.parse(value)]);
+        } catch {
+          entries.push([key, value]);
+        }
+      }
+
+      return Object.fromEntries(entries);
+    }
+
+    return chrome.storage.local.get(null);
   },
   remove: async (keys: string | string[]): Promise<void> => {
     const keyList = Array.isArray(keys) ? keys : [keys];

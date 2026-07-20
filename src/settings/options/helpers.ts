@@ -8,6 +8,7 @@ import type { FolderSettings, HeadingSettings, PrimaryTab } from './types';
 const PRIMARY_TABS: readonly PrimaryTab[] = [
   'general',
   'appearance',
+  'layers',
   'layout',
   'css',
   'groups',

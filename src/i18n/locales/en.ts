@@ -34,6 +34,7 @@ const en: Translations = {
   'sidebar.tab.css': 'CSS',
   'sidebar.tab.groups': 'Bookmark groups',
   'sidebar.tab.general': 'General',
+  'sidebar.tab.layers': 'Layers',
   'sidebar.support.title': 'Support Starlit',
   'sidebar.support.description':
     'If Starlit makes your day brighter, help keep it glowing.',
@@ -199,6 +200,48 @@ const en: Translations = {
   'sidebar.confirm.unsavedChanges': 'You have unsaved changes. Close anyway?',
   'sidebar.confirm.yes': 'Yes',
   'sidebar.confirm.no': 'No',
+
+  // Overlay image layers
+  'layers.title': 'Overlay image layers',
+  'layers.description':
+    'Place images behind or in front of bookmarks. The top row is closest to you.',
+  'layers.add': 'Add images',
+  'layers.processing': 'Processing overlay images',
+  'layers.empty': 'No overlay images have been added.',
+  'layers.bookmarks': 'Bookmarks',
+  'layers.bookmarksDescription': 'The complete bookmark surface',
+  'layers.front': 'Front',
+  'layers.back': 'Back',
+  'layers.frontToBackDescription':
+    'Layers are listed from front to back. Move Bookmarks between images to control which images cover it.',
+  'layers.layerList': 'Overlay layer order',
+  'layers.moveForward': 'Move forward',
+  'layers.moveBackward': 'Move backward',
+  'layers.remove': 'Remove image',
+  'layers.dragToReorder': 'Drag to reorder layers',
+  'layers.editPositions': 'Edit positions',
+  'layers.fileDescription':
+    'Images are converted to WebP and stored only on this device.',
+  'layers.editor.title': 'Edit overlay positions',
+  'layers.editor.done': 'Back to settings',
+  'layers.editor.image': 'Image',
+  'layers.editor.anchor': 'Anchor point',
+  'layers.editor.rotation': 'Rotation',
+  'layers.editor.zoom': 'Zoom',
+  'layers.editor.empty': 'Add an image before editing positions.',
+  'layers.editor.resetPosition': 'Reset position',
+  'layers.editor.instructions':
+    'Drag the image or use Arrow keys to move it. Hold Shift to move 10 pixels.',
+  'layers.editor.moveToolbar': 'Move toolbar',
+  'layers.anchor.topLeft': 'Top left',
+  'layers.anchor.topCenter': 'Top center',
+  'layers.anchor.topRight': 'Top right',
+  'layers.anchor.centerLeft': 'Center left',
+  'layers.anchor.centerCenter': 'Center',
+  'layers.anchor.centerRight': 'Center right',
+  'layers.anchor.bottomLeft': 'Bottom left',
+  'layers.anchor.bottomCenter': 'Bottom center',
+  'layers.anchor.bottomRight': 'Bottom right',
 
   // BookmarkTreeSelector
   'groups.rootGroup': 'Root group',

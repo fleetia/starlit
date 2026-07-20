@@ -1,13 +1,14 @@
 import type { ReactElement } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../i18n';
 import { getBookmarkIdKey } from '../bookmarks/bookmarkRoute';
 import type { Bookmark } from '../bookmarks/types';
 import type { ExpandedGroupsState } from '../layout/expandedLayout';
 import type { GridSettings } from '../layout/types';
+import type { OverlayImageLayer, OverlayScene } from '../overlays/types';
 import type { Settings } from '../settings/types';
 import type { StarlitTheme } from '../theme/types';
 import { App } from './App';
@@ -48,6 +49,9 @@ const appState = vi.hoisted(() => ({
     position: 'center-center',
     rows: 2,
   } as GridSettings,
+  overlayScene: {
+    layers: [{ kind: 'bookmarks' }],
+  } as OverlayScene,
   settings: {
     fontFamily: 'ibm-plex-sans',
     iconLayout: 'vertical',
@@ -68,6 +72,7 @@ const loadingState = vi.hoisted(() => ({
   gridSettings: true,
   groupPreferences: true,
   iconSize: true,
+  overlay: true,
   settings: true,
   size: true,
   theme: true,
@@ -79,12 +84,17 @@ const initialExpandedGroupsState = structuredClone(
   appState.expandedGroupsState,
 );
 const initialGridSettings = structuredClone(appState.gridSettings);
+const initialOverlayScene = structuredClone(appState.overlayScene);
 
 const appMocks = vi.hoisted(() => ({
   applyPreset: vi.fn<() => Promise<void>>(),
   clearBackground: vi.fn<() => Promise<void>>(),
   deleteBookmark: vi.fn<(bookmarkId: string) => Promise<void>>(),
   onLocaleChange: vi.fn<(locale: 'en' | 'ja' | 'ko') => Promise<void>>(),
+  discardOverlayImages: vi.fn<(ids: readonly string[]) => Promise<void>>(),
+  finalizeOverlayImages: vi.fn<(ids: readonly string[]) => Promise<void>>(),
+  prepareOverlayFiles:
+    vi.fn<(files: readonly File[]) => Promise<OverlayImageLayer[]>>(),
   resetFavicon: vi.fn<(bookmarkId: string) => Promise<void>>(),
   refreshBookmarks: vi.fn<() => Promise<void>>(),
   resetTheme: vi.fn<() => Promise<void>>(),
@@ -108,6 +118,7 @@ const appMocks = vi.hoisted(() => ({
       (folderId: number, bookmarkId: string, favicon: string) => Promise<void>
     >(),
   updateGridSettings: vi.fn<() => Promise<void>>(),
+  updateOverlayScene: vi.fn<(scene: OverlayScene) => Promise<void>>(),
   updateGroupPreferences: vi.fn<() => Promise<void>>(),
   updatePreferences: vi.fn<() => Promise<void>>(),
   updateSettings: vi.fn<() => Promise<void>>(),
@@ -227,6 +238,18 @@ vi.mock('../settings/useTheme', () => ({
   }),
 }));
 
+vi.mock('../overlays/useOverlayScene', () => ({
+  useOverlayScene: () => ({
+    discardImages: appMocks.discardOverlayImages,
+    finalizeImages: appMocks.finalizeOverlayImages,
+    isLoaded: loadingState.overlay,
+    isProcessing: false,
+    prepareFiles: appMocks.prepareOverlayFiles,
+    scene: appState.overlayScene,
+    updateScene: appMocks.updateOverlayScene,
+  }),
+}));
+
 vi.mock('../theme/FontStylesheets', () => ({
   FontStylesheets: ({
     fontFamily,
@@ -259,6 +282,7 @@ beforeEach((): void => {
   appState.bookmarks = structuredClone(initialBookmarks);
   appState.expandedGroupsState = structuredClone(initialExpandedGroupsState);
   appState.gridSettings = structuredClone(initialGridSettings);
+  appState.overlayScene = structuredClone(initialOverlayScene);
   appState.settings = structuredClone(initialSettings);
   Object.assign(loadingState, {
     background: true,
@@ -270,6 +294,7 @@ beforeEach((): void => {
     gridSettings: true,
     groupPreferences: true,
     iconSize: true,
+    overlay: true,
     settings: true,
     size: true,
     theme: true,
@@ -284,6 +309,14 @@ beforeEach((): void => {
           : value;
     },
   );
+  appMocks.discardOverlayImages.mockResolvedValue(undefined);
+  appMocks.finalizeOverlayImages.mockResolvedValue(undefined);
+  appMocks.prepareOverlayFiles.mockResolvedValue([]);
+  appMocks.updateOverlayScene.mockResolvedValue(undefined);
+});
+
+afterEach((): void => {
+  vi.unstubAllGlobals();
 });
 
 describe('App', () => {
@@ -841,6 +874,207 @@ describe('App', () => {
     await waitFor(() => {
       expect(appMocks.updateGroupPreferences).toHaveBeenCalledWith([
         { key: getBookmarkIdKey('folder-work'), visible: false },
+      ]);
+    });
+  });
+
+  it('adds, positions, and saves an overlay image as one settings draft', async () => {
+    const overlayImage: OverlayImageLayer = {
+      anchor: 'top-left',
+      height: 120,
+      id: 'overlay-badge',
+      kind: 'image',
+      name: 'badge.png',
+      offsetX: 24,
+      offsetY: 24,
+      rotationDeg: 0,
+      width: 160,
+    };
+    appMocks.prepareOverlayFiles.mockResolvedValue([overlayImage]);
+    renderApp();
+
+    const settingsTrigger = screen.getByRole('button', { name: 'Options' });
+    fireEvent.click(settingsTrigger);
+    fireEvent.click(screen.getByRole('tab', { name: 'Layers' }));
+    fireEvent.change(screen.getByLabelText('Add images'), {
+      target: {
+        files: [new File(['image'], 'badge.png', { type: 'image/png' })],
+      },
+    });
+
+    expect(await screen.findByText('badge.png')).toBeDefined();
+    expect(appMocks.updateOverlayScene).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit positions' }));
+    await screen.findByRole('dialog', { name: 'Edit overlay positions' });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Back to settings' }),
+      );
+    });
+    expect(
+      document
+        .querySelector('[data-starlit-part="main"]')
+        ?.hasAttribute('inert'),
+    ).toBe(true);
+    fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Image: badge.png' }),
+      { key: 'ArrowRight' },
+    );
+    fireEvent.change(screen.getByRole('slider', { name: 'Rotation' }), {
+      target: { value: '45' },
+    });
+    fireEvent.change(screen.getByRole('slider', { name: 'Zoom' }), {
+      target: { value: '150' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to settings' }));
+    expect(
+      document
+        .querySelector('[data-starlit-part="main"]')
+        ?.hasAttribute('inert'),
+    ).toBe(false);
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(appMocks.updateOverlayScene).toHaveBeenCalledWith({
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            ...overlayImage,
+            offsetX: 25,
+            rotationDeg: 45,
+            scale: 1.5,
+          },
+        ],
+      });
+      expect(document.activeElement).toBe(settingsTrigger);
+    });
+    expect(appMocks.discardOverlayImages).toHaveBeenCalledWith([]);
+    expect(appMocks.finalizeOverlayImages).toHaveBeenCalledWith([
+      'overlay-badge',
+    ]);
+  });
+
+  it('discards prepared overlay media when its settings draft is canceled', async () => {
+    const overlayImage: OverlayImageLayer = {
+      anchor: 'top-left',
+      height: 120,
+      id: 'overlay-draft',
+      kind: 'image',
+      name: 'draft.png',
+      offsetX: 24,
+      offsetY: 24,
+      rotationDeg: 0,
+      width: 160,
+    };
+    appMocks.prepareOverlayFiles.mockResolvedValue([overlayImage]);
+    renderApp();
+
+    const settingsTrigger = screen.getByRole('button', { name: 'Options' });
+    fireEvent.click(settingsTrigger);
+    fireEvent.click(screen.getByRole('tab', { name: 'Layers' }));
+    fireEvent.change(screen.getByLabelText('Add images'), {
+      target: {
+        files: [new File(['image'], 'draft.png', { type: 'image/png' })],
+      },
+    });
+    await screen.findByText('draft.png');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit positions' }));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Back to settings' }),
+      );
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+
+    await waitFor(() => {
+      expect(appMocks.discardOverlayImages).toHaveBeenCalledWith([
+        'overlay-draft',
+      ]);
+      expect(document.activeElement).toBe(settingsTrigger);
+    });
+    expect(appMocks.updateOverlayScene).not.toHaveBeenCalled();
+  });
+
+  it('closes an invalidated draft when cancel media cleanup fails', async () => {
+    const reportError = vi.fn();
+    vi.stubGlobal('reportError', reportError);
+    appMocks.prepareOverlayFiles.mockResolvedValue([
+      {
+        anchor: 'top-left',
+        height: 120,
+        id: 'overlay-cleanup-failure',
+        kind: 'image',
+        name: 'cleanup-failure.png',
+        offsetX: 24,
+        offsetY: 24,
+        rotationDeg: 0,
+        width: 160,
+      },
+    ]);
+    appMocks.discardOverlayImages.mockRejectedValueOnce(
+      new Error('cleanup failed'),
+    );
+    renderApp();
+
+    const settingsTrigger = screen.getByRole('button', { name: 'Options' });
+    fireEvent.click(settingsTrigger);
+    fireEvent.click(screen.getByRole('tab', { name: 'Layers' }));
+    fireEvent.change(screen.getByLabelText('Add images'), {
+      target: {
+        files: [
+          new File(['image'], 'cleanup-failure.png', { type: 'image/png' }),
+        ],
+      },
+    });
+    await screen.findByText('cleanup-failure.png');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(settingsTrigger);
+      expect(reportError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'cleanup failed' }),
+      );
+    });
+    expect(appMocks.updateOverlayScene).not.toHaveBeenCalled();
+  });
+
+  it('removes persisted overlay media only after the layer draft is saved', async () => {
+    appState.overlayScene = {
+      layers: [
+        { kind: 'bookmarks' },
+        {
+          anchor: 'bottom-right',
+          height: 120,
+          id: 'overlay-old',
+          kind: 'image',
+          name: 'old.png',
+          offsetX: 24,
+          offsetY: 24,
+          rotationDeg: 0,
+          width: 160,
+        },
+      ],
+    };
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Layers' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove image: old.png' }),
+    );
+    expect(appMocks.discardOverlayImages).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(appMocks.updateOverlayScene).toHaveBeenCalledWith({
+        layers: [{ kind: 'bookmarks' }],
+      });
+      expect(appMocks.discardOverlayImages).toHaveBeenCalledWith([
+        'overlay-old',
       ]);
     });
   });

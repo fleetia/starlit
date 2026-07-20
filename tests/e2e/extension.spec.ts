@@ -1,5 +1,10 @@
 import type { Page } from '@playwright/test';
 
+import {
+  DEFAULT_OVERLAY_IMAGE_ID,
+  DEFAULT_OVERLAY_SCENE,
+  getOverlayMediaKey,
+} from '../../src/overlays/model';
 import { expect, tabGroupTest, test } from './extension.fixture';
 import {
   createProfileSeed,
@@ -8,6 +13,9 @@ import {
 } from './profile';
 
 const LEGACY_MEDIA_TEXT = '<svg xmlns="http://www.w3.org/2000/svg" />';
+const OVERLAY_MEDIA_BASE64 = Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><rect width="80" height="40" fill="#7a2458" /></svg>',
+).toString('base64');
 
 const BACKGROUND_URL_CASES = [
   {
@@ -36,6 +44,128 @@ async function waitForBookmarks(page: Page): Promise<void> {
     page.locator('[data-starlit-part="bookmark-group-title"]').first(),
   ).toBeVisible();
 }
+
+test('seeds the bundled default overlay at the bottom right', async ({
+  extension,
+}) => {
+  await extension.seedProfile(
+    createProfileSeed({ locale: 'en' }, { includeEmptyOverlayScene: false }),
+  );
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  const overlay = page.locator(
+    `[data-overlay-image-id="${DEFAULT_OVERLAY_IMAGE_ID}"]`,
+  );
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveCSS('right', '24px');
+  await expect(overlay).toHaveCSS('bottom', '24px');
+  await expect(overlay).toHaveCSS('width', '392px');
+  await expect(overlay).toHaveCSS('height', '351px');
+  expect(
+    await overlay.evaluate((image) =>
+      image instanceof HTMLImageElement
+        ? { height: image.naturalHeight, width: image.naturalWidth }
+        : null,
+    ),
+  ).toEqual({ height: 351, width: 392 });
+  expect((await extension.readStorage('local')).overlayScene).toEqual(
+    DEFAULT_OVERLAY_SCENE,
+  );
+  expect(
+    await extension.readIndexedDbBlobBase64(
+      'starlit',
+      'media',
+      getOverlayMediaKey(DEFAULT_OVERLAY_IMAGE_ID),
+    ),
+  ).not.toBeNull();
+});
+
+test('renders overlay images around bookmarks and keeps anchor offsets on resize', async ({
+  extension,
+}) => {
+  const profile = createProfileSeed({ locale: 'en' });
+  await extension.seedProfile({
+    ...profile,
+    indexedDb: ['below', 'above'].map((id) => ({
+      base64: OVERLAY_MEDIA_BASE64,
+      databaseName: 'starlit',
+      key: `overlayImage:${id}`,
+      mimeType: 'image/svg+xml',
+      storeName: 'media',
+    })),
+    local: {
+      ...profile.local,
+      overlayScene: {
+        layers: [
+          {
+            anchor: 'top-left',
+            height: 40,
+            id: 'below',
+            kind: 'image',
+            name: 'below.svg',
+            offsetX: 16,
+            offsetY: 20,
+            rotationDeg: 0,
+            width: 80,
+          },
+          { kind: 'bookmarks' },
+          {
+            anchor: 'bottom-center',
+            height: 40,
+            id: 'above',
+            kind: 'image',
+            name: 'above.svg',
+            offsetX: 30,
+            offsetY: 40,
+            rotationDeg: 0,
+            scale: 1.5,
+            width: 80,
+          },
+        ],
+      },
+    },
+  });
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  const below = page.locator(
+    '[data-overlay-stack="below"] [data-overlay-image-id="below"]',
+  );
+  const above = page.locator(
+    '[data-overlay-stack="above"] [data-overlay-image-id="above"]',
+  );
+  await expect(below).toBeVisible();
+  await expect(above).toBeVisible();
+  await expect(below).toHaveCSS('left', '16px');
+  await expect(below).toHaveCSS('top', '20px');
+  await expect(below).toHaveCSS('width', '80px');
+  await expect(below).toHaveCSS('height', '40px');
+  await expect(above).toHaveCSS('bottom', '40px');
+  await expect(above).toHaveCSS('width', '120px');
+  await expect(above).toHaveCSS('height', '60px');
+  await expect(above).toHaveCSS('pointer-events', 'none');
+  await expect(page.locator('[data-starlit-part="paged-groups"]')).toHaveCSS(
+    'z-index',
+    '1',
+  );
+
+  await page.setViewportSize({ height: 720, width: 1000 });
+  const resizedBox = await above.boundingBox();
+  expect(resizedBox).not.toBeNull();
+  expect(
+    Math.round((resizedBox?.x ?? 0) + (resizedBox?.width ?? 0) / 2 - 1000 / 2),
+  ).toBe(30);
+  expect(
+    Math.round(720 - (resizedBox?.y ?? 0) - (resizedBox?.height ?? 0)),
+  ).toBe(40);
+
+  await page.locator('[data-starlit-part="settings-trigger"]').click();
+  await page.getByRole('tab', { name: 'Layers', exact: true }).click();
+  await expect(
+    page.locator('[data-starlit-part="settings-layers"] li'),
+  ).toHaveText([/above\.svg/u, /Bookmarks/u, /below\.svg/u]);
+});
 
 test('shows the first-install tutorial once and persists completion', async ({
   extension,

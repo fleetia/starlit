@@ -77,6 +77,9 @@ test('renders persisted visual leaves in the live surface and settings preview',
         },
       ],
     ],
+    local: {
+      overlayScene: { layers: [{ kind: 'bookmarks' }] },
+    },
     sync: {
       bookmarkTreePrefs: {
         rootPath: ['Bookmarks Bar'],

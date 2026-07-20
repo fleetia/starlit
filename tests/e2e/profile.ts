@@ -7,6 +7,14 @@ type ExpandedColumnsProfileSeedOptions = {
   position?: Placement;
 };
 
+type ProfileSeedOptions = {
+  includeEmptyOverlayScene?: boolean;
+};
+
+const EMPTY_OVERLAY_SCENE = {
+  layers: [{ kind: 'bookmarks' }],
+};
+
 const directBookmarks: BookmarkSeed[] = Array.from(
   { length: 18 },
   (_, index) => ({
@@ -99,11 +107,17 @@ export const LEGACY_THEME = {
 
 export function createProfileSeed(
   sync: Record<string, unknown> = {},
+  options: ProfileSeedOptions = {},
 ): ProfileSeed {
+  const { includeEmptyOverlayScene = true } = options;
+
   return {
     bookmarkRoots: BOOKMARK_ROOTS,
     local: {
       bookmarks: [{ title: 'Local V1 backup' }],
+      ...(includeEmptyOverlayScene
+        ? { overlayScene: EMPTY_OVERLAY_SCENE }
+        : {}),
     },
     sync: {
       bookmarkTreePrefs: {
@@ -126,6 +140,9 @@ export function createExpandedColumnsProfileSeed(
 
   return {
     bookmarkRoots: [expandedColumnGroups.slice(0, groupCount)],
+    local: {
+      overlayScene: EMPTY_OVERLAY_SCENE,
+    },
     sync: {
       bookmarkTreePrefs: {
         rootPath: ['Bookmarks Bar'],
