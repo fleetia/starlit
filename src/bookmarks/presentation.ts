@@ -1,7 +1,8 @@
 import type { Bookmark, BookmarkItem } from './types';
 
 export type BookmarkEntry =
-  { data: Bookmark; type: 'folder' } | { data: BookmarkItem; type: 'bookmark' };
+  | { data: Bookmark; type: 'folder' }
+  | { data: BookmarkItem; type: 'bookmark' };
 
 export type BookmarkPage = {
   entries: BookmarkEntry[];
@@ -12,14 +13,18 @@ export type BookmarkPage = {
 
 export function getBookmarkEntries(folder: Bookmark): BookmarkEntry[] {
   return [
-    ...(folder.children ?? []).map((data): BookmarkEntry => ({
-      data,
-      type: 'folder',
-    })),
-    ...(folder.list ?? []).map((data): BookmarkEntry => ({
-      data,
-      type: 'bookmark',
-    })),
+    ...(folder.children ?? []).map(
+      (data): BookmarkEntry => ({
+        data,
+        type: 'folder',
+      }),
+    ),
+    ...(folder.list ?? []).map(
+      (data): BookmarkEntry => ({
+        data,
+        type: 'bookmark',
+      }),
+    ),
   ];
 }
 

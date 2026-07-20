@@ -6,7 +6,8 @@ import { useGroupPreferences } from './useGroupPreferences';
 import type { Bookmark, GroupPreference } from './types';
 
 type PreferenceUpdate =
-  GroupPreference[] | ((previous: GroupPreference[]) => GroupPreference[]);
+  | GroupPreference[]
+  | ((previous: GroupPreference[]) => GroupPreference[]);
 
 const storageState = vi.hoisted(() => ({
   preferences: [] as GroupPreference[],

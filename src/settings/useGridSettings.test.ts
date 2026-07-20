@@ -6,7 +6,8 @@ import type { GridSettings } from '../layout/types';
 import { useGridSettings } from './useGridSettings';
 
 type GridSettingsUpdate =
-  GridSettings | ((previous: GridSettings) => GridSettings);
+  | GridSettings
+  | ((previous: GridSettings) => GridSettings);
 
 const storageState = vi.hoisted(() => ({
   gridSettings: null as GridSettings | null,

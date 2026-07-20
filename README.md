@@ -75,7 +75,7 @@ extension includes IBM's complete OFL 1.1 text at
 pnpm check
 ```
 
-The check runs ESLint, Prettier, TypeScript, unit and component tests, a
+The check runs Oxlint, Oxfmt, TypeScript, unit and component tests, a
 production build, and Playwright tests against the built extension. Individual
 commands are also available:
 
