@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* oxlint-disable react/only-export-components */
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import '@fleetia/lagrange/styles.css';
 

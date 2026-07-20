@@ -10,7 +10,8 @@ type BookmarkTreePrefs = {
 };
 
 type BookmarkTreePrefsUpdate =
-  BookmarkTreePrefs | ((previous: BookmarkTreePrefs) => BookmarkTreePrefs);
+  | BookmarkTreePrefs
+  | ((previous: BookmarkTreePrefs) => BookmarkTreePrefs);
 
 const storageState = vi.hoisted(() => ({
   prefs: { rootPath: [], siblingOrder: {} } as BookmarkTreePrefs,
