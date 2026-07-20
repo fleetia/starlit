@@ -6,6 +6,7 @@ export const GUIDE_SECTIONS = [
   'tab-groups',
   'group-layout',
   'appearance',
+  'overlay-images',
   'backup-permissions',
   'troubleshooting',
 ] as const;

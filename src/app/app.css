@@ -65,6 +65,11 @@ textarea {
     calc(24px + var(--grid-margin-left, 0px));
 }
 
+.starlit-main > :where(.starlit-paged, .starlit-masonry, .starlit-empty) {
+  position: relative;
+  z-index: 1;
+}
+
 .starlit-grid-texture {
   position: fixed;
   z-index: -1;

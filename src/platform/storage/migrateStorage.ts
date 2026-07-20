@@ -1,21 +1,15 @@
-import {
-  DEFAULT_GRID_SETTINGS,
-  LEGACY_DEFAULT_GRID_SETTINGS,
-} from '../../layout/defaults';
-import type { GridSettings } from '../../layout/types';
+import { normalizeGridSettings } from '../../layout/normalizeGridSettings';
 import type { BackgroundMedia } from '../../settings/backgroundMedia';
 import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from '../../settings/defaults';
 import { normalizeSettings } from '../../settings/normalizeSettings';
-import {
-  DEFAULT_STARLIT_THEME,
-  LEGACY_DEFAULT_THEME,
-} from '../../theme/defaults';
-import type { StarlitTheme } from '../../theme/types';
+import { normalizeTheme } from '../../theme/normalizeTheme';
 import { loadLegacyMediaBlob, loadMediaBlob, saveMedia } from './mediaStorage';
 import storage from './storage';
 import { STORAGE_SCHEMA_VERSION } from './schema';
 
 export { STORAGE_SCHEMA_VERSION } from './schema';
+export { normalizeGridSettings } from '../../layout/normalizeGridSettings';
+export { normalizeTheme } from '../../theme/normalizeTheme';
 const MEDIA_KEY = 'backgroundMedia';
 export const DEVICE_STORAGE_SCHEMA_VERSION_KEY = 'deviceStorageSchemaVersion';
 
@@ -32,60 +26,21 @@ export type StorageMigrationDependencies = {
   saveCurrentMedia: (blob: Blob) => Promise<void>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function migrateDefaultLeaves(
-  current: unknown,
-  legacyDefault: unknown,
-  nextDefault: unknown,
-): unknown {
-  if (isRecord(nextDefault)) {
-    const currentRecord = isRecord(current) ? current : {};
-    const legacyRecord = isRecord(legacyDefault) ? legacyDefault : {};
-    const result: Record<string, unknown> = { ...currentRecord };
-
-    for (const [key, nextValue] of Object.entries(nextDefault)) {
-      result[key] = migrateDefaultLeaves(
-        currentRecord[key],
-        legacyRecord[key],
-        nextValue,
-      );
-    }
-
-    return result;
-  }
-
-  if (current === undefined || current === null) {
-    return nextDefault;
-  }
-
-  if (nextDefault !== undefined && typeof current !== typeof nextDefault) {
-    return nextDefault;
-  }
-
-  return Object.is(current, legacyDefault) ? nextDefault : current;
-}
-
-export function normalizeGridSettings(value: unknown): GridSettings {
-  return migrateDefaultLeaves(
-    value,
-    LEGACY_DEFAULT_GRID_SETTINGS,
-    DEFAULT_GRID_SETTINGS,
-  ) as GridSettings;
-}
-
-export function normalizeTheme(value: unknown): StarlitTheme {
-  return migrateDefaultLeaves(
-    value,
-    LEGACY_DEFAULT_THEME,
-    DEFAULT_STARLIT_THEME,
-  ) as StarlitTheme;
-}
-
 function getFiniteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function shouldMigrateSchemaVersion(version: unknown): boolean {
+  if (version === STORAGE_SCHEMA_VERSION) {
+    return false;
+  }
+
+  const isFutureVersion =
+    typeof version === 'number' &&
+    Number.isFinite(version) &&
+    version > STORAGE_SCHEMA_VERSION;
+
+  return !isFutureVersion;
 }
 
 function getSize(size: unknown, displaySize: unknown): number {
@@ -122,8 +77,8 @@ export async function migrateStorage(
     dependencies.sync.get('storageSchemaVersion'),
     dependencies.local.get(DEVICE_STORAGE_SCHEMA_VERSION_KEY),
   ]);
-  const shouldMigrateSync = currentVersion !== STORAGE_SCHEMA_VERSION;
-  const shouldMigrateDevice = currentDeviceVersion !== STORAGE_SCHEMA_VERSION;
+  const shouldMigrateSync = shouldMigrateSchemaVersion(currentVersion);
+  const shouldMigrateDevice = shouldMigrateSchemaVersion(currentDeviceVersion);
 
   if (!shouldMigrateSync && !shouldMigrateDevice) {
     return;

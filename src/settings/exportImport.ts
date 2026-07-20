@@ -1,23 +1,51 @@
-import type { Locale } from '../i18n/types';
 import type { GroupPreference } from '../bookmarks/types';
-import type { GridSettings, Placement } from '../layout/types';
-import {
-  normalizeGridSettings,
-  normalizeTheme,
-} from '../platform/storage/migrateStorage';
+import type { Locale } from '../i18n/types';
+import type { GridSettings } from '../layout/types';
 import {
   deleteMedia,
+  deleteMediaBatch,
+  listMediaKeys,
   loadMediaBlob,
   saveMedia,
 } from '../platform/storage/mediaStorage';
 import storage from '../platform/storage/storage';
+import {
+  getOverlayImageLayers,
+  getOverlayMediaKey,
+  normalizeOverlayScene,
+  OVERLAY_IMAGE_MEDIA_KEY_PREFIX,
+  OVERLAY_MEDIA_MUTATION_LEASE_KEY_PREFIX,
+  OVERLAY_SCENE_STORAGE_KEY,
+} from '../overlays/model';
+import type { OverlayScene } from '../overlays/types';
+import { withOverlayMediaMutationLock } from '../overlays/mediaMutationLock';
 import type { StarlitTheme } from '../theme/types';
+import {
+  BACKUP_SCHEMA_VERSION,
+  dataUrlToBlob,
+  isBookmarkTreePreferences,
+  isFiniteNumber,
+  isFaviconMap,
+  isGroupPreferences,
+  isLocale,
+  parseExportData,
+  validateOverlayMedia,
+  type BookmarkTreePreferences,
+  type ExportData,
+  type ImportData,
+} from './backupSchema';
 import type { BackgroundMedia } from './backgroundMedia';
 import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from './defaults';
-import { isFontFamily, normalizeSettings } from './normalizeSettings';
-import type { PersistedSettings, Settings } from './types';
+import type { Settings } from './types';
 
-export const BACKUP_SCHEMA_VERSION = 2;
+export { BACKUP_SCHEMA_VERSION } from './backupSchema';
+export type {
+  BookmarkTreePreferences,
+  ExportData,
+  ImportData,
+  LegacyExportData,
+  V2ExportData,
+} from './backupSchema';
 
 const MEDIA_KEY = 'backgroundMedia';
 const DEFAULT_LOCALE: Locale = 'ko';
@@ -33,46 +61,12 @@ const SYNC_SNAPSHOT_KEYS = [
   'customCSS',
   'backgroundMeta',
 ] as const;
-const LOCAL_SNAPSHOT_KEYS = ['favicons'] as const;
+const LOCAL_SNAPSHOT_KEYS = ['favicons', OVERLAY_SCENE_STORAGE_KEY] as const;
 
-export type BookmarkTreePreferences = {
-  rootId?: string;
-  rootPath: string[];
-  siblingOrder: Record<string, string[]>;
-};
-
-type OptionalBackupData = {
-  backgroundData?: string;
-  backgroundMeta?: BackgroundMedia | null;
-  customCSS?: string;
-  favicons?: Record<string, string>;
-};
-
-type BackupCoreData = {
-  colorTheme: StarlitTheme;
-  gridSettings: GridSettings;
-  settings: Settings;
-};
-
-type ValidCommonData = Record<string, unknown> & BackupCoreData;
-
-export type LegacyExportData = BackupCoreData &
-  OptionalBackupData & {
-    schemaVersion?: undefined;
-  };
-
-export type ExportData = BackupCoreData &
-  OptionalBackupData & {
-    backgroundMeta: BackgroundMedia | null;
-    bookmarkTreePrefs: BookmarkTreePreferences;
-    groupPreferences: GroupPreference[];
-    iconSize: number;
-    locale: Locale;
-    schemaVersion: typeof BACKUP_SCHEMA_VERSION;
-    size: number;
-  };
-
-export type ImportData = ExportData | LegacyExportData;
+function createOverlayMutationLeaseKey(): string {
+  const nonce = Math.random().toString(36).slice(2);
+  return `${OVERLAY_MEDIA_MUTATION_LEASE_KEY_PREFIX}${Date.now().toString(36)}-${nonce}`;
+}
 
 type StorageAreaAdapter = {
   get: (key: string) => Promise<unknown>;
@@ -83,294 +77,9 @@ type StorageAreaAdapter = {
 type ImportSnapshot = {
   local: Record<string, unknown>;
   media: Blob | null | undefined;
+  overlayMedia: Record<string, Blob> | undefined;
   sync: Record<string, unknown>;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isOptionalFiniteNumber(
-  record: Record<string, unknown>,
-  key: string,
-): boolean {
-  return record[key] === undefined || isFiniteNumber(record[key]);
-}
-
-function isOptionalString(
-  record: Record<string, unknown>,
-  key: string,
-): boolean {
-  return record[key] === undefined || typeof record[key] === 'string';
-}
-
-function isPlacement(value: unknown): value is Placement {
-  return (
-    value === 'top-left' ||
-    value === 'top-center' ||
-    value === 'top-right' ||
-    value === 'center-left' ||
-    value === 'center-center' ||
-    value === 'center-right' ||
-    value === 'bottom-left' ||
-    value === 'bottom-center' ||
-    value === 'bottom-right'
-  );
-}
-
-function isMargin(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isFiniteNumber(value.top) &&
-    isFiniteNumber(value.bottom) &&
-    isFiniteNumber(value.left) &&
-    isFiniteNumber(value.right)
-  );
-}
-
-function isGridBackground(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.color === 'string' &&
-    typeof value.border === 'string' &&
-    typeof value.text === 'string' &&
-    isOptionalString(value, 'gridImage')
-  );
-}
-
-function isGridIcon(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.color === 'string' &&
-    typeof value.border === 'string' &&
-    typeof value.text === 'string' &&
-    isOptionalFiniteNumber(value, 'borderRadius') &&
-    isOptionalFiniteNumber(value, 'iconRadius') &&
-    isOptionalFiniteNumber(value, 'width') &&
-    isOptionalFiniteNumber(value, 'height')
-  );
-}
-
-function isGridHeading(value: unknown): boolean {
-  if (value === undefined) {
-    return true;
-  }
-
-  return (
-    isRecord(value) &&
-    typeof value.titleColor === 'string' &&
-    isOptionalString(value, 'titleBackgroundColor') &&
-    isOptionalFiniteNumber(value, 'titleSize') &&
-    typeof value.subtitleColor === 'string' &&
-    isOptionalFiniteNumber(value, 'subtitleSize') &&
-    typeof value.borderEnabled === 'boolean' &&
-    isFiniteNumber(value.borderWidth) &&
-    typeof value.borderColor === 'string' &&
-    typeof value.subtitleHoverColor === 'string' &&
-    isOptionalFiniteNumber(value, 'borderRadius')
-  );
-}
-
-function isGridFolder(value: unknown): boolean {
-  if (value === undefined) {
-    return true;
-  }
-
-  return (
-    isRecord(value) &&
-    typeof value.color === 'string' &&
-    typeof value.accent === 'string' &&
-    typeof value.accentText === 'string' &&
-    typeof value.text === 'string' &&
-    typeof value.border === 'string'
-  );
-}
-
-function isGridSettings(value: unknown): value is GridSettings {
-  return (
-    isRecord(value) &&
-    isFiniteNumber(value.columns) &&
-    isOptionalFiniteNumber(value, 'horizontalColumns') &&
-    isFiniteNumber(value.rows) &&
-    typeof value.gap === 'string' &&
-    isOptionalString(value, 'cardGap') &&
-    isOptionalFiniteNumber(value, 'masonryColumns') &&
-    isPlacement(value.position) &&
-    (value.margin === undefined || isMargin(value.margin)) &&
-    isGridBackground(value.background) &&
-    isGridIcon(value.icon) &&
-    isGridHeading(value.heading) &&
-    isGridFolder(value.folder)
-  );
-}
-
-function isSettings(value: unknown): value is PersistedSettings {
-  return (
-    isRecord(value) &&
-    typeof value.isFolderEnabled === 'boolean' &&
-    typeof value.isVisibleOnce === 'boolean' &&
-    typeof value.isOpenInNewTab === 'boolean' &&
-    typeof value.isExpandView === 'boolean' &&
-    (value.fontFamily === undefined || isFontFamily(value.fontFamily)) &&
-    (value.iconLayout === undefined ||
-      value.iconLayout === 'vertical' ||
-      value.iconLayout === 'horizontal')
-  );
-}
-
-function isStarlitTheme(value: unknown): value is StarlitTheme {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const keys: readonly (keyof StarlitTheme)[] = [
-    'accent',
-    'accentText',
-    'surface',
-    'text',
-    'border',
-    'hoverBg',
-    'hoverText',
-    'muted',
-  ];
-
-  return keys.every((key) => typeof value[key] === 'string');
-}
-
-function isBackgroundMedia(value: unknown): value is BackgroundMedia {
-  return (
-    isRecord(value) &&
-    (value.type === 'image' || value.type === 'video') &&
-    (value.source === 'url' || value.source === 'file') &&
-    typeof value.url === 'string'
-  );
-}
-
-function isBackgroundMeta(value: unknown): value is BackgroundMedia | null {
-  return value === null || isBackgroundMedia(value);
-}
-
-function isLocale(value: unknown): value is Locale {
-  return value === 'en' || value === 'ko' || value === 'ja';
-}
-
-function isGroupPreferences(value: unknown): value is GroupPreference[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (preference) =>
-        isRecord(preference) &&
-        typeof preference.key === 'string' &&
-        typeof preference.visible === 'boolean',
-    )
-  );
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === 'string')
-  );
-}
-
-function isBookmarkTreePreferences(
-  value: unknown,
-): value is BookmarkTreePreferences {
-  return (
-    isRecord(value) &&
-    (value.rootId === undefined || typeof value.rootId === 'string') &&
-    isStringArray(value.rootPath) &&
-    isRecord(value.siblingOrder) &&
-    Object.values(value.siblingOrder).every(isStringArray)
-  );
-}
-
-function isFaviconMap(value: unknown): value is Record<string, string> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((favicon) => typeof favicon === 'string')
-  );
-}
-
-function validateCommonFields(
-  data: Record<string, unknown>,
-): asserts data is ValidCommonData {
-  if (!isGridSettings(data.gridSettings)) {
-    throw new Error('잘못된 형식: gridSettings가 올바르지 않습니다.');
-  }
-
-  if (!isSettings(data.settings)) {
-    throw new Error('잘못된 형식: settings가 올바르지 않습니다.');
-  }
-
-  if (!isStarlitTheme(data.colorTheme)) {
-    throw new Error('잘못된 형식: colorTheme이 올바르지 않습니다.');
-  }
-
-  if (data.customCSS !== undefined && typeof data.customCSS !== 'string') {
-    throw new Error('잘못된 형식: customCSS가 문자열이 아닙니다.');
-  }
-
-  if (
-    data.backgroundMeta !== undefined &&
-    !isBackgroundMeta(data.backgroundMeta)
-  ) {
-    throw new Error('잘못된 형식: backgroundMeta가 올바르지 않습니다.');
-  }
-
-  if (
-    data.backgroundData !== undefined &&
-    typeof data.backgroundData !== 'string'
-  ) {
-    throw new Error('잘못된 형식: backgroundData가 문자열이 아닙니다.');
-  }
-
-  if (typeof data.backgroundData === 'string') {
-    dataUrlToBlob(data.backgroundData);
-  }
-
-  if (data.backgroundData !== undefined) {
-    if (
-      !isBackgroundMedia(data.backgroundMeta) ||
-      data.backgroundMeta.source !== 'file'
-    ) {
-      throw new Error(
-        '잘못된 형식: backgroundData에는 file 배경 정보가 필요합니다.',
-      );
-    }
-  }
-
-  if (data.favicons !== undefined && !isFaviconMap(data.favicons)) {
-    throw new Error('잘못된 형식: favicons가 올바르지 않습니다.');
-  }
-}
-
-function getOptionalBackupData(
-  data: Record<string, unknown>,
-): OptionalBackupData {
-  const optionalData: OptionalBackupData = {};
-
-  if (typeof data.customCSS === 'string') {
-    optionalData.customCSS = data.customCSS;
-  }
-
-  if (isBackgroundMeta(data.backgroundMeta)) {
-    optionalData.backgroundMeta = data.backgroundMeta;
-  }
-
-  if (typeof data.backgroundData === 'string') {
-    optionalData.backgroundData = data.backgroundData;
-  }
-
-  if (isFaviconMap(data.favicons)) {
-    optionalData.favicons = data.favicons;
-  }
-
-  return optionalData;
-}
 
 function shouldApplyBackground(data: ImportData): boolean {
   if (data.backgroundMeta === undefined) {
@@ -382,80 +91,6 @@ function shouldApplyBackground(data: ImportData): boolean {
     data.backgroundMeta.source === 'url' ||
     data.backgroundData !== undefined
   );
-}
-
-function parseExportData(value: unknown): ImportData {
-  if (!isRecord(value)) {
-    throw new Error('잘못된 형식: 객체가 아닙니다.');
-  }
-
-  if (
-    value.schemaVersion !== undefined &&
-    value.schemaVersion !== BACKUP_SCHEMA_VERSION
-  ) {
-    throw new Error(
-      `지원하지 않는 schemaVersion: ${String(value.schemaVersion)}`,
-    );
-  }
-
-  validateCommonFields(value);
-
-  const coreData: BackupCoreData = {
-    colorTheme: value.colorTheme,
-    gridSettings: value.gridSettings,
-    settings: normalizeSettings(value.settings),
-  };
-  const optionalData = getOptionalBackupData(value);
-
-  if (value.schemaVersion === undefined) {
-    return {
-      ...coreData,
-      ...optionalData,
-      colorTheme: normalizeTheme(coreData.colorTheme),
-      gridSettings: normalizeGridSettings(coreData.gridSettings),
-    };
-  }
-
-  const backgroundMeta = value.backgroundMeta;
-
-  if (!isFiniteNumber(value.size)) {
-    throw new Error('잘못된 형식: size가 유한한 숫자가 아닙니다.');
-  }
-
-  if (!isFiniteNumber(value.iconSize)) {
-    throw new Error('잘못된 형식: iconSize가 유한한 숫자가 아닙니다.');
-  }
-
-  if (!isLocale(value.locale)) {
-    throw new Error('잘못된 형식: locale이 올바르지 않습니다.');
-  }
-
-  if (!isGroupPreferences(value.groupPreferences)) {
-    throw new Error('잘못된 형식: groupPreferences가 올바르지 않습니다.');
-  }
-
-  if (!isBookmarkTreePreferences(value.bookmarkTreePrefs)) {
-    throw new Error('잘못된 형식: bookmarkTreePrefs가 올바르지 않습니다.');
-  }
-
-  if (
-    !Object.hasOwn(value, 'backgroundMeta') ||
-    !isBackgroundMeta(backgroundMeta)
-  ) {
-    throw new Error('잘못된 형식: backgroundMeta가 누락되었습니다.');
-  }
-
-  return {
-    ...coreData,
-    ...optionalData,
-    backgroundMeta,
-    bookmarkTreePrefs: value.bookmarkTreePrefs,
-    groupPreferences: value.groupPreferences,
-    iconSize: value.iconSize,
-    locale: value.locale,
-    schemaVersion: BACKUP_SCHEMA_VERSION,
-    size: value.size,
-  };
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -472,44 +107,6 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     };
     reader.onerror = (): void => reject(new Error('blob 읽기 실패'));
     reader.readAsDataURL(blob);
-  });
-}
-
-function dataUrlToBlob(dataUrl: string): Blob {
-  const separatorIndex = dataUrl.indexOf(',');
-
-  if (separatorIndex < 0) {
-    throw new Error('잘못된 base64 데이터입니다.');
-  }
-
-  const header = dataUrl.slice(0, separatorIndex);
-  const base64 = dataUrl.slice(separatorIndex + 1);
-  const headerMatch = /^data:([^;,]*);base64$/i.exec(header);
-
-  if (
-    !headerMatch ||
-    !/^[A-Za-z0-9+/]*={0,2}$/.test(base64) ||
-    base64.length % 4 !== 0
-  ) {
-    throw new Error('잘못된 base64 데이터입니다.');
-  }
-
-  let binary: string;
-
-  try {
-    binary = atob(base64);
-  } catch {
-    throw new Error('base64 디코딩에 실패했습니다.');
-  }
-
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return new Blob([bytes], {
-    type: headerMatch[1] || 'application/octet-stream',
   });
 }
 
@@ -546,18 +143,38 @@ async function snapshotStorageArea(
   return Object.fromEntries(keys.map((key, index) => [key, values[index]]));
 }
 
+async function snapshotOverlayMedia(): Promise<Record<string, Blob>> {
+  const keys = await listMediaKeys(OVERLAY_IMAGE_MEDIA_KEY_PREFIX);
+  const blobs = await Promise.all(keys.map((key) => loadMediaBlob(key)));
+
+  return Object.fromEntries(
+    keys.flatMap((key, index) => {
+      const blob = blobs[index];
+      return blob ? [[key, blob] as const] : [];
+    }),
+  );
+}
+
 async function createImportSnapshot(
   shouldSnapshotMedia: boolean,
+  shouldSnapshotOverlays: boolean,
 ): Promise<ImportSnapshot> {
-  const [syncSnapshot, localSnapshot, mediaSnapshot] = await Promise.all([
-    snapshotStorageArea(storage.sync, SYNC_SNAPSHOT_KEYS),
-    snapshotStorageArea(storage.local, LOCAL_SNAPSHOT_KEYS),
-    shouldSnapshotMedia ? loadMediaBlob(MEDIA_KEY) : Promise.resolve(undefined),
-  ]);
+  const [syncSnapshot, localSnapshot, mediaSnapshot, overlayMediaSnapshot] =
+    await Promise.all([
+      snapshotStorageArea(storage.sync, SYNC_SNAPSHOT_KEYS),
+      snapshotStorageArea(storage.local, LOCAL_SNAPSHOT_KEYS),
+      shouldSnapshotMedia
+        ? loadMediaBlob(MEDIA_KEY)
+        : Promise.resolve(undefined),
+      shouldSnapshotOverlays
+        ? snapshotOverlayMedia()
+        : Promise.resolve(undefined),
+    ]);
 
   return {
     local: localSnapshot,
     media: mediaSnapshot,
+    overlayMedia: overlayMediaSnapshot,
     sync: syncSnapshot,
   };
 }
@@ -594,10 +211,31 @@ async function restoreMedia(media: Blob | null | undefined): Promise<void> {
   await deleteMedia(MEDIA_KEY);
 }
 
+async function restoreLocalOverlaySnapshot(
+  local: Record<string, unknown>,
+  media: Record<string, Blob> | undefined,
+): Promise<void> {
+  if (media === undefined) {
+    await restoreStorageArea(storage.local, local);
+    return;
+  }
+
+  for (const [key, blob] of Object.entries(media)) {
+    await saveMedia(key, blob);
+  }
+
+  await restoreStorageArea(storage.local, local);
+  const restoredMediaKeys = new Set(Object.keys(media));
+  const currentMediaKeys = await listMediaKeys(OVERLAY_IMAGE_MEDIA_KEY_PREFIX);
+  await deleteMediaBatch(
+    currentMediaKeys.filter((key) => !restoredMediaKeys.has(key)),
+  );
+}
+
 async function restoreImportSnapshot(snapshot: ImportSnapshot): Promise<void> {
   const results = await Promise.allSettled([
     restoreStorageArea(storage.sync, snapshot.sync),
-    restoreStorageArea(storage.local, snapshot.local),
+    restoreLocalOverlaySnapshot(snapshot.local, snapshot.overlayMedia),
     restoreMedia(snapshot.media),
   ]);
   const failures = results.filter(
@@ -620,7 +258,7 @@ async function applyImport(data: ImportData): Promise<void> {
   };
   const isBackgroundApplicable = shouldApplyBackground(data);
 
-  if (data.schemaVersion === BACKUP_SCHEMA_VERSION) {
+  if (data.schemaVersion !== undefined) {
     syncUpdates.size = data.size;
     syncUpdates.iconSize = data.iconSize;
     syncUpdates.locale = data.locale;
@@ -634,6 +272,57 @@ async function applyImport(data: ImportData): Promise<void> {
 
   if (isBackgroundApplicable) {
     syncUpdates.backgroundMeta = data.backgroundMeta;
+  }
+
+  if (data.schemaVersion === BACKUP_SCHEMA_VERSION) {
+    const imageLayers = getOverlayImageLayers(data.overlayScene);
+    const previousMediaKeys = await listMediaKeys(
+      OVERLAY_IMAGE_MEDIA_KEY_PREFIX,
+    );
+    const occupiedMediaKeys = new Set(previousMediaKeys);
+    const importedImageIds = new Map<string, string>();
+
+    imageLayers.forEach((image) => {
+      let importedId = crypto.randomUUID();
+      while (occupiedMediaKeys.has(getOverlayMediaKey(importedId))) {
+        importedId = crypto.randomUUID();
+      }
+      occupiedMediaKeys.add(getOverlayMediaKey(importedId));
+      importedImageIds.set(image.id, importedId);
+    });
+
+    for (const image of imageLayers) {
+      const mediaData = data.overlayMedia[image.id];
+      if (!mediaData) {
+        throw new Error(`overlay media가 누락되었습니다: ${image.id}`);
+      }
+
+      const importedId = importedImageIds.get(image.id);
+      if (!importedId) {
+        throw new Error(`overlay id 생성에 실패했습니다: ${image.id}`);
+      }
+
+      await saveMedia(getOverlayMediaKey(importedId), dataUrlToBlob(mediaData));
+    }
+
+    const importedScene: OverlayScene = {
+      layers: data.overlayScene.layers.map((layer) => {
+        if (layer.kind !== 'image') {
+          return layer;
+        }
+
+        const importedId = importedImageIds.get(layer.id);
+        if (!importedId) {
+          throw new Error(`overlay id 생성에 실패했습니다: ${layer.id}`);
+        }
+
+        return { ...layer, id: importedId };
+      }),
+    };
+    await storage.local.set({
+      [OVERLAY_SCENE_STORAGE_KEY]: importedScene,
+    });
+    await deleteMediaBatch(previousMediaKeys);
   }
 
   await storage.sync.set(syncUpdates);
@@ -699,7 +388,7 @@ export function importFromJson(file: File): Promise<ImportData> {
   });
 }
 
-export async function exportFull(
+async function createFullExport(
   gridSettings: GridSettings,
   settings: Settings,
   colorTheme: StarlitTheme,
@@ -713,6 +402,7 @@ export async function exportFull(
     storedGroups,
     storedTree,
     storedFavicons,
+    storedOverlayScene,
   ] = await Promise.all([
     storage.sync.get('size'),
     storage.sync.get('iconSize'),
@@ -720,8 +410,22 @@ export async function exportFull(
     storage.sync.get('groupPreferences'),
     storage.sync.get('bookmarkTreePrefs'),
     storage.local.get('favicons'),
+    storage.local.get(OVERLAY_SCENE_STORAGE_KEY),
   ]);
   const favicons = getStoredFavicons(storedFavicons);
+  const overlayScene = normalizeOverlayScene(storedOverlayScene);
+  const overlayMediaEntries: Array<readonly [string, string]> = [];
+
+  for (const image of getOverlayImageLayers(overlayScene)) {
+    const blob = await loadMediaBlob(getOverlayMediaKey(image.id));
+    if (!blob) {
+      throw new Error(`overlay image file이 없습니다: ${image.name}`);
+    }
+
+    overlayMediaEntries.push([image.id, await blobToDataUrl(blob)]);
+  }
+  const overlayMedia = Object.fromEntries(overlayMediaEntries);
+
   const data: ExportData = {
     backgroundMeta: backgroundMeta ?? null,
     bookmarkTreePrefs: getStoredBookmarkTreePreferences(storedTree),
@@ -730,6 +434,8 @@ export async function exportFull(
     groupPreferences: getStoredGroupPreferences(storedGroups),
     iconSize: getStoredNumber(storedIconSize, DEFAULT_ICON_SIZE),
     locale: getStoredLocale(storedLocale),
+    overlayMedia,
+    overlayScene,
     schemaVersion: BACKUP_SCHEMA_VERSION,
     settings,
     size: getStoredNumber(storedSize, DEFAULT_SIZE),
@@ -754,14 +460,32 @@ export async function exportFull(
   return data;
 }
 
-export async function importFull(data: ImportData): Promise<void> {
-  const validatedData = parseExportData(data);
+export function exportFull(
+  gridSettings: GridSettings,
+  settings: Settings,
+  colorTheme: StarlitTheme,
+  backgroundMeta: BackgroundMedia | null | undefined,
+  customCSS?: string,
+): Promise<ExportData> {
+  return withOverlayMediaMutationLock(() =>
+    createFullExport(
+      gridSettings,
+      settings,
+      colorTheme,
+      backgroundMeta,
+      customCSS,
+    ),
+  );
+}
+
+async function applyImportWithRollback(data: ImportData): Promise<void> {
   const snapshot = await createImportSnapshot(
-    shouldApplyBackground(validatedData),
+    shouldApplyBackground(data),
+    data.schemaVersion === BACKUP_SCHEMA_VERSION,
   );
 
   try {
-    await applyImport(validatedData);
+    await applyImport(data);
   } catch (error) {
     try {
       await restoreImportSnapshot(snapshot);
@@ -775,4 +499,50 @@ export async function importFull(data: ImportData): Promise<void> {
 
     throw error;
   }
+}
+
+export async function importFull(data: ImportData): Promise<void> {
+  const validatedData = parseExportData(data);
+  if (validatedData.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+    await applyImportWithRollback(validatedData);
+    return;
+  }
+
+  await validateOverlayMedia(validatedData);
+
+  await withOverlayMediaMutationLock(async (): Promise<void> => {
+    const mutationLeaseKey = createOverlayMutationLeaseKey();
+    await storage.local.set({
+      [mutationLeaseKey]: { updatedAt: Date.now() },
+    });
+
+    let importFailure: unknown;
+    let hasImportFailed = false;
+    try {
+      await applyImportWithRollback(validatedData);
+    } catch (error) {
+      hasImportFailed = true;
+      importFailure = error;
+    }
+
+    try {
+      await storage.local.remove(mutationLeaseKey);
+    } catch (cleanupError) {
+      if (hasImportFailed) {
+        throw new AggregateError(
+          [importFailure, cleanupError],
+          '가져오기 실패 후 media mutation lease 정리에도 실패했습니다.',
+          { cause: cleanupError },
+        );
+      }
+
+      if (typeof globalThis.reportError === 'function') {
+        globalThis.reportError(cleanupError);
+      }
+    }
+
+    if (hasImportFailed) {
+      throw importFailure;
+    }
+  });
 }

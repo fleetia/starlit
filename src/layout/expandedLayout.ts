@@ -10,6 +10,27 @@ export type ExpandedGroupsState = {
   openKeys: string[];
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === 'string')
+  );
+}
+
+export function decodeExpandedGroupsState(
+  rawValue: unknown,
+  fallback: ExpandedGroupsState,
+): ExpandedGroupsState {
+  return isRecord(rawValue) &&
+    isStringArray(rawValue.knownKeys) &&
+    isStringArray(rawValue.openKeys)
+    ? { knownKeys: rawValue.knownKeys, openKeys: rawValue.openKeys }
+    : fallback;
+}
+
 type GridMargin = NonNullable<GridSettings['margin']>;
 type VerticalMargin = Pick<GridMargin, 'bottom' | 'top'>;
 type HorizontalMargin = Pick<GridMargin, 'left' | 'right'>;

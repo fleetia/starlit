@@ -1,6 +1,6 @@
 # Privacy Policy for Starlit
 
-Last updated: July 20, 2026
+Last updated: July 21, 2026
 
 ## Overview
 
@@ -28,13 +28,13 @@ Opening a bookmark folder as a live tab group uses bookmark URLs Starlit already
 
 ### Settings and preferences
 
-With the `storage` permission, Starlit stores settings such as layout, group visibility and order, colors, typography, spacing, language, custom CSS, background metadata, custom favicons, and expanded or collapsed group state.
+With the `storage` permission, Starlit stores settings such as layout, group visibility and order, colors, typography, spacing, language, custom CSS, background metadata, overlay image positions and layer order, custom favicons, and expanded or collapsed group state.
 
 Small preferences may be stored in `chrome.storage.sync`, which can sync them through the user's signed-in Chrome account when Chrome Sync is enabled. Local caches and custom favicons are stored in `chrome.storage.local`. Google processes Chrome Sync data under Google's own privacy terms; the Starlit developer does not receive it.
 
-### Background images and videos
+### Background and overlay media
 
-When the user selects an image or video file from their device, Starlit processes and stores that file locally in the extension's IndexedDB storage. The file is not uploaded to a developer-controlled server.
+When the user selects a background image, background video, or overlay image file from their device, Starlit processes and stores that file locally in the extension's IndexedDB storage. Overlay images are converted to WebP. These files are not uploaded to a developer-controlled server.
 
 When the user provides a background URL or a URL inside custom CSS, Chrome requests that resource directly from the URL provider. That provider may receive ordinary request information such as the user's IP address and browser request metadata under the provider's own privacy policy.
 
@@ -44,7 +44,7 @@ To display bookmark icons, Starlit may send only the bookmarked site's domain na
 
 ## How Data Is Used
 
-Starlit uses the data described above only to provide and improve its user-facing bookmark workspace, including rendering bookmarks, preserving customization, displaying favicons, and loading user-selected backgrounds. Starlit does not use the data for analytics, behavioral tracking, personalized advertising, lending, or credit-worthiness decisions.
+Starlit uses the data described above only to provide and improve its user-facing bookmark workspace, including rendering bookmarks, preserving customization, displaying favicons, and loading user-selected backgrounds and overlay images. Starlit does not use the data for analytics, behavioral tracking, personalized advertising, lending, or credit-worthiness decisions.
 
 ## Sharing and Transfer
 
@@ -54,13 +54,13 @@ Limited requests to Google services and user-selected resource providers occur o
 
 ## Data Retention and Deletion
 
-Settings, caches, custom favicons, first-install tutorial completion, and local background media remain in Chrome extension storage until the user resets or replaces them, clears the extension's site data, or uninstalls Starlit. Settings stored through Chrome Sync may remain in the user's Google account according to the user's Chrome Sync settings and Google's retention practices.
+Settings, caches, custom favicons, first-install tutorial completion, and local background or overlay media remain in Chrome extension storage until the user resets, replaces, or removes them, clears the extension's site data, or uninstalls Starlit. Settings stored through Chrome Sync may remain in the user's Google account according to the user's Chrome Sync settings and Google's retention practices.
 
 Users can reset Starlit's settings from the extension interface. Uninstalling Starlit removes data stored locally for the extension. Chrome bookmarks remain in Chrome unless the user explicitly confirms a bookmark deletion in Starlit.
 
 ## Security
 
-Starlit minimizes requested permissions and does not request active-tab or host access. Chrome presents the optional `tabs` permission as browsing-history access because it exposes open-tab titles and URLs; Starlit uses that access only during a user-initiated tab-group import and then removes it. Built-in external services use HTTPS. User-specified resources are requested directly using the URL provided, so users should choose HTTPS sources. User-selected local background files remain in browser-managed local storage.
+Starlit minimizes requested permissions and does not request active-tab or host access. Chrome presents the optional `tabs` permission as browsing-history access because it exposes open-tab titles and URLs; Starlit uses that access only during a user-initiated tab-group import and then removes it. Built-in external services use HTTPS. User-specified resources are requested directly using the URL provided, so users should choose HTTPS sources. User-selected local background and overlay files remain in browser-managed local storage.
 
 ## Changes to This Policy
 

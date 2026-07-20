@@ -16,11 +16,18 @@ function advanceMediaVersion(key: string): void {
   mediaVersions.set(key, getMediaVersion(key) + 1);
 }
 
-function replaceActiveBlobUrl(key: string, blob: Blob): string {
-  const previousUrl = activeBlobUrls.get(key);
-  if (previousUrl) {
-    URL.revokeObjectURL(previousUrl);
+function releaseActiveBlobUrl(key: string): void {
+  const url = activeBlobUrls.get(key);
+  if (!url) {
+    return;
   }
+
+  URL.revokeObjectURL(url);
+  activeBlobUrls.delete(key);
+}
+
+function replaceActiveBlobUrl(key: string, blob: Blob): string {
+  releaseActiveBlobUrl(key);
 
   const url = URL.createObjectURL(blob);
   activeBlobUrls.set(key, url);
@@ -129,6 +136,23 @@ export async function loadMediaBlob(key: string): Promise<Blob | null> {
   });
 }
 
+export async function listMediaKeys(prefix = ''): Promise<string[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).getAllKeys();
+    request.onsuccess = () => {
+      resolve(
+        request.result.filter(
+          (key): key is string =>
+            typeof key === 'string' && key.startsWith(prefix),
+        ),
+      );
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
 async function openExistingDatabase(name: string): Promise<IDBDatabase | null> {
   if (indexedDB.databases) {
     const databases = await indexedDB.databases();
@@ -181,28 +205,38 @@ export async function loadLegacyMediaBlob(key: string): Promise<Blob | null> {
   });
 }
 
-export async function deleteMedia(key: string): Promise<void> {
+export async function deleteMediaBatch(keys: readonly string[]): Promise<void> {
+  const uniqueKeys = [...new Set(keys)];
+  if (uniqueKeys.length === 0) {
+    return;
+  }
+
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(key);
+    const store = tx.objectStore(STORE_NAME);
+
+    uniqueKeys.forEach((key) => store.delete(key));
     tx.oncomplete = () => {
-      advanceMediaVersion(key);
-      const previousUrl = activeBlobUrls.get(key);
-      if (previousUrl) {
-        URL.revokeObjectURL(previousUrl);
-        activeBlobUrls.delete(key);
-      }
+      uniqueKeys.forEach((key) => {
+        advanceMediaVersion(key);
+        releaseActiveBlobUrl(key);
+      });
       resolve();
     };
     tx.onerror = () => reject(tx.error);
   });
 }
 
+export async function deleteMediaByPrefix(prefix: string): Promise<void> {
+  const keys = await listMediaKeys(prefix);
+  await deleteMediaBatch(keys);
+}
+
+export async function deleteMedia(key: string): Promise<void> {
+  await deleteMediaBatch([key]);
+}
+
 export function revokeMedia(key: string): void {
-  const url = activeBlobUrls.get(key);
-  if (url) {
-    URL.revokeObjectURL(url);
-    activeBlobUrls.delete(key);
-  }
+  releaseActiveBlobUrl(key);
 }

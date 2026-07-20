@@ -1,17 +1,13 @@
 import { useCallback } from 'react';
 
 import { useStorageState } from '../hooks/useStorageState';
+import {
+  DEFAULT_BOOKMARK_TREE_PREFS,
+  decodeBookmarkTreePrefs,
+  type BookmarkTreePrefs,
+} from './storageDecoders';
 
-export type BookmarkTreePrefs = {
-  rootId?: string;
-  rootPath: string[];
-  siblingOrder: Record<string, string[]>;
-};
-
-const defaultPrefs: BookmarkTreePrefs = {
-  rootPath: [],
-  siblingOrder: {},
-};
+export type { BookmarkTreePrefs } from './storageDecoders';
 
 type UseBookmarkTreePrefsReturn = BookmarkTreePrefs & {
   isLoaded: boolean;
@@ -27,7 +23,8 @@ export function useBookmarkTreePrefs(): UseBookmarkTreePrefsReturn {
     setValue: setPrefs,
   } = useStorageState<BookmarkTreePrefs>(
     'bookmarkTreePrefs',
-    defaultPrefs,
+    DEFAULT_BOOKMARK_TREE_PREFS,
+    decodeBookmarkTreePrefs,
     'sync',
   );
 

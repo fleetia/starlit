@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Icon, IconButton, ThemeRoot } from '@fleetia/lagrange';
 
 import { BackgroundLayer } from './BackgroundLayer';
@@ -17,6 +17,9 @@ import { useStorageState } from '../hooks/useStorageState';
 import { type Locale, useTranslation } from '../i18n';
 import { getLayoutStyle } from '../layout/layoutStyle';
 import { useExpandedGroupsLayout } from '../layout/useExpandedGroupsLayout';
+import { OverlayImageStacks } from '../overlays/OverlayImageStacks';
+import { useOverlayScene } from '../overlays/useOverlayScene';
+import type { OverlayScene } from '../overlays/types';
 import {
   OptionsSidebar,
   type FontPreviewState,
@@ -52,26 +55,43 @@ function SettingsIcon(): ReactElement {
   );
 }
 
+function decodeFiniteNumber(rawValue: unknown, fallback: number): number {
+  return typeof rawValue === 'number' && Number.isFinite(rawValue)
+    ? rawValue
+    : fallback;
+}
+
+function decodeString(rawValue: unknown, fallback: string): string {
+  return typeof rawValue === 'string' ? rawValue : fallback;
+}
+
 export function App({ locale, onLocaleChange }: AppProps): ReactElement {
   const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [fontPreview, setFontPreview] = useState<FontPreviewState | null>(null);
+  const [overlayEditPreview, setOverlayEditPreview] =
+    useState<OverlayScene | null>(null);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsSessionTriggerRef = useRef<HTMLElement | null>(null);
   const {
     isLoaded: isSizeLoaded,
     value: size,
     setValue: setSize,
-  } = useStorageState<number>('size', DEFAULT_SIZE);
+  } = useStorageState<number>('size', DEFAULT_SIZE, decodeFiniteNumber);
   const {
     isLoaded: isIconSizeLoaded,
     value: iconSize,
     setValue: setIconSize,
-  } = useStorageState<number>('iconSize', DEFAULT_ICON_SIZE);
+  } = useStorageState<number>(
+    'iconSize',
+    DEFAULT_ICON_SIZE,
+    decodeFiniteNumber,
+  );
   const {
     isLoaded: isCustomCSSLoaded,
     value: customCSS,
     setValue: setCustomCSS,
-  } = useStorageState<string>('customCSS', '');
+  } = useStorageState<string>('customCSS', '', decodeString);
   const {
     bookmarks,
     handleDeleteBookmark,
@@ -101,6 +121,15 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     updateFromFile: updateBackgroundFromFile,
     updateFromUrl: updateBackgroundFromUrl,
   } = useBackgroundImage();
+  const {
+    discardImages: discardOverlayImages,
+    finalizeImages: finalizeOverlayImages,
+    isLoaded: isOverlaySceneLoaded,
+    isProcessing: isOverlayProcessing,
+    prepareFiles: prepareOverlayFiles,
+    scene: overlayScene,
+    updateScene: updateOverlayScene,
+  } = useOverlayScene();
   const {
     applyPreset,
     colorTheme,
@@ -156,6 +185,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     isGridSettingsLoaded &&
     areSettingsLoaded &&
     isBackgroundLoaded &&
+    isOverlaySceneLoaded &&
     isThemeLoaded &&
     areBookmarkTreePrefsLoaded &&
     areGroupPreferencesLoaded;
@@ -172,6 +202,18 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     '--starlit-background-image': backgroundImage,
   };
   const sanitizedCustomCSS = useMemo(() => sanitizeCSS(customCSS), [customCSS]);
+  const isOverlayEditing = overlayEditPreview !== null;
+
+  useEffect(() => {
+    if (isSettingsOpen) {
+      return;
+    }
+
+    const sessionTrigger = settingsSessionTriggerRef.current;
+    settingsSessionTriggerRef.current = null;
+    sessionTrigger?.focus();
+  }, [isSettingsOpen]);
+
   return (
     <ThemeRoot
       className="starlit-root"
@@ -195,7 +237,13 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
         media={backgroundMeta ?? null}
       />
 
-      <main className="starlit-main" data-starlit-part="main">
+      <OverlayImageStacks scene={overlayEditPreview ?? overlayScene} />
+
+      <main
+        className="starlit-main"
+        data-starlit-part="main"
+        inert={isOverlayEditing}
+      >
         {gridSettings.background.gridImage ? (
           <img
             alt=""
@@ -220,10 +268,11 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
         ref={settingsTriggerRef}
         className="starlit-settings-trigger"
         data-starlit-part="settings-trigger"
-        disabled={!areSettingsSourcesLoaded}
+        disabled={!areSettingsSourcesLoaded || isOverlayEditing}
         label={t('newtab.options')}
         onClick={() => {
-          if (areSettingsSourcesLoaded) {
+          if (areSettingsSourcesLoaded && !isOverlayEditing) {
+            settingsSessionTriggerRef.current = settingsTriggerRef.current;
             setIsSettingsOpen(true);
           }
         }}
@@ -241,6 +290,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           groupPreferences={groupPreferences}
           iconSize={iconSize}
           isBackgroundProcessing={isBackgroundProcessing}
+          isOverlayProcessing={isOverlayProcessing}
           locale={locale}
           onBackgroundClear={clearBackground}
           onBackgroundFile={updateBackgroundFromFile}
@@ -254,11 +304,17 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           onGroupPreferencesUpdate={updateGroupPreferences}
           onIconSizeChange={setIconSize}
           onLocaleChange={onLocaleChange}
+          onOverlayEditPreviewChange={setOverlayEditPreview}
+          onOverlayFilesPrepare={prepareOverlayFiles}
+          onOverlayImagesFinalize={finalizeOverlayImages}
+          onOverlayImagesDiscard={discardOverlayImages}
+          onOverlaySceneUpdate={updateOverlayScene}
           onSettingsUpdate={updateSettings}
           onSizeChange={setSize}
           onThemePreset={applyPreset}
           onThemeReset={resetTheme}
           orderedTree={orderedTree}
+          overlayScene={overlayScene}
           preview={({ gridSettings: draftGrid, settings: draftSettings }) => (
             <BookmarkPreview
               gridSettings={draftGrid}

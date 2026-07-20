@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useStorageState } from '../hooks/useStorageState';
 import {
+  decodeExpandedGroupsState,
   distributeGroupKeys,
   getExpandedColumnCapacity,
   getExpandedSurfaceWidth,
@@ -54,6 +55,7 @@ export function useExpandedGroupsLayout({
   } = useStorageState<ExpandedGroupsState>(
     'expandedGroupsState',
     { knownKeys: [], openKeys: [] },
+    decodeExpandedGroupsState,
     'local',
   );
 

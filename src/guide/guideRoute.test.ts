@@ -12,6 +12,7 @@ describe('guideRoute', () => {
     expect(normalizeGuideLocale('en')).toBe('en');
     expect(normalizeGuideLocale('fr')).toBe('ko');
     expect(normalizeGuideSection('#tab-groups')).toBe('tab-groups');
+    expect(normalizeGuideSection('#overlay-images')).toBe('overlay-images');
     expect(normalizeGuideSection('#troubleshooting')).toBe('troubleshooting');
     expect(normalizeGuideSection('#unknown')).toBeUndefined();
   });
@@ -34,6 +35,9 @@ describe('guideRoute', () => {
     expect(createGuideHref('en')).toBe(`${baseHref}?locale=en`);
     expect(createGuideHref('ko', 'getting-started')).toBe(
       `${baseHref}?locale=ko#getting-started`,
+    );
+    expect(createGuideHref('ja', 'overlay-images')).toBe(
+      `${baseHref}?locale=ja#overlay-images`,
     );
   });
 });

@@ -158,6 +158,55 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         title: 'Background, theme, and Custom CSS',
       },
+      'overlay-images': {
+        callout: {
+          body: 'Layer order, newly added images, and position edits remain in the Settings draft until you choose Save. Cancelling discards the complete overlay draft.',
+          title: 'Save the complete layer draft',
+          tone: 'info',
+        },
+        description:
+          'Place local images in front of or behind the bookmark workspace, then adjust each image without blocking normal bookmark use.',
+        details: [
+          {
+            body: 'The Bookmarks row represents the complete bookmark workspace and cannot be removed. Images above it in the front-to-back list render over bookmarks; images below it render behind them.',
+            title: 'What does the Bookmarks layer mean?',
+          },
+          {
+            body: 'Each image keeps a pixel offset from one of nine viewport anchor points. Choose the nearest corner, edge, or center so the image stays attached to that reference when the viewport changes size.',
+            title: 'Which anchor should I choose?',
+          },
+        ],
+        facts: [
+          'Fresh installs and profiles after Reset all start with the bundled Getting image above bookmarks at the bottom-right anchor. You can move, reorder, or remove it.',
+          'Uploaded images are converted to WebP and stored in IndexedDB for the current extension profile. They are not sent to a Starlit server.',
+          'Position editing supports dragging, arrow-key movement, rotation from -180° to 180°, and zoom from 10% to 400%. Hold Shift with an arrow key to move 10 pixels at a time.',
+          'Images in front of bookmarks do not receive pointer events during normal use, so bookmark links remain clickable.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: 'Open Settings > Layers. The list is ordered from the front of the screen to the back.',
+            title: 'Open the layer list',
+          },
+          {
+            body: 'Choose Add images and select one or more image files. Each file becomes a separate layer in the draft.',
+            title: 'Add overlay images',
+          },
+          {
+            body: 'Drag rows or use the arrow controls to move images around the fixed Bookmarks row. Remove only the image layers you no longer need.',
+            title: 'Arrange front and back',
+          },
+          {
+            body: 'Choose Edit positions, select an image, then set its anchor, drag or nudge it into place, and adjust rotation and zoom. Return to Settings when finished.',
+            title: 'Place each image',
+          },
+          {
+            body: 'Choose Save in Settings to apply the layer order, image files, and positions together. Choose Cancel to discard the draft.',
+            title: 'Save all overlay changes',
+          },
+        ],
+        title: 'Overlay image layers',
+      },
       'backup-permissions': {
         callout: {
           body: 'Export, import, reset, bookmark-manager, and tab-group actions run immediately; Cancel does not undo them. Regular form controls remain drafts until you choose Save.',
@@ -168,7 +217,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Create a portable settings backup, understand Chrome permissions, and know exactly what each reset action can remove.',
         details: [
           {
-            body: 'The JSON includes saved layout and display settings, group preferences, language, Custom CSS, custom favicons, background metadata, and uploaded background media. It does not copy Chrome bookmarks, Chrome tab groups, permissions, unsaved drafts, tutorial completion, or expanded-group state. Keep the file private because it can embed local media.',
+            body: 'The JSON includes saved layout and display settings, group preferences, language, Custom CSS, custom favicons, background metadata and media, plus overlay layer metadata and image data. It does not copy Chrome bookmarks, Chrome tab groups, permissions, unsaved drafts, tutorial completion, or expanded-group state. Keep the file private because it can embed local media.',
             title: 'What is included in an export?',
           },
           {
@@ -178,9 +227,9 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         facts: [
           'A different Chrome profile or extension ID has a separate storage area, even on the same computer.',
-          'Export and import can carry Starlit settings, custom favicons, and uploaded background media across that boundary.',
+          'Export and import can carry Starlit settings, custom favicons, uploaded background media, and overlay images across that boundary.',
           'Custom favicon overrides are merged during import. Destination overrides that are not present in the backup remain in place.',
-          'Reset theme restores only the color theme. Reset all also removes Starlit preferences, caches, custom favicons, and local background media.',
+          'Reset theme restores only the color theme. Reset all also removes Starlit preferences, caches, custom favicons, local background media, and overlay images. The bundled Getting image returns on the next load.',
           'Neither reset deletes Chrome bookmarks or imported bookmark folders. Reset all also leaves tutorial completion, expanded-group state, and the optional tabGroups connection in place.',
         ],
         media: [
@@ -469,7 +518,7 @@ const COPY: Record<Locale, GuideCopy> = {
       items: [
         'Group visibility and order, bookmark root, layout, colors, typography, language, and Custom CSS',
         'Custom favicon overrides, caches, and expanded or collapsed group state',
-        'Background metadata plus uploaded image or video data stored locally in the extension profile',
+        'Background and overlay metadata plus uploaded media stored locally in the extension profile',
       ],
       title: 'Starlit stores display preferences and device-scoped data',
     },
@@ -582,6 +631,55 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         title: '背景・テーマ・Custom CSS',
       },
+      'overlay-images': {
+        callout: {
+          body: 'レイヤー順、新しく追加した画像、位置の編集は、［保存］を選ぶまで設定の下書きです。［キャンセル］すると、オーバーレイの下書き全体が破棄されます。',
+          title: 'レイヤーの下書き全体を保存します',
+          tone: 'info',
+        },
+        description:
+          'ローカル画像をブックマーク画面の前後に配置し、通常のブックマーク操作を妨げずに画像ごとの位置を調整します。',
+        details: [
+          {
+            body: '［ブックマーク］行はブックマーク画面全体を表し、削除できません。前から後ろへ並ぶ一覧で、その行より上の画像はブックマークの前、下の画像は後ろに表示されます。',
+            title: 'ブックマークレイヤーとは何ですか？',
+          },
+          {
+            body: '各画像は、画面上の 9 個の基準点のいずれかから pixel 単位の距離を保ちます。画面サイズが変わっても位置関係を保てるよう、最も近い角、辺、または中央を選びます。',
+            title: 'どの基準点を選べばよいですか？',
+          },
+        ],
+        facts: [
+          '新規インストールまたは［すべてリセット］後のプロフィールには、右下を基準にした同梱の Getting 画像がブックマークの前に表示されます。他の画像と同じように移動、並べ替え、削除できます。',
+          'アップロードした画像は WebP に変換され、現在の拡張機能プロフィールの IndexedDB に保存されます。Starlit のサーバーには送信されません。',
+          '位置編集では、ドラッグ、方向キーでの移動、-180°〜180°の回転、10%〜400%の拡大・縮小ができます。Shift と方向キーを同時に押すと 10 pixel ずつ移動します。',
+          'ブックマークの前にある画像は通常画面で pointer event を受け取らないため、ブックマークリンクをそのまま選べます。',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '設定の［レイヤー］を開きます。一覧は画面の前から後ろの順に並びます。',
+            title: 'レイヤー一覧を開く',
+          },
+          {
+            body: '［画像を追加］を選び、1 個以上の画像ファイルを指定します。各ファイルは下書き内の個別レイヤーになります。',
+            title: 'オーバーレイ画像を追加する',
+          },
+          {
+            body: '行をドラッグするか矢印ボタンを使い、固定された［ブックマーク］行を基準に画像を移動します。不要な画像レイヤーだけを削除できます。',
+            title: '前後の順序を整える',
+          },
+          {
+            body: '［位置を編集］を選び、画像を指定してから、基準点、位置、回転、拡大率を調整します。完了したら設定へ戻ります。',
+            title: '画像ごとの位置を決める',
+          },
+          {
+            body: '設定で［保存］を選ぶと、レイヤー順、画像ファイル、位置がまとめて反映されます。［キャンセル］では下書きを破棄します。',
+            title: 'オーバーレイ変更を保存する',
+          },
+        ],
+        title: 'オーバーレイ画像レイヤー',
+      },
       'backup-permissions': {
         callout: {
           body: 'エクスポート、インポート、リセット、ブックマークマネージャー、タブグループの各操作はすぐに実行され、［キャンセル］では元に戻りません。通常のフォーム設定は［保存］するまで下書きです。',
@@ -592,7 +690,7 @@ const COPY: Record<Locale, GuideCopy> = {
           '持ち運べる設定バックアップを作成し、Chrome 権限と各リセットが削除する範囲を確認します。',
         details: [
           {
-            body: 'JSON には保存済みのレイアウトと表示設定、グループ設定、言語、Custom CSS、カスタム favicon、背景情報、アップロードした背景メディアが含まれます。Chrome ブックマーク、Chrome タブグループ、権限、未保存の下書き、チュートリアル完了状態、グループの展開状態は含まれません。ローカルメディアを埋め込む場合があるため、ファイルは非公開で保管してください。',
+            body: 'JSON には保存済みのレイアウトと表示設定、グループ設定、言語、Custom CSS、カスタム favicon、背景情報とメディア、オーバーレイのレイヤー情報と画像データが含まれます。Chrome ブックマーク、Chrome タブグループ、権限、未保存の下書き、チュートリアル完了状態、グループの展開状態は含まれません。ローカルメディアを埋め込む場合があるため、ファイルは非公開で保管してください。',
             title: 'エクスポートには何が含まれますか？',
           },
           {
@@ -602,9 +700,9 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         facts: [
           '同じ端末でも、別の Chrome プロフィールや別の拡張機能 ID には独立した保存領域があります。',
-          'エクスポートとインポートで、その境界を越えて Starlit 設定、カスタム favicon、アップロードした背景を移せます。',
+          'エクスポートとインポートで、その境界を越えて Starlit 設定、カスタム favicon、アップロードした背景、オーバーレイ画像を移せます。',
           'インポート時、カスタム favicon は移行先の設定へ merge されます。バックアップにない移行先の favicon 設定はそのまま残ります。',
-          '［テーマをリセット］は色テーマだけを戻します。［すべてリセット］は Starlit の設定、キャッシュ、カスタム favicon、ローカル背景も削除します。',
+          '［テーマをリセット］は色テーマだけを戻します。［すべてリセット］は Starlit の設定、キャッシュ、カスタム favicon、ローカル背景、オーバーレイ画像も削除します。次の読み込み時には同梱の Getting 画像が復元されます。',
           'どちらのリセットも Chrome ブックマークや取り込んだフォルダーを削除しません。［すべてリセット］でも、チュートリアル完了状態、グループの展開状態、任意の tabGroups 接続は残ります。',
         ],
         media: [
@@ -894,7 +992,7 @@ const COPY: Record<Locale, GuideCopy> = {
       items: [
         'グループの表示と順序、ブックマークルート、レイアウト、色、フォント、言語、Custom CSS',
         'カスタム favicon、キャッシュ、グループの展開・折りたたみ状態',
-        '背景情報と、拡張機能プロフィール内にローカル保存した画像・動画データ',
+        '背景とオーバーレイの情報、および拡張機能プロフィール内にローカル保存したメディア',
       ],
       title: 'Starlit は表示設定と端末ごとのデータを保存します',
     },
@@ -1005,6 +1103,55 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         title: '배경·테마·Custom CSS',
       },
+      'overlay-images': {
+        callout: {
+          body: '레이어 순서, 새로 추가한 이미지, 위치 편집은 저장을 선택하기 전까지 설정 draft입니다. 취소하면 오버레이 draft 전체를 버립니다.',
+          title: '레이어 draft 전체를 저장합니다',
+          tone: 'info',
+        },
+        description:
+          'Local 이미지를 북마크 화면 앞이나 뒤에 배치하고, 평소 북마크 사용을 막지 않으면서 이미지별 위치를 조정합니다.',
+        details: [
+          {
+            body: '북마크 행은 전체 북마크 화면을 뜻하며 삭제할 수 없습니다. 앞에서 뒤 순서인 목록에서 북마크보다 위에 둔 이미지는 북마크 앞에, 아래에 둔 이미지는 뒤에 표시됩니다.',
+            title: '북마크 레이어는 무엇인가요?',
+          },
+          {
+            body: '각 이미지는 화면의 9개 기준점 중 하나에서 pixel 단위 거리를 유지합니다. 화면 크기가 달라져도 위치 관계를 유지하도록 가장 가까운 모서리, 변, 중앙을 고르세요.',
+            title: '어떤 기준점을 선택해야 하나요?',
+          },
+        ],
+        facts: [
+          '새로 설치하거나 전체 초기화한 profile에는 오른쪽 아래를 기준으로 한 기본 Getting 이미지가 북마크 앞에 표시됩니다. 다른 이미지처럼 이동, 순서 변경, 삭제할 수 있습니다.',
+          '업로드한 이미지는 WebP로 변환해 현재 extension profile의 IndexedDB에 저장하며 Starlit 서버로 전송하지 않습니다.',
+          '위치 편집에서는 drag, 방향키 이동, -180°부터 180°까지 회전, 10%부터 400%까지 확대·축소를 지원합니다. Shift와 방향키를 함께 누르면 10px씩 이동합니다.',
+          '북마크 앞에 둔 이미지도 평소 화면에서는 pointer event를 받지 않아 북마크 link를 그대로 선택할 수 있습니다.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '설정 > 레이어를 엽니다. 목록은 화면의 앞에서 뒤 순서로 표시됩니다.',
+            title: '레이어 목록 열기',
+          },
+          {
+            body: '이미지 추가를 선택하고 이미지 파일을 하나 이상 고릅니다. 각 파일은 draft 안의 별도 레이어가 됩니다.',
+            title: '오버레이 이미지 추가하기',
+          },
+          {
+            body: '행을 drag하거나 화살표 control을 사용해 고정된 북마크 행을 기준으로 이미지를 옮깁니다. 필요 없는 이미지 레이어만 삭제할 수 있습니다.',
+            title: '앞뒤 순서 정하기',
+          },
+          {
+            body: '위치 편집을 선택하고 이미지를 고른 뒤 기준점, 위치, 회전, 확대 비율을 조정합니다. 마치면 설정으로 돌아갑니다.',
+            title: '이미지별 위치 정하기',
+          },
+          {
+            body: '설정에서 저장을 선택하면 레이어 순서, 이미지 파일, 위치를 함께 반영합니다. 취소를 선택하면 draft를 버립니다.',
+            title: '오버레이 변경 저장하기',
+          },
+        ],
+        title: '오버레이 이미지 레이어',
+      },
       'backup-permissions': {
         callout: {
           body: '내보내기, 가져오기, 초기화, 북마크 관리자 열기, 탭 그룹 작업은 즉시 실행되며 취소로 되돌릴 수 없습니다. 일반 form 설정은 저장을 누르기 전까지 draft로 남습니다.',
@@ -1015,7 +1162,7 @@ const COPY: Record<Locale, GuideCopy> = {
           '옮길 수 있는 설정 backup을 만들고, Chrome 권한과 각 초기화 작업이 지우는 범위를 확인합니다.',
         details: [
           {
-            body: 'JSON에는 저장된 레이아웃과 화면 설정, 그룹 설정, 언어, Custom CSS, custom favicon, 배경 정보, 업로드한 배경 미디어가 포함됩니다. Chrome 북마크, Chrome 탭 그룹, 권한, 저장하지 않은 draft, tutorial 완료 상태, 그룹 펼침·접힘 상태는 포함되지 않습니다. Local media가 들어갈 수 있으므로 파일을 공개하지 마세요.',
+            body: 'JSON에는 저장된 레이아웃과 화면 설정, 그룹 설정, 언어, Custom CSS, custom favicon, 배경 정보와 미디어, 오버레이 레이어 정보와 이미지 데이터가 포함됩니다. Chrome 북마크, Chrome 탭 그룹, 권한, 저장하지 않은 draft, tutorial 완료 상태, 그룹 펼침·접힘 상태는 포함되지 않습니다. Local media가 들어갈 수 있으므로 파일을 공개하지 마세요.',
             title: '내보내기 파일에는 무엇이 들어 있나요?',
           },
           {
@@ -1025,9 +1172,9 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         facts: [
           '같은 컴퓨터에서도 Chrome profile이나 extension ID가 다르면 별도 저장 공간을 사용합니다.',
-          '내보내기와 가져오기를 사용하면 그 경계를 넘어 Starlit 설정, custom favicon, 업로드한 배경을 옮길 수 있습니다.',
+          '내보내기와 가져오기를 사용하면 그 경계를 넘어 Starlit 설정, custom favicon, 업로드한 배경, 오버레이 이미지를 옮길 수 있습니다.',
           '가져올 때 custom favicon 설정은 이동할 환경의 기존 설정과 merge됩니다. Backup에 없는 기존 favicon 설정은 그대로 남습니다.',
-          '테마 초기화는 색상 테마만 되돌립니다. 전체 초기화는 Starlit 설정, cache, custom favicon, local background media도 지웁니다.',
+          '테마 초기화는 색상 테마만 되돌립니다. 전체 초기화는 Starlit 설정, cache, custom favicon, local background media, 오버레이 이미지도 지웁니다. 다음에 불러올 때 기본 Getting 이미지가 다시 표시됩니다.',
           '두 초기화 모두 Chrome 북마크와 가져온 폴더를 삭제하지 않습니다. 전체 초기화 후에도 tutorial 완료 상태, 그룹 펼침·접힘 상태, 선택 권한인 tabGroups 연결은 남습니다.',
         ],
         media: [
@@ -1316,7 +1463,7 @@ const COPY: Record<Locale, GuideCopy> = {
       items: [
         '그룹 표시와 순서, 북마크 루트, 레이아웃, 색상, 글꼴, 언어, Custom CSS',
         'Custom favicon, cache, 그룹의 펼침·접힘 상태',
-        '배경 정보와 extension profile에 local로 저장한 이미지·동영상 데이터',
+        '배경과 오버레이 정보, extension profile에 local로 저장한 media',
       ],
       title: 'Starlit은 화면 설정과 기기별 데이터를 저장합니다',
     },

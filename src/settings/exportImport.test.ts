@@ -1,18 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_GRID_SETTINGS,
   LEGACY_DEFAULT_GRID_SETTINGS,
 } from '../layout/defaults';
 import type { GridSettings } from '../layout/types';
+import type { OverlayScene } from '../overlays/types';
 import { DEFAULT_STARLIT_THEME, LEGACY_DEFAULT_THEME } from '../theme/defaults';
 import type { StarlitTheme } from '../theme/types';
 import type { Settings } from './types';
 
 const mockState = vi.hoisted(() => ({
-  failLocalSetOnce: false,
+  failOverlayBatchDeleteOnce: false,
+  failOverlaySceneSetOnce: false,
   localValues: {} as Record<string, unknown>,
   media: null as Blob | null,
+  observedMutationLeaseDuringOverlayMutation: false,
+  observedOldMediaBeforeSceneCommit: false,
+  overlayMedia: {} as Record<string, Blob>,
   syncValues: {} as Record<string, unknown>,
 }));
 
@@ -35,8 +40,15 @@ vi.mock('../platform/storage/storage', () => ({
         async (key: string): Promise<unknown> => mockState.localValues[key],
       ),
       set: vi.fn(async (items: Record<string, unknown>): Promise<void> => {
-        if (mockState.failLocalSetOnce) {
-          mockState.failLocalSetOnce = false;
+        if (
+          mockState.failOverlaySceneSetOnce &&
+          Object.hasOwn(items, 'overlayScene')
+        ) {
+          mockState.observedOldMediaBeforeSceneCommit = Object.hasOwn(
+            mockState.overlayMedia,
+            'overlayImage:existing-overlay',
+          );
+          mockState.failOverlaySceneSetOnce = false;
           throw new Error('local set failed');
         }
 
@@ -51,12 +63,56 @@ vi.mock('../platform/storage/storage', () => ({
 }));
 
 vi.mock('../platform/storage/mediaStorage', () => ({
-  deleteMedia: vi.fn(async (): Promise<void> => {
-    mockState.media = null;
+  deleteMedia: vi.fn(async (key: string): Promise<void> => {
+    if (key === 'backgroundMedia') {
+      mockState.media = null;
+      return;
+    }
+
+    delete mockState.overlayMedia[key];
   }),
-  loadMediaBlob: vi.fn(async (): Promise<Blob | null> => mockState.media),
-  saveMedia: vi.fn(async (_key: string, blob: Blob): Promise<string> => {
-    mockState.media = blob;
+  deleteMediaByPrefix: vi.fn(async (prefix: string): Promise<void> => {
+    if (prefix === 'overlayImage:') {
+      mockState.observedMutationLeaseDuringOverlayMutation ||= Object.keys(
+        mockState.localValues,
+      ).some((key) => key.startsWith('overlayMediaMutationLease:'));
+    }
+
+    Object.keys(mockState.overlayMedia)
+      .filter((key) => key.startsWith(prefix))
+      .forEach((key) => delete mockState.overlayMedia[key]);
+  }),
+  deleteMediaBatch: vi.fn(async (keys: readonly string[]): Promise<void> => {
+    if (mockState.failOverlayBatchDeleteOnce) {
+      mockState.failOverlayBatchDeleteOnce = false;
+      throw new Error('overlay batch delete failed');
+    }
+
+    keys.forEach((key) => delete mockState.overlayMedia[key]);
+  }),
+  listMediaKeys: vi.fn(
+    async (prefix = ''): Promise<string[]> =>
+      Object.keys(mockState.overlayMedia).filter((key) =>
+        key.startsWith(prefix),
+      ),
+  ),
+  loadMediaBlob: vi.fn(
+    async (key: string): Promise<Blob | null> =>
+      key === 'backgroundMedia'
+        ? mockState.media
+        : (mockState.overlayMedia[key] ?? null),
+  ),
+  saveMedia: vi.fn(async (key: string, blob: Blob): Promise<string> => {
+    if (key === 'backgroundMedia') {
+      mockState.media = blob;
+    } else {
+      mockState.observedMutationLeaseDuringOverlayMutation ||= Object.keys(
+        mockState.localValues,
+      ).some((storageKey) =>
+        storageKey.startsWith('overlayMediaMutationLease:'),
+      );
+      mockState.overlayMedia[key] = blob;
+    }
     return 'blob:mock-media';
   }),
 }));
@@ -68,6 +124,7 @@ import {
   importFull,
   type ExportData,
   type LegacyExportData,
+  type V2ExportData,
 } from './exportImport';
 
 const GRID_SETTINGS: GridSettings = {
@@ -120,6 +177,8 @@ function createExportData(overrides: Partial<ExportData> = {}): ExportData {
     groupPreferences: [{ key: 'Work', visible: true }],
     iconSize: 28,
     locale: 'ko',
+    overlayMedia: {},
+    overlayScene: { layers: [{ kind: 'bookmarks' }] },
     schemaVersion: BACKUP_SCHEMA_VERSION,
     settings: SETTINGS,
     size: 16,
@@ -127,15 +186,56 @@ function createExportData(overrides: Partial<ExportData> = {}): ExportData {
   };
 }
 
+function createV2ExportData(
+  overrides: Partial<V2ExportData> = {},
+): V2ExportData {
+  const current = createExportData();
+  const {
+    overlayMedia: _overlayMedia,
+    overlayScene: _overlayScene,
+    ...data
+  } = current;
+
+  return { ...data, ...overrides, schemaVersion: 2 };
+}
+
+function installExclusiveLockQueue(): void {
+  let pending: Promise<unknown> = Promise.resolve();
+  const request = vi.fn(
+    (
+      _name: string,
+      _options: LockOptions,
+      operation: () => Promise<unknown>,
+    ): Promise<unknown> => {
+      const result = pending.then(operation, operation);
+      pending = result.catch(() => undefined);
+      return result;
+    },
+  );
+  vi.stubGlobal('navigator', { locks: { request } });
+}
+
 beforeEach(() => {
-  mockState.failLocalSetOnce = false;
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async () => ({ close: vi.fn(), height: 1, width: 1 })),
+  );
+  mockState.failOverlayBatchDeleteOnce = false;
+  mockState.failOverlaySceneSetOnce = false;
   mockState.localValues = {};
   mockState.media = null;
+  mockState.observedMutationLeaseDuringOverlayMutation = false;
+  mockState.observedOldMediaBeforeSceneCommit = false;
+  mockState.overlayMedia = {};
   mockState.syncValues = {};
 });
 
+afterEach((): void => {
+  vi.unstubAllGlobals();
+});
+
 describe('exportFull', () => {
-  it('writes schema version 2 with layout, locale and tree preferences', async () => {
+  it('writes schema version 3 with layout, locale, tree preferences and overlays', async () => {
     mockState.syncValues = {
       bookmarkTreePrefs: {
         rootId: 'bookmarks-bar',
@@ -151,6 +251,26 @@ describe('exportFull', () => {
       favicons: { bookmark1: 'data:image/png;base64,AAAA' },
     };
     mockState.media = new Blob(['background'], { type: 'video/webm' });
+    mockState.localValues.overlayScene = {
+      layers: [
+        { kind: 'bookmarks' },
+        {
+          anchor: 'top-right',
+          height: 80,
+          id: 'sparkle',
+          kind: 'image',
+          name: 'sparkle.png',
+          offsetX: 24,
+          offsetY: 32,
+          rotationDeg: 15,
+          scale: 1.5,
+          width: 120,
+        },
+      ],
+    };
+    mockState.overlayMedia['overlayImage:sparkle'] = new Blob(['overlay'], {
+      type: 'image/webp',
+    });
 
     const data = await exportFull(
       GRID_SETTINGS,
@@ -161,7 +281,7 @@ describe('exportFull', () => {
     );
 
     expect(data).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       size: 18,
       iconSize: 30,
       locale: 'ja',
@@ -173,8 +293,10 @@ describe('exportFull', () => {
         siblingOrder: { 'Bookmarks bar': ['Work'] },
       },
       favicons: { bookmark1: 'data:image/png;base64,AAAA' },
+      overlayScene: mockState.localValues.overlayScene,
     });
     expect(data.backgroundData).toMatch(/^data:video\/webm;base64,/);
+    expect(data.overlayMedia.sparkle).toMatch(/^data:image\/webp;base64,/);
   });
 });
 
@@ -190,6 +312,54 @@ describe('importFromJson', () => {
     });
 
     await expect(importFromJson(file)).resolves.toMatchObject(legacyData);
+  });
+
+  it('accepts a V2 backup without overlay data', async () => {
+    const data = createV2ExportData();
+    const file = new File([JSON.stringify(data)], 'v2.json', {
+      type: 'application/json',
+    });
+
+    await expect(importFromJson(file)).resolves.toMatchObject({
+      schemaVersion: 2,
+      size: data.size,
+    });
+  });
+
+  it('keeps special overlay ids as own media properties', async () => {
+    const id = '__proto__';
+    const data = createExportData({
+      overlayMedia: Object.fromEntries([
+        [id, `data:image/webp;base64,${btoa('overlay-media')}`],
+      ]),
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'top-left',
+            height: 80,
+            id,
+            kind: 'image',
+            name: 'special.webp',
+            offsetX: 20,
+            offsetY: 30,
+            rotationDeg: 0,
+            width: 120,
+          },
+        ],
+      },
+    });
+    const file = new File([JSON.stringify(data)], 'special-id.json', {
+      type: 'application/json',
+    });
+
+    const imported = await importFromJson(file);
+
+    expect(imported.schemaVersion).toBe(3);
+    if (imported.schemaVersion === 3) {
+      expect(Object.hasOwn(imported.overlayMedia, id)).toBe(true);
+      expect(imported.overlayMedia[id]).toMatch(/^data:image\/webp;base64,/);
+    }
   });
 
   it('defaults a legacy backup without a font to IBM Plex Sans', async () => {
@@ -214,7 +384,7 @@ describe('importFromJson', () => {
 
   it('rejects an unknown font family', async () => {
     const invalidData = {
-      ...createExportData(),
+      ...createV2ExportData(),
       settings: { ...SETTINGS, fontFamily: 'comic-sans' },
     };
     const file = new File([JSON.stringify(invalidData)], 'invalid-font.json', {
@@ -263,7 +433,7 @@ describe('importFromJson', () => {
 
   it('rejects a V2 backup with an invalid locale', async () => {
     const invalidData = {
-      ...createExportData(),
+      ...createV2ExportData(),
       locale: 'fr',
     };
     const file = new File([JSON.stringify(invalidData)], 'invalid.json', {
@@ -277,7 +447,7 @@ describe('importFromJson', () => {
 
   it('rejects a V2 backup with a non-string root id', async () => {
     const invalidData = {
-      ...createExportData(),
+      ...createV2ExportData(),
       bookmarkTreePrefs: {
         rootId: 42,
         rootPath: ['Bookmarks bar'],
@@ -295,7 +465,141 @@ describe('importFromJson', () => {
 });
 
 describe('importFull', () => {
-  it('restores every V2 storage field and file media', async () => {
+  it('rejects undecodable overlay media before replacing the current scene', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => {
+        throw new Error('decode failed');
+      }),
+    );
+    const originalScene: OverlayScene = {
+      layers: [
+        { kind: 'bookmarks' },
+        {
+          anchor: 'top-left',
+          height: 80,
+          id: 'existing-overlay',
+          kind: 'image',
+          name: 'existing.webp',
+          offsetX: 20,
+          offsetY: 30,
+          rotationDeg: 0,
+          width: 120,
+        },
+      ],
+    };
+    mockState.localValues = { overlayScene: structuredClone(originalScene) };
+    mockState.overlayMedia['overlayImage:existing-overlay'] = new Blob(
+      ['old-overlay'],
+      { type: 'image/webp' },
+    );
+    const data = createExportData({
+      overlayMedia: {
+        invalid: `data:image/webp;base64,${btoa('not-an-image')}`,
+      },
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'bottom-right',
+            height: 90,
+            id: 'invalid',
+            kind: 'image',
+            name: 'invalid.webp',
+            offsetX: 24,
+            offsetY: 36,
+            rotationDeg: 0,
+            width: 140,
+          },
+        ],
+      },
+    });
+
+    await expect(importFull(data)).rejects.toThrow(
+      'overlay media를 디코딩할 수 없습니다: invalid.webp',
+    );
+
+    expect(mockState.localValues).toEqual({ overlayScene: originalScene });
+    expect(Object.keys(mockState.overlayMedia)).toEqual([
+      'overlayImage:existing-overlay',
+    ]);
+    expect(
+      await mockState.overlayMedia['overlayImage:existing-overlay']?.text(),
+    ).toBe('old-overlay');
+  });
+
+  it('serializes overlapping V3 imports into a consistent final scene', async () => {
+    installExclusiveLockQueue();
+    const first = createExportData({
+      overlayMedia: {
+        first: `data:image/webp;base64,${btoa('first-overlay')}`,
+      },
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'top-left',
+            height: 80,
+            id: 'first',
+            kind: 'image',
+            name: 'first.webp',
+            offsetX: 20,
+            offsetY: 30,
+            rotationDeg: 0,
+            width: 120,
+          },
+        ],
+      },
+    });
+    const second = createExportData({
+      overlayMedia: {
+        second: `data:image/webp;base64,${btoa('second-overlay')}`,
+      },
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'bottom-right',
+            height: 90,
+            id: 'second',
+            kind: 'image',
+            name: 'second.webp',
+            offsetX: 24,
+            offsetY: 36,
+            rotationDeg: 10,
+            width: 140,
+          },
+        ],
+      },
+    });
+
+    await Promise.all([importFull(first), importFull(second)]);
+
+    const importedScene = mockState.localValues.overlayScene as OverlayScene;
+    const importedImage = importedScene.layers.find(
+      (layer) => layer.kind === 'image',
+    );
+    expect(importedImage).toEqual(
+      expect.objectContaining({ name: 'second.webp' }),
+    );
+    if (!importedImage || importedImage.kind !== 'image') {
+      throw new Error('Expected an imported overlay image.');
+    }
+    expect(importedImage.id).not.toBe('second');
+    expect(Object.keys(mockState.overlayMedia)).toEqual([
+      `overlayImage:${importedImage.id}`,
+    ]);
+    expect(
+      await mockState.overlayMedia[`overlayImage:${importedImage.id}`]?.text(),
+    ).toBe('second-overlay');
+    expect(
+      Object.keys(mockState.localValues).some((key) =>
+        key.startsWith('overlayMediaMutationLease:'),
+      ),
+    ).toBe(false);
+  });
+
+  it('restores every V3 storage field and file media', async () => {
     mockState.localValues = {
       favicons: { existing: 'existing-data' },
     };
@@ -306,6 +610,26 @@ describe('importFull', () => {
       favicons: { imported: 'imported-data' },
       iconSize: 32,
       locale: 'en',
+      overlayMedia: {
+        sparkle: `data:image/webp;base64,${btoa('overlay-media')}`,
+      },
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'bottom-right',
+            height: 80,
+            id: 'sparkle',
+            kind: 'image',
+            name: 'sparkle.webp',
+            offsetX: 20,
+            offsetY: 30,
+            rotationDeg: 12,
+            scale: 1.25,
+            width: 120,
+          },
+        ],
+      },
       size: 20,
     });
 
@@ -327,7 +651,32 @@ describe('importFull', () => {
       existing: 'existing-data',
       imported: 'imported-data',
     });
+    const importedScene = mockState.localValues.overlayScene as OverlayScene;
+    const importedImage = importedScene.layers.find(
+      (layer) => layer.kind === 'image',
+    );
+    expect(importedImage).toEqual(
+      expect.objectContaining({
+        name: 'sparkle.webp',
+        offsetX: 20,
+        rotationDeg: 12,
+        scale: 1.25,
+      }),
+    );
+    if (!importedImage || importedImage.kind !== 'image') {
+      throw new Error('Expected an imported overlay image.');
+    }
+    expect(importedImage.id).not.toBe('sparkle');
     expect(await mockState.media?.text()).toBe('new-media');
+    expect(
+      await mockState.overlayMedia[`overlayImage:${importedImage.id}`]?.text(),
+    ).toBe('overlay-media');
+    expect(mockState.observedMutationLeaseDuringOverlayMutation).toBe(true);
+    expect(
+      Object.keys(mockState.localValues).some((key) =>
+        key.startsWith('overlayMediaMutationLease:'),
+      ),
+    ).toBe(false);
   });
 
   it('preserves current file media when a V1 backup has metadata without data', async () => {
@@ -359,7 +708,7 @@ describe('importFull', () => {
     };
     mockState.syncValues = { backgroundMeta: currentBackground };
     mockState.media = new Blob(['current-media'], { type: 'video/webm' });
-    const data = createExportData({
+    const data = createV2ExportData({
       backgroundMeta: { source: 'file', type: 'image', url: '' },
     });
 
@@ -381,11 +730,31 @@ describe('importFull', () => {
     };
     const originalLocalValues = {
       favicons: { existing: 'existing-data' },
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'top-left',
+            height: 80,
+            id: 'existing-overlay',
+            kind: 'image',
+            name: 'existing.webp',
+            offsetX: 20,
+            offsetY: 30,
+            rotationDeg: 0,
+            width: 120,
+          },
+        ],
+      },
     };
     mockState.syncValues = structuredClone(originalSyncValues);
     mockState.localValues = structuredClone(originalLocalValues);
     mockState.media = new Blob(['old-media'], { type: 'video/webm' });
-    mockState.failLocalSetOnce = true;
+    mockState.overlayMedia['overlayImage:existing-overlay'] = new Blob(
+      ['old-overlay'],
+      { type: 'image/webp' },
+    );
+    mockState.failOverlaySceneSetOnce = true;
     const data = createExportData({
       backgroundData: `data:video/webm;base64,${btoa('new-media')}`,
       backgroundMeta: { source: 'file', type: 'video', url: '' },
@@ -397,5 +766,68 @@ describe('importFull', () => {
     expect(mockState.syncValues).toEqual(originalSyncValues);
     expect(mockState.localValues).toEqual(originalLocalValues);
     expect(await mockState.media?.text()).toBe('old-media');
+    expect(
+      await mockState.overlayMedia['overlayImage:existing-overlay']?.text(),
+    ).toBe('old-overlay');
+    expect(mockState.observedMutationLeaseDuringOverlayMutation).toBe(true);
+    expect(mockState.observedOldMediaBeforeSceneCommit).toBe(true);
+  });
+
+  it('restores the previous scene when old media cleanup fails after commit', async () => {
+    const originalScene: OverlayScene = {
+      layers: [
+        { kind: 'bookmarks' },
+        {
+          anchor: 'top-left',
+          height: 80,
+          id: 'existing-overlay',
+          kind: 'image',
+          name: 'existing.webp',
+          offsetX: 20,
+          offsetY: 30,
+          rotationDeg: 0,
+          width: 120,
+        },
+      ],
+    };
+    mockState.localValues = { overlayScene: structuredClone(originalScene) };
+    mockState.overlayMedia['overlayImage:existing-overlay'] = new Blob(
+      ['old-overlay'],
+      { type: 'image/webp' },
+    );
+    mockState.failOverlayBatchDeleteOnce = true;
+    const data = createExportData({
+      overlayMedia: {
+        imported: `data:image/webp;base64,${btoa('new-overlay')}`,
+      },
+      overlayScene: {
+        layers: [
+          { kind: 'bookmarks' },
+          {
+            anchor: 'bottom-right',
+            height: 90,
+            id: 'imported',
+            kind: 'image',
+            name: 'imported.webp',
+            offsetX: 24,
+            offsetY: 36,
+            rotationDeg: 10,
+            width: 140,
+          },
+        ],
+      },
+    });
+
+    await expect(importFull(data)).rejects.toThrow(
+      'overlay batch delete failed',
+    );
+
+    expect(mockState.localValues).toEqual({ overlayScene: originalScene });
+    expect(Object.keys(mockState.overlayMedia)).toEqual([
+      'overlayImage:existing-overlay',
+    ]);
+    expect(
+      await mockState.overlayMedia['overlayImage:existing-overlay']?.text(),
+    ).toBe('old-overlay');
   });
 });

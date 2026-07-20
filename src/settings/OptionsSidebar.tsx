@@ -17,6 +17,8 @@ import { useTranslation } from '../i18n';
 import { getLayoutStyle } from '../layout/layoutStyle';
 import { createGuideHref } from '../guide/guideRoute';
 import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
+import { OverlayPositionEditor } from '../overlays/OverlayPositionEditor';
+import { appendOverlayImages } from '../overlays/model';
 import { getFontFamilyStyle, getThemeStyle } from '../theme/starlitTheme';
 import type { StarlitTheme } from '../theme/types';
 import {
@@ -32,14 +34,13 @@ import { CustomCssPanel } from './options/CustomCssPanel';
 import { GeneralPanel } from './options/GeneralPanel';
 import { GroupsPanel } from './options/GroupsPanel';
 import { LayoutPanel } from './options/LayoutPanel';
+import { LayersPanel } from './options/LayersPanel';
 import { SupportPanel } from './options/SupportPanel';
+import { getErrorMessage, isEqual, isPrimaryTab } from './options/helpers';
 import {
-  createBookmarkTreePreferences,
-  getErrorMessage,
-  isEqual,
-  isPrimaryTab,
-  rollbackSettingsSave,
-} from './options/helpers';
+  saveSettingsChanges,
+  type SaveSettingsChangesResult,
+} from './options/saveSettingsChanges';
 import type {
   AppearanceTab,
   BackgroundDraft,
@@ -60,6 +61,12 @@ function isBackgroundSource(value: string): value is BackgroundMedia['source'] {
   return value === 'file' || value === 'url';
 }
 
+function reportCleanupError(error: unknown): void {
+  if (typeof globalThis.reportError === 'function') {
+    globalThis.reportError(error);
+  }
+}
+
 function OptionsSidebarSession({
   backgroundMeta,
   colorTheme,
@@ -68,6 +75,7 @@ function OptionsSidebarSession({
   groupPreferences,
   iconSize,
   isBackgroundProcessing,
+  isOverlayProcessing,
   isOpen = true,
   locale,
   onBackgroundClear,
@@ -84,11 +92,17 @@ function OptionsSidebarSession({
   onIconSizeChange,
   onImport,
   onLocaleChange,
+  onOverlayEditPreviewChange,
+  onOverlayFilesPrepare,
+  onOverlayImagesFinalize,
+  onOverlayImagesDiscard,
+  onOverlaySceneUpdate,
   onSettingsUpdate,
   onSizeChange,
   onThemePreset,
   onThemeReset,
   orderedTree,
+  overlayScene,
   preview,
   rootId,
   rootPath,
@@ -129,7 +143,15 @@ function OptionsSidebarSession({
   const [draftSiblingOrder, setDraftSiblingOrder] = useState(() =>
     structuredClone(siblingOrder),
   );
+  const [draftOverlayScene, setDraftOverlayScene] = useState(() =>
+    structuredClone(overlayScene),
+  );
+  const [preparedOverlayImageIds, setPreparedOverlayImageIds] = useState<
+    string[]
+  >([]);
+  const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(false);
   const [isDiscardOpen, setIsDiscardOpen] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const settingsFileRef = useRef<HTMLInputElement | null>(null);
@@ -147,9 +169,14 @@ function OptionsSidebarSession({
   useEffect(
     () => () => {
       onFontPreviewChange(null);
+      onOverlayEditPreviewChange(null);
     },
-    [onFontPreviewChange],
+    [onFontPreviewChange, onOverlayEditPreviewChange],
   );
+
+  useEffect(() => {
+    onOverlayEditPreviewChange(isOverlayEditorOpen ? draftOverlayScene : null);
+  }, [draftOverlayScene, isOverlayEditorOpen, onOverlayEditPreviewChange]);
 
   const [snapshot] = useState<SettingsSnapshot>(() => ({
     customCSS,
@@ -157,6 +184,7 @@ function OptionsSidebarSession({
     groupPreferences: structuredClone(groupPreferences),
     iconSize,
     locale,
+    overlayScene: structuredClone(overlayScene),
     rootId,
     rootPath: [...rootPath],
     settings: structuredClone(settings),
@@ -177,6 +205,8 @@ function OptionsSidebarSession({
       draftRootId !== snapshot.rootId ||
       !isEqual(draftRootPath, snapshot.rootPath) ||
       !isEqual(draftSiblingOrder, snapshot.siblingOrder) ||
+      !isEqual(draftOverlayScene, snapshot.overlayScene) ||
+      preparedOverlayImageIds.length > 0 ||
       draftBackground !== null,
     [
       draftBackground,
@@ -185,12 +215,14 @@ function OptionsSidebarSession({
       draftGroupPreferences,
       draftIconSize,
       draftLocale,
+      draftOverlayScene,
       draftRootId,
       draftRootPath,
       draftSettings,
       draftSiblingOrder,
       draftSize,
       draftTheme,
+      preparedOverlayImageIds.length,
       snapshot,
     ],
   );
@@ -217,6 +249,7 @@ function OptionsSidebarSession({
     () => applySiblingOrder(orderedTree, draftSiblingOrder),
     [draftSiblingOrder, orderedTree],
   );
+  const isMediaProcessing = isBackgroundProcessing || isOverlayProcessing;
 
   function updateTheme<Key extends keyof StarlitTheme>(
     key: Key,
@@ -261,7 +294,7 @@ function OptionsSidebarSession({
   }
 
   function requestClose(): void {
-    if (isSaving) {
+    if (isSaving || isDiscarding || isMediaProcessing) {
       return;
     }
 
@@ -282,109 +315,68 @@ function OptionsSidebarSession({
   async function handleSave(): Promise<void> {
     setActionError(null);
     setIsSaving(true);
-    const rollbackOperations: Array<() => Promise<void>> = [];
+    let saveResult: SaveSettingsChangesResult;
 
     try {
-      if (!isEqual(draftGrid, snapshot.gridSettings)) {
-        rollbackOperations.push(() =>
-          onGridSettingsUpdate(snapshot.gridSettings),
-        );
-        await onGridSettingsUpdate(draftGrid);
-      }
-
-      if (!isEqual(draftSettings, snapshot.settings)) {
-        rollbackOperations.push(() => onSettingsUpdate(snapshot.settings));
-        await onSettingsUpdate(draftSettings);
-      }
-
-      if (!isEqual(draftTheme, snapshot.theme)) {
-        rollbackOperations.push(() => onThemePreset(snapshot.theme));
-        await onThemePreset(draftTheme);
-      }
-
-      if (draftSize !== snapshot.size) {
-        rollbackOperations.push(() => onSizeChange(snapshot.size));
-        await onSizeChange(draftSize);
-      }
-
-      if (draftIconSize !== snapshot.iconSize) {
-        rollbackOperations.push(() => onIconSizeChange(snapshot.iconSize));
-        await onIconSizeChange(draftIconSize);
-      }
-
-      if (draftCSS !== snapshot.customCSS) {
-        rollbackOperations.push(() => onCustomCSSChange(snapshot.customCSS));
-        await onCustomCSSChange(draftCSS);
-      }
-
-      if (draftLocale !== snapshot.locale) {
-        rollbackOperations.push(() => onLocaleChange(snapshot.locale));
-        await onLocaleChange(draftLocale);
-      }
-
-      if (!isEqual(draftGroupPreferences, snapshot.groupPreferences)) {
-        rollbackOperations.push(() =>
-          onGroupPreferencesUpdate(snapshot.groupPreferences),
-        );
-        await onGroupPreferencesUpdate(draftGroupPreferences);
-      }
-
-      if (
-        draftRootId !== snapshot.rootId ||
-        !isEqual(draftRootPath, snapshot.rootPath) ||
-        !isEqual(draftSiblingOrder, snapshot.siblingOrder)
-      ) {
-        rollbackOperations.push(() =>
-          onBookmarkTreePreferencesUpdate(
-            createBookmarkTreePreferences(
-              snapshot.rootPath,
-              snapshot.siblingOrder,
-              snapshot.rootId,
-            ),
-          ),
-        );
-        await onBookmarkTreePreferencesUpdate(
-          createBookmarkTreePreferences(
-            draftRootPath,
-            draftSiblingOrder,
-            draftRootId,
-          ),
-        );
-      }
-
-      if (draftBackground) {
-        switch (draftBackground.kind) {
-          case 'clear':
-            await onBackgroundClear();
-            break;
-          case 'file':
-            await onBackgroundFile(draftBackground.file);
-            break;
-          case 'url':
-            await onBackgroundUrl(draftBackground.url);
-            break;
-        }
-      }
+      saveResult = await saveSettingsChanges({
+        callbacks: {
+          onBackgroundClear,
+          onBackgroundFile,
+          onBackgroundUrl,
+          onBookmarkTreePreferencesUpdate,
+          onCustomCSSChange,
+          onGridSettingsUpdate,
+          onGroupPreferencesUpdate,
+          onIconSizeChange,
+          onLocaleChange,
+          onOverlaySceneUpdate,
+          onSettingsUpdate,
+          onSizeChange,
+          onThemePreset,
+        },
+        draft: {
+          background: draftBackground,
+          customCSS: draftCSS,
+          gridSettings: draftGrid,
+          groupPreferences: draftGroupPreferences,
+          iconSize: draftIconSize,
+          locale: draftLocale,
+          overlayScene: draftOverlayScene,
+          rootId: draftRootId,
+          rootPath: draftRootPath,
+          settings: draftSettings,
+          siblingOrder: draftSiblingOrder,
+          size: draftSize,
+          theme: draftTheme,
+        },
+        preparedOverlayImageIds,
+        snapshot,
+      });
     } catch (error) {
-      try {
-        await rollbackSettingsSave(rollbackOperations);
-        setActionError(getErrorMessage(error));
-      } catch (rollbackError) {
-        setActionError(
-          getErrorMessage(
-            new AggregateError(
-              [error, rollbackError],
-              'Settings save and rollback both failed',
-              { cause: rollbackError },
-            ),
-          ),
-        );
-      }
+      setActionError(getErrorMessage(error));
       setIsSaving(false);
       return;
     }
 
+    setPreparedOverlayImageIds([]);
+    const cleanupResults = await Promise.allSettled([
+      onOverlayImagesDiscard(saveResult.mediaIdsToDelete),
+      onOverlayImagesFinalize(saveResult.mediaIdsToFinalize),
+    ]);
+    const cleanupFailures = cleanupResults.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (cleanupFailures.length > 0) {
+      reportCleanupError(
+        new AggregateError(
+          cleanupFailures.map((failure) => failure.reason),
+          'Overlay media cleanup failed',
+        ),
+      );
+    }
+
     setIsSaving(false);
+    onOverlayEditPreviewChange(null);
     onClose();
   }
 
@@ -439,6 +431,40 @@ function OptionsSidebarSession({
   function handleBackgroundClear(): void {
     setDraftBackground({ kind: 'clear' });
     setBackgroundUrl('');
+  }
+
+  async function handleOverlayFilesSelected(files: File[]): Promise<void> {
+    setActionError(null);
+
+    try {
+      const preparedLayers = await onOverlayFilesPrepare(files);
+      const preparedIds = preparedLayers.map((layer) => layer.id);
+      setPreparedOverlayImageIds((currentIds) => [
+        ...currentIds,
+        ...preparedIds,
+      ]);
+      setDraftOverlayScene((currentScene) =>
+        appendOverlayImages(currentScene, preparedLayers),
+      );
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    }
+  }
+
+  async function handleDiscardChanges(): Promise<void> {
+    setActionError(null);
+    setIsDiscarding(true);
+
+    try {
+      await onOverlayImagesDiscard(preparedOverlayImageIds);
+    } catch (error) {
+      reportCleanupError(error);
+    }
+
+    setPreparedOverlayImageIds([]);
+    setIsDiscarding(false);
+    onOverlayEditPreviewChange(null);
+    onClose();
   }
 
   async function handleExport(): Promise<void> {
@@ -520,13 +546,20 @@ function OptionsSidebarSession({
 
   return (
     <>
+      {isOverlayEditorOpen ? (
+        <OverlayPositionEditor
+          onChange={setDraftOverlayScene}
+          onClose={() => setIsOverlayEditorOpen(false)}
+          scene={draftOverlayScene}
+        />
+      ) : null}
       <Dialog
         className={lagrangeThemeClass}
         closeLabel={t('modal.close')}
         data-starlit-part="settings-dialog"
         footer={
           <Inline align="center" gap="sm" justify="end" wrap>
-            {isBackgroundProcessing ? (
+            {isMediaProcessing ? (
               <Text
                 aria-atomic="true"
                 aria-live="polite"
@@ -536,14 +569,22 @@ function OptionsSidebarSession({
                 variant="caption"
               >
                 <span aria-hidden="true" className={styles.processingSpinner} />
-                <span>{t('sidebar.background.processing')}</span>
+                <span>
+                  {isOverlayProcessing
+                    ? t('layers.processing')
+                    : t('sidebar.background.processing')}
+                </span>
               </Text>
             ) : null}
-            <Button onClick={requestClose} variant="quiet">
+            <Button
+              disabled={isMediaProcessing}
+              onClick={requestClose}
+              variant="quiet"
+            >
               {t('sidebar.cancel')}
             </Button>
             <Button
-              disabled={!isDirty || isBackgroundProcessing}
+              disabled={!isDirty || isMediaProcessing}
               isPending={isSaving}
               onClick={() => void handleSave()}
             >
@@ -551,7 +592,7 @@ function OptionsSidebarSession({
             </Button>
           </Inline>
         }
-        isOpen={isOpen}
+        isOpen={isOpen && !isOverlayEditorOpen}
         onOpenChange={handleDialogOpenChange}
         size="large"
         style={fontFamilyStyle}
@@ -572,6 +613,7 @@ function OptionsSidebarSession({
             <TabList aria-label={t('newtab.options')}>
               <Tab value="general">{t('sidebar.tab.general')}</Tab>
               <Tab value="appearance">{t('sidebar.tab.appearance')}</Tab>
+              <Tab value="layers">{t('sidebar.tab.layers')}</Tab>
               <Tab value="layout">{t('sidebar.tab.layout')}</Tab>
               <Tab value="css">{t('sidebar.tab.css')}</Tab>
               <Tab value="groups">{t('sidebar.tab.groups')}</Tab>
@@ -592,6 +634,42 @@ function OptionsSidebarSession({
                 setSettings={setDraftSettings}
                 settings={draftSettings}
                 settingsFileRef={settingsFileRef}
+              />
+            </TabPanel>
+            <TabPanel
+              className={styles.panel}
+              data-starlit-part="settings-layers"
+              value="layers"
+            >
+              <LayersPanel
+                copy={{
+                  addImages: t('layers.add'),
+                  back: t('layers.back'),
+                  bookmarks: t('layers.bookmarks'),
+                  bookmarksDescription: t('layers.bookmarksDescription'),
+                  description: t('layers.description'),
+                  dragToReorder: t('layers.dragToReorder'),
+                  editPositions: t('layers.editPositions'),
+                  empty: t('layers.empty'),
+                  fileDescription: t('layers.fileDescription'),
+                  front: t('layers.front'),
+                  frontToBackDescription: t('layers.frontToBackDescription'),
+                  layerList: t('layers.layerList'),
+                  moveTowardBack: (name) =>
+                    `${t('layers.moveBackward')}: ${name}`,
+                  moveTowardFront: (name) =>
+                    `${t('layers.moveForward')}: ${name}`,
+                  processing: t('layers.processing'),
+                  removeImage: (name) => `${t('layers.remove')}: ${name}`,
+                  title: t('layers.title'),
+                }}
+                isProcessing={isOverlayProcessing}
+                onEditPositions={() => setIsOverlayEditorOpen(true)}
+                onFilesSelected={(files) =>
+                  void handleOverlayFilesSelected(files)
+                }
+                onSceneChange={setDraftOverlayScene}
+                scene={draftOverlayScene}
               />
             </TabPanel>
             <TabPanel
@@ -687,13 +765,17 @@ function OptionsSidebarSession({
             >
               {t('sidebar.confirm.no')}
             </Button>
-            <Button onClick={onClose} variant="critical">
+            <Button
+              isPending={isDiscarding}
+              onClick={() => void handleDiscardChanges()}
+              variant="critical"
+            >
               {t('sidebar.confirm.yes')}
             </Button>
           </Inline>
         }
         initialFocusRef={discardCancelRef}
-        isOpen={isOpen && isDiscardOpen}
+        isOpen={isOpen && isDiscardOpen && !isOverlayEditorOpen}
         onOpenChange={setIsDiscardOpen}
         role="alertdialog"
         size="small"

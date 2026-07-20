@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  decodeExpandedGroupsState,
   distributeGroupKeys,
   getExpandedColumnCapacity,
   getExpandedColumnVisualOrder,
@@ -20,6 +21,23 @@ const CAPACITIES = [4, 4];
 const EMPTY_STATE: ExpandedGroupsState = { knownKeys: [], openKeys: [] };
 
 describe('expandedLayout', () => {
+  it('decodes only persisted expanded-group string arrays', () => {
+    const fallback = { knownKeys: [], openKeys: [] };
+
+    expect(
+      decodeExpandedGroupsState(
+        { knownKeys: ['one'], openKeys: ['one'] },
+        fallback,
+      ),
+    ).toEqual({ knownKeys: ['one'], openKeys: ['one'] });
+    expect(
+      decodeExpandedGroupsState(
+        { knownKeys: ['one'], openKeys: [1] },
+        fallback,
+      ),
+    ).toBe(fallback);
+  });
+
   it('distributes ordered groups contiguously with the remainder in later columns', () => {
     expect(distributeGroupKeys(GROUP_KEYS, 2)).toEqual([
       ['a', 'b', 'c', 'd'],

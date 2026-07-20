@@ -1,13 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { BookmarkTreePrefs } from './storageDecoders';
 import { useBookmarkTreePrefs } from './useBookmarkTreePrefs';
-
-type BookmarkTreePrefs = {
-  rootId?: string;
-  rootPath: string[];
-  siblingOrder: Record<string, string[]>;
-};
 
 type BookmarkTreePrefsUpdate =
   | BookmarkTreePrefs

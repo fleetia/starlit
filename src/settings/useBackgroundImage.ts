@@ -8,7 +8,7 @@ import {
   loadMediaBlob,
   deleteMedia,
 } from '../platform/storage/mediaStorage';
-import type { BackgroundMedia } from './backgroundMedia';
+import { decodeBackgroundMedia, type BackgroundMedia } from './backgroundMedia';
 
 export type { BackgroundMedia } from './backgroundMedia';
 
@@ -31,7 +31,11 @@ export function useBackgroundImage(): UseBackgroundImageReturn {
     isLoaded,
     value: meta,
     setValue: setMeta,
-  } = useStorageState<BackgroundMedia | null>('backgroundMeta', null);
+  } = useStorageState<BackgroundMedia | null>(
+    'backgroundMeta',
+    null,
+    decodeBackgroundMedia,
+  );
   const [blobUrl, setBlobUrl] = useState<string>('');
   const [isMediaMissing, setIsMediaMissing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);

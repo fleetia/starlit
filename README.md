@@ -48,8 +48,26 @@ Open-group snapshots stay in the current page's memory and are neither stored
 by Starlit nor sent to a developer-controlled server.
 
 The packaged `guide.html` page documents bookmarks, tab groups, layout,
-appearance, backup, permissions, and troubleshooting in English, Korean, and
-Japanese.
+appearance, overlay image layers, backup, permissions, and troubleshooting in
+English, Korean, and Japanese.
+
+## Overlay image layers
+
+Starlit can place any number of uploaded images around the bookmark surface.
+The layer list contains one non-removable Bookmarks entry, so images can be ordered
+behind or in front of bookmarks. Images in front remain non-interactive during
+normal use and do not block bookmark clicks.
+
+Fresh and reset profiles start with the bundled Getting image above bookmarks,
+anchored 24 pixels from the bottom-right corner. It can be moved, reordered, or
+removed like any other overlay image.
+
+Each image keeps a pixel offset from one of nine viewport anchor points. Position
+editing supports pointer and keyboard movement, rotation, and 10%–400% zoom
+around that anchor point, so the selected point remains fixed when the
+viewport changes size.
+Uploaded overlay images are converted to WebP and stored only on the current
+device. Exported backups include both the layer metadata and image data.
 
 ## Fonts and visual-test baseline
 
@@ -123,6 +141,7 @@ used.
   and bookmark tiles
 - `src/settings`: settings drafts, save/discard behavior, and settings sections
 - `src/layout`: grid geometry, placement, and expanded-view behavior
+- `src/overlays`: overlay layer ordering, media lifecycle, rendering, and position editing
 - `src/theme`: persisted Starlit theme mapping to Lagrange CSS variables
 - `src/i18n`: Korean, English, and Japanese dictionaries and provider
 - `src/app`: application composition and the new-tab entry point
@@ -140,9 +159,9 @@ custom CSS, and user-modified visual values are retained. Only missing or
 untouched legacy visual defaults adopt the Lagrange defaults.
 
 The first V2 release keeps legacy keys and the legacy `lotuspad` IndexedDB media
-store for recovery. Exported backups contain `schemaVersion: 2`; imports accept
-both unversioned V1 and V2 data and restore storage and media snapshots when an
-apply step fails.
+store for recovery. Exported backups contain `schemaVersion: 3`; imports accept
+unversioned V1, V2, and V3 data and restore storage and media snapshots when an
+apply step fails. V3 adds device-local overlay layer metadata and image data.
 
 Custom CSS is sanitized and applied after Lagrange styles and Starlit
 composition styles. Stable extension-owned selectors use
@@ -160,6 +179,7 @@ class-based composition styles:
 ```
 
 Public main-view parts include `root`, `main`, `background-media`,
+`overlay-image`,
 `paged-groups`, `expanded-groups`, `group-rail`, `group-navigation`,
 `settings-trigger`, `bookmark-group`, `bookmark-group-header`,
 `bookmark-breadcrumb`, `bookmark-route`, `bookmark-grid`, `bookmark-tile`, the

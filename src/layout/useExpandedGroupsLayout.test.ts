@@ -45,6 +45,7 @@ describe('useExpandedGroupsLayout', () => {
     expect(storageMocks.useStorageState).toHaveBeenCalledWith(
       'expandedGroupsState',
       { knownKeys: [], openKeys: [] },
+      expect.any(Function),
       'local',
     );
     expect(result.current.isLoaded).toBe(true);
