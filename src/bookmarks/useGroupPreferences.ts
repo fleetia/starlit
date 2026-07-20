@@ -7,6 +7,7 @@ import {
   getLegacyGroupKey,
   getRouteGroupKey,
 } from './bookmarkRoute';
+import { decodeGroupPreferences } from './storageDecoders';
 import type { Bookmark, GroupPreference } from './types';
 
 type UseGroupPreferencesReturn = {
@@ -40,7 +41,12 @@ export function useGroupPreferences(
     isLoaded,
     value: preferences,
     setValue: setPreferences,
-  } = useStorageState<GroupPreference[]>('groupPreferences', [], 'sync');
+  } = useStorageState<GroupPreference[]>(
+    'groupPreferences',
+    [],
+    decodeGroupPreferences,
+    'sync',
+  );
 
   const reconciled = useMemo(() => {
     const visibilityMap = new Map(preferences.map((p) => [p.key, p.visible]));

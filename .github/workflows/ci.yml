@@ -54,10 +54,7 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
-      - name: Build extension
-        run: pnpm build
-
-      - name: Run built extension tests
+      - name: Build and run extension tests
         run: pnpm test:extension
 
       - name: Upload verified extension

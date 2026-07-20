@@ -639,4 +639,158 @@ describe('useOverlayScene', () => {
       overlayScene: staleScene,
     });
   });
+
+  it('serializes concurrent session saves and rejects the stale scene', async () => {
+    let pendingLock = Promise.resolve();
+    const requestLock = vi.fn(
+      <Result>(
+        _name: string,
+        _options: LockOptions,
+        callback: () => Promise<Result>,
+      ): Promise<Result> => {
+        const operation = pendingLock.then(callback);
+        pendingLock = operation.then(
+          () => undefined,
+          () => undefined,
+        );
+        return operation;
+      },
+    );
+    vi.stubGlobal('navigator', { locks: { request: requestLock } });
+    const initialScene: OverlayScene = {
+      layers: [
+        { kind: 'bookmarks' },
+        {
+          anchor: 'top-left',
+          height: 180,
+          id: 'shared-image',
+          kind: 'image',
+          name: 'shared.png',
+          offsetX: 24,
+          offsetY: 24,
+          rotationDeg: 0,
+          width: 320,
+        },
+      ],
+    };
+    let persistedScene: unknown = structuredClone(initialScene);
+    overlayMocks.localGet.mockImplementation(async () =>
+      structuredClone(persistedScene),
+    );
+    overlayMocks.localGetAll.mockImplementation(async () => ({
+      overlayScene: structuredClone(persistedScene),
+    }));
+    let releaseFirstSceneWrite: (() => void) | undefined;
+    let shouldHoldSceneWrite = true;
+    overlayMocks.localSet.mockImplementation(async (items) => {
+      if (!Object.hasOwn(items, 'overlayScene')) {
+        return;
+      }
+
+      if (shouldHoldSceneWrite) {
+        shouldHoldSceneWrite = false;
+        await new Promise<void>((resolve) => {
+          releaseFirstSceneWrite = resolve;
+        });
+      }
+
+      persistedScene = structuredClone(items.overlayScene);
+    });
+    overlayMocks.loadMediaBlob.mockResolvedValue(RASTERIZED_IMAGE.blob);
+    const firstSession = renderHook(() => useOverlayScene());
+    const secondSession = renderHook(() => useOverlayScene());
+    await waitFor(() =>
+      expect(firstSession.result.current.isLoaded).toBe(true),
+    );
+    await waitFor(() =>
+      expect(secondSession.result.current.isLoaded).toBe(true),
+    );
+    requestLock.mockClear();
+    overlayMocks.localGet.mockClear();
+    overlayMocks.localSet.mockClear();
+    const firstSessionScene: OverlayScene = {
+      layers: initialScene.layers.map((layer) =>
+        layer.kind === 'image' ? { ...layer, offsetX: 48 } : layer,
+      ),
+    };
+    const staleSecondSessionScene: OverlayScene = {
+      layers: initialScene.layers.map((layer) =>
+        layer.kind === 'image' ? { ...layer, offsetY: 72 } : layer,
+      ),
+    };
+
+    let updates: readonly [Promise<void>, Promise<void>] | undefined;
+    act((): void => {
+      updates = [
+        firstSession.result.current.updateScene(firstSessionScene),
+        secondSession.result.current.updateScene(staleSecondSessionScene),
+      ];
+    });
+    if (!updates) {
+      throw new Error('Expected concurrent overlay updates.');
+    }
+    const [firstUpdate, secondUpdate] = updates;
+    const staleUpdateAssertion = expect(secondUpdate).rejects.toThrow(
+      'Overlay scene changed in another session. Reload Starlit and try again.',
+    );
+
+    await vi.waitFor(() =>
+      expect(releaseFirstSceneWrite).toEqual(expect.any(Function)),
+    );
+    expect(requestLock).toHaveBeenCalledTimes(2);
+    expect(requestLock).toHaveBeenNthCalledWith(
+      1,
+      'starlit-overlay-media-mutation',
+      { mode: 'exclusive' },
+      expect.any(Function),
+    );
+    expect(requestLock).toHaveBeenNthCalledWith(
+      2,
+      'starlit-overlay-media-mutation',
+      { mode: 'exclusive' },
+      expect.any(Function),
+    );
+    expect(overlayMocks.localGet).toHaveBeenCalledOnce();
+
+    const releaseSceneWrite = releaseFirstSceneWrite;
+    if (!releaseSceneWrite) {
+      throw new Error('Expected the first overlay write to be pending.');
+    }
+
+    await act(async (): Promise<void> => {
+      releaseSceneWrite();
+      await firstUpdate;
+      await staleUpdateAssertion;
+    });
+    expect(persistedScene).toEqual(firstSessionScene);
+    expect(overlayMocks.localGet).toHaveBeenCalledTimes(2);
+    expect(overlayMocks.localSet).toHaveBeenCalledOnce();
+    expect(firstSession.result.current.scene).toEqual(firstSessionScene);
+    expect(secondSession.result.current.scene).toEqual(initialScene);
+  });
+
+  it('rejects an update after external reset removes the persisted scene', async () => {
+    let persistedScene: unknown = structuredClone(EMPTY_OVERLAY_SCENE);
+    overlayMocks.localGet.mockImplementation(async () =>
+      structuredClone(persistedScene),
+    );
+    overlayMocks.localGetAll.mockImplementation(async () => ({
+      overlayScene: structuredClone(persistedScene),
+    }));
+    const { result } = renderHook(() => useOverlayScene());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    persistedScene = undefined;
+
+    await expect(
+      act(async (): Promise<void> => {
+        await result.current.updateScene(EMPTY_OVERLAY_SCENE);
+      }),
+    ).rejects.toThrow(
+      'Overlay scene changed in another session. Reload Starlit and try again.',
+    );
+    expect(overlayMocks.localSet).not.toHaveBeenCalledWith({
+      overlayScene: EMPTY_OVERLAY_SCENE,
+    });
+  });
 });

@@ -18,8 +18,7 @@ import { getLayoutStyle } from '../layout/layoutStyle';
 import { createGuideHref } from '../guide/guideRoute';
 import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
 import { OverlayPositionEditor } from '../overlays/OverlayPositionEditor';
-import { appendOverlayImages, getOverlayImageLayers } from '../overlays/model';
-import type { OverlayScene } from '../overlays/types';
+import { appendOverlayImages } from '../overlays/model';
 import { getFontFamilyStyle, getThemeStyle } from '../theme/starlitTheme';
 import type { StarlitTheme } from '../theme/types';
 import {
@@ -37,13 +36,11 @@ import { GroupsPanel } from './options/GroupsPanel';
 import { LayoutPanel } from './options/LayoutPanel';
 import { LayersPanel } from './options/LayersPanel';
 import { SupportPanel } from './options/SupportPanel';
+import { getErrorMessage, isEqual, isPrimaryTab } from './options/helpers';
 import {
-  createBookmarkTreePreferences,
-  getErrorMessage,
-  isEqual,
-  isPrimaryTab,
-  rollbackSettingsSave,
-} from './options/helpers';
+  saveSettingsChanges,
+  type SaveSettingsChangesResult,
+} from './options/saveSettingsChanges';
 import type {
   AppearanceTab,
   BackgroundDraft,
@@ -62,10 +59,6 @@ export type {
 
 function isBackgroundSource(value: string): value is BackgroundMedia['source'] {
   return value === 'file' || value === 'url';
-}
-
-function getOverlayImageIds(scene: OverlayScene): string[] {
-  return getOverlayImageLayers(scene).map((layer) => layer.id);
 }
 
 function reportCleanupError(error: unknown): void {
@@ -322,127 +315,53 @@ function OptionsSidebarSession({
   async function handleSave(): Promise<void> {
     setActionError(null);
     setIsSaving(true);
-    const rollbackOperations: Array<() => Promise<void>> = [];
-    const nextImageIds = new Set(getOverlayImageIds(draftOverlayScene));
-    const mediaIdsToDelete = [
-      ...getOverlayImageIds(snapshot.overlayScene),
-      ...preparedOverlayImageIds,
-    ].filter((id) => !nextImageIds.has(id));
-    const mediaIdsToFinalize = preparedOverlayImageIds.filter((id) =>
-      nextImageIds.has(id),
-    );
+    let saveResult: SaveSettingsChangesResult;
 
     try {
-      if (!isEqual(draftGrid, snapshot.gridSettings)) {
-        rollbackOperations.push(() =>
-          onGridSettingsUpdate(snapshot.gridSettings),
-        );
-        await onGridSettingsUpdate(draftGrid);
-      }
-
-      if (!isEqual(draftSettings, snapshot.settings)) {
-        rollbackOperations.push(() => onSettingsUpdate(snapshot.settings));
-        await onSettingsUpdate(draftSettings);
-      }
-
-      if (!isEqual(draftTheme, snapshot.theme)) {
-        rollbackOperations.push(() => onThemePreset(snapshot.theme));
-        await onThemePreset(draftTheme);
-      }
-
-      if (draftSize !== snapshot.size) {
-        rollbackOperations.push(() => onSizeChange(snapshot.size));
-        await onSizeChange(draftSize);
-      }
-
-      if (draftIconSize !== snapshot.iconSize) {
-        rollbackOperations.push(() => onIconSizeChange(snapshot.iconSize));
-        await onIconSizeChange(draftIconSize);
-      }
-
-      if (draftCSS !== snapshot.customCSS) {
-        rollbackOperations.push(() => onCustomCSSChange(snapshot.customCSS));
-        await onCustomCSSChange(draftCSS);
-      }
-
-      if (draftLocale !== snapshot.locale) {
-        rollbackOperations.push(() => onLocaleChange(snapshot.locale));
-        await onLocaleChange(draftLocale);
-      }
-
-      if (!isEqual(draftGroupPreferences, snapshot.groupPreferences)) {
-        rollbackOperations.push(() =>
-          onGroupPreferencesUpdate(snapshot.groupPreferences),
-        );
-        await onGroupPreferencesUpdate(draftGroupPreferences);
-      }
-
-      if (
-        draftRootId !== snapshot.rootId ||
-        !isEqual(draftRootPath, snapshot.rootPath) ||
-        !isEqual(draftSiblingOrder, snapshot.siblingOrder)
-      ) {
-        rollbackOperations.push(() =>
-          onBookmarkTreePreferencesUpdate(
-            createBookmarkTreePreferences(
-              snapshot.rootPath,
-              snapshot.siblingOrder,
-              snapshot.rootId,
-            ),
-          ),
-        );
-        await onBookmarkTreePreferencesUpdate(
-          createBookmarkTreePreferences(
-            draftRootPath,
-            draftSiblingOrder,
-            draftRootId,
-          ),
-        );
-      }
-
-      if (!isEqual(draftOverlayScene, snapshot.overlayScene)) {
-        rollbackOperations.push(() =>
-          onOverlaySceneUpdate(snapshot.overlayScene),
-        );
-        await onOverlaySceneUpdate(draftOverlayScene);
-      }
-
-      if (draftBackground) {
-        switch (draftBackground.kind) {
-          case 'clear':
-            await onBackgroundClear();
-            break;
-          case 'file':
-            await onBackgroundFile(draftBackground.file);
-            break;
-          case 'url':
-            await onBackgroundUrl(draftBackground.url);
-            break;
-        }
-      }
+      saveResult = await saveSettingsChanges({
+        callbacks: {
+          onBackgroundClear,
+          onBackgroundFile,
+          onBackgroundUrl,
+          onBookmarkTreePreferencesUpdate,
+          onCustomCSSChange,
+          onGridSettingsUpdate,
+          onGroupPreferencesUpdate,
+          onIconSizeChange,
+          onLocaleChange,
+          onOverlaySceneUpdate,
+          onSettingsUpdate,
+          onSizeChange,
+          onThemePreset,
+        },
+        draft: {
+          background: draftBackground,
+          customCSS: draftCSS,
+          gridSettings: draftGrid,
+          groupPreferences: draftGroupPreferences,
+          iconSize: draftIconSize,
+          locale: draftLocale,
+          overlayScene: draftOverlayScene,
+          rootId: draftRootId,
+          rootPath: draftRootPath,
+          settings: draftSettings,
+          siblingOrder: draftSiblingOrder,
+          size: draftSize,
+          theme: draftTheme,
+        },
+        preparedOverlayImageIds,
+        snapshot,
+      });
     } catch (error) {
-      try {
-        await rollbackSettingsSave(rollbackOperations);
-        setActionError(getErrorMessage(error));
-      } catch (rollbackError) {
-        setActionError(
-          getErrorMessage(
-            new AggregateError(
-              [error, rollbackError],
-              'Settings save and rollback both failed',
-              { cause: rollbackError },
-            ),
-          ),
-        );
-      }
+      setActionError(getErrorMessage(error));
       setIsSaving(false);
       return;
     }
 
     setPreparedOverlayImageIds([]);
     const cleanupResults = await Promise.allSettled([
-      onOverlayImagesDiscard(mediaIdsToDelete),
-      onOverlayImagesFinalize(mediaIdsToFinalize),
+      onOverlayImagesDiscard(saveResult.mediaIdsToDelete),
+      onOverlayImagesFinalize(saveResult.mediaIdsToFinalize),
     ]);
     const cleanupFailures = cleanupResults.filter(
       (result): result is PromiseRejectedResult => result.status === 'rejected',

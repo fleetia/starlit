@@ -6,12 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prepare-extension.mjs",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm test:extension",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:extension",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:extension": "tsc -p tests/e2e/tsconfig.json --noEmit && playwright test",
+    "test:extension": "pnpm build && tsc -p tests/e2e/tsconfig.json --noEmit && playwright test",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint ."

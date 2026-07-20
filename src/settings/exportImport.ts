@@ -1,10 +1,6 @@
-import type { Locale } from '../i18n/types';
 import type { GroupPreference } from '../bookmarks/types';
-import type { GridSettings, Placement } from '../layout/types';
-import {
-  normalizeGridSettings,
-  normalizeTheme,
-} from '../platform/storage/migrateStorage';
+import type { Locale } from '../i18n/types';
+import type { GridSettings } from '../layout/types';
 import {
   deleteMedia,
   deleteMediaBatch,
@@ -20,18 +16,36 @@ import {
   OVERLAY_IMAGE_MEDIA_KEY_PREFIX,
   OVERLAY_MEDIA_MUTATION_LEASE_KEY_PREFIX,
   OVERLAY_SCENE_STORAGE_KEY,
-  parseOverlayScene,
 } from '../overlays/model';
 import type { OverlayScene } from '../overlays/types';
 import { withOverlayMediaMutationLock } from '../overlays/mediaMutationLock';
 import type { StarlitTheme } from '../theme/types';
+import {
+  BACKUP_SCHEMA_VERSION,
+  dataUrlToBlob,
+  isBookmarkTreePreferences,
+  isFiniteNumber,
+  isFaviconMap,
+  isGroupPreferences,
+  isLocale,
+  parseExportData,
+  validateOverlayMedia,
+  type BookmarkTreePreferences,
+  type ExportData,
+  type ImportData,
+} from './backupSchema';
 import type { BackgroundMedia } from './backgroundMedia';
 import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from './defaults';
-import { isFontFamily, normalizeSettings } from './normalizeSettings';
-import type { PersistedSettings, Settings } from './types';
+import type { Settings } from './types';
 
-export const BACKUP_SCHEMA_VERSION = 3;
-const PREVIOUS_BACKUP_SCHEMA_VERSION = 2;
+export { BACKUP_SCHEMA_VERSION } from './backupSchema';
+export type {
+  BookmarkTreePreferences,
+  ExportData,
+  ImportData,
+  LegacyExportData,
+  V2ExportData,
+} from './backupSchema';
 
 const MEDIA_KEY = 'backgroundMedia';
 const DEFAULT_LOCALE: Locale = 'ko';
@@ -54,58 +68,6 @@ function createOverlayMutationLeaseKey(): string {
   return `${OVERLAY_MEDIA_MUTATION_LEASE_KEY_PREFIX}${Date.now().toString(36)}-${nonce}`;
 }
 
-export type BookmarkTreePreferences = {
-  rootId?: string;
-  rootPath: string[];
-  siblingOrder: Record<string, string[]>;
-};
-
-type OptionalBackupData = {
-  backgroundData?: string;
-  backgroundMeta?: BackgroundMedia | null;
-  customCSS?: string;
-  favicons?: Record<string, string>;
-};
-
-type BackupCoreData = {
-  colorTheme: StarlitTheme;
-  gridSettings: GridSettings;
-  settings: Settings;
-};
-
-type OverlayBackupData = {
-  overlayMedia: Record<string, string>;
-  overlayScene: OverlayScene;
-};
-
-type ValidCommonData = Record<string, unknown> & BackupCoreData;
-
-export type LegacyExportData = BackupCoreData &
-  OptionalBackupData & {
-    schemaVersion?: undefined;
-  };
-
-type VersionedExportData = BackupCoreData &
-  OptionalBackupData & {
-    backgroundMeta: BackgroundMedia | null;
-    bookmarkTreePrefs: BookmarkTreePreferences;
-    groupPreferences: GroupPreference[];
-    iconSize: number;
-    locale: Locale;
-    size: number;
-  };
-
-export type V2ExportData = VersionedExportData & {
-  schemaVersion: typeof PREVIOUS_BACKUP_SCHEMA_VERSION;
-};
-
-export type ExportData = VersionedExportData &
-  OverlayBackupData & {
-    schemaVersion: typeof BACKUP_SCHEMA_VERSION;
-  };
-
-export type ImportData = ExportData | LegacyExportData | V2ExportData;
-
 type StorageAreaAdapter = {
   get: (key: string) => Promise<unknown>;
   remove: (keys: string | string[]) => Promise<void>;
@@ -119,342 +81,6 @@ type ImportSnapshot = {
   sync: Record<string, unknown>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isOptionalFiniteNumber(
-  record: Record<string, unknown>,
-  key: string,
-): boolean {
-  return record[key] === undefined || isFiniteNumber(record[key]);
-}
-
-function isOptionalString(
-  record: Record<string, unknown>,
-  key: string,
-): boolean {
-  return record[key] === undefined || typeof record[key] === 'string';
-}
-
-function isPlacement(value: unknown): value is Placement {
-  return (
-    value === 'top-left' ||
-    value === 'top-center' ||
-    value === 'top-right' ||
-    value === 'center-left' ||
-    value === 'center-center' ||
-    value === 'center-right' ||
-    value === 'bottom-left' ||
-    value === 'bottom-center' ||
-    value === 'bottom-right'
-  );
-}
-
-function isMargin(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isFiniteNumber(value.top) &&
-    isFiniteNumber(value.bottom) &&
-    isFiniteNumber(value.left) &&
-    isFiniteNumber(value.right)
-  );
-}
-
-function isGridBackground(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.color === 'string' &&
-    typeof value.border === 'string' &&
-    typeof value.text === 'string' &&
-    isOptionalString(value, 'gridImage')
-  );
-}
-
-function isGridIcon(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    typeof value.color === 'string' &&
-    typeof value.border === 'string' &&
-    typeof value.text === 'string' &&
-    isOptionalFiniteNumber(value, 'borderRadius') &&
-    isOptionalFiniteNumber(value, 'iconRadius') &&
-    isOptionalFiniteNumber(value, 'width') &&
-    isOptionalFiniteNumber(value, 'height')
-  );
-}
-
-function isGridHeading(value: unknown): boolean {
-  if (value === undefined) {
-    return true;
-  }
-
-  return (
-    isRecord(value) &&
-    typeof value.titleColor === 'string' &&
-    isOptionalString(value, 'titleBackgroundColor') &&
-    isOptionalFiniteNumber(value, 'titleSize') &&
-    typeof value.subtitleColor === 'string' &&
-    isOptionalFiniteNumber(value, 'subtitleSize') &&
-    typeof value.borderEnabled === 'boolean' &&
-    isFiniteNumber(value.borderWidth) &&
-    typeof value.borderColor === 'string' &&
-    typeof value.subtitleHoverColor === 'string' &&
-    isOptionalFiniteNumber(value, 'borderRadius')
-  );
-}
-
-function isGridFolder(value: unknown): boolean {
-  if (value === undefined) {
-    return true;
-  }
-
-  return (
-    isRecord(value) &&
-    typeof value.color === 'string' &&
-    typeof value.accent === 'string' &&
-    typeof value.accentText === 'string' &&
-    typeof value.text === 'string' &&
-    typeof value.border === 'string'
-  );
-}
-
-function isGridSettings(value: unknown): value is GridSettings {
-  return (
-    isRecord(value) &&
-    isFiniteNumber(value.columns) &&
-    isOptionalFiniteNumber(value, 'horizontalColumns') &&
-    isFiniteNumber(value.rows) &&
-    typeof value.gap === 'string' &&
-    isOptionalString(value, 'cardGap') &&
-    isOptionalFiniteNumber(value, 'masonryColumns') &&
-    isPlacement(value.position) &&
-    (value.margin === undefined || isMargin(value.margin)) &&
-    isGridBackground(value.background) &&
-    isGridIcon(value.icon) &&
-    isGridHeading(value.heading) &&
-    isGridFolder(value.folder)
-  );
-}
-
-function isSettings(value: unknown): value is PersistedSettings {
-  return (
-    isRecord(value) &&
-    typeof value.isFolderEnabled === 'boolean' &&
-    typeof value.isVisibleOnce === 'boolean' &&
-    typeof value.isOpenInNewTab === 'boolean' &&
-    typeof value.isExpandView === 'boolean' &&
-    (value.fontFamily === undefined || isFontFamily(value.fontFamily)) &&
-    (value.iconLayout === undefined ||
-      value.iconLayout === 'vertical' ||
-      value.iconLayout === 'horizontal')
-  );
-}
-
-function isStarlitTheme(value: unknown): value is StarlitTheme {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const keys: readonly (keyof StarlitTheme)[] = [
-    'accent',
-    'accentText',
-    'surface',
-    'text',
-    'border',
-    'hoverBg',
-    'hoverText',
-    'muted',
-  ];
-
-  return keys.every((key) => typeof value[key] === 'string');
-}
-
-function isBackgroundMedia(value: unknown): value is BackgroundMedia {
-  return (
-    isRecord(value) &&
-    (value.type === 'image' || value.type === 'video') &&
-    (value.source === 'url' || value.source === 'file') &&
-    typeof value.url === 'string'
-  );
-}
-
-function isBackgroundMeta(value: unknown): value is BackgroundMedia | null {
-  return value === null || isBackgroundMedia(value);
-}
-
-function isLocale(value: unknown): value is Locale {
-  return value === 'en' || value === 'ko' || value === 'ja';
-}
-
-function isGroupPreferences(value: unknown): value is GroupPreference[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (preference) =>
-        isRecord(preference) &&
-        typeof preference.key === 'string' &&
-        typeof preference.visible === 'boolean',
-    )
-  );
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === 'string')
-  );
-}
-
-function isBookmarkTreePreferences(
-  value: unknown,
-): value is BookmarkTreePreferences {
-  return (
-    isRecord(value) &&
-    (value.rootId === undefined || typeof value.rootId === 'string') &&
-    isStringArray(value.rootPath) &&
-    isRecord(value.siblingOrder) &&
-    Object.values(value.siblingOrder).every(isStringArray)
-  );
-}
-
-function isFaviconMap(value: unknown): value is Record<string, string> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((favicon) => typeof favicon === 'string')
-  );
-}
-
-function parseOverlayBackup(data: Record<string, unknown>): OverlayBackupData {
-  let overlayScene: OverlayScene;
-
-  try {
-    overlayScene = parseOverlayScene(data.overlayScene);
-  } catch (error) {
-    throw new Error('잘못된 형식: overlayScene이 올바르지 않습니다.', {
-      cause: error,
-    });
-  }
-
-  if (!isRecord(data.overlayMedia)) {
-    throw new Error('잘못된 형식: overlayMedia가 올바르지 않습니다.');
-  }
-
-  const overlayMediaValue = data.overlayMedia;
-  const imageIds = getOverlayImageLayers(overlayScene).map((image) => image.id);
-  const mediaIds = Object.keys(overlayMediaValue);
-
-  if (
-    imageIds.length !== mediaIds.length ||
-    imageIds.some((id) => !Object.hasOwn(overlayMediaValue, id))
-  ) {
-    throw new Error(
-      '잘못된 형식: overlay image와 media data가 일치하지 않습니다.',
-    );
-  }
-
-  const overlayMediaEntries: Array<readonly [string, string]> = [];
-
-  for (const id of imageIds) {
-    const mediaData = overlayMediaValue[id];
-    if (typeof mediaData !== 'string') {
-      throw new Error('잘못된 형식: overlay media가 문자열이 아닙니다.');
-    }
-
-    const blob = dataUrlToBlob(mediaData);
-    if (!blob.type.startsWith('image/')) {
-      throw new Error('잘못된 형식: overlay media가 이미지가 아닙니다.');
-    }
-
-    overlayMediaEntries.push([id, mediaData]);
-  }
-
-  return {
-    overlayMedia: Object.fromEntries(overlayMediaEntries),
-    overlayScene,
-  };
-}
-
-function validateCommonFields(
-  data: Record<string, unknown>,
-): asserts data is ValidCommonData {
-  if (!isGridSettings(data.gridSettings)) {
-    throw new Error('잘못된 형식: gridSettings가 올바르지 않습니다.');
-  }
-
-  if (!isSettings(data.settings)) {
-    throw new Error('잘못된 형식: settings가 올바르지 않습니다.');
-  }
-
-  if (!isStarlitTheme(data.colorTheme)) {
-    throw new Error('잘못된 형식: colorTheme이 올바르지 않습니다.');
-  }
-
-  if (data.customCSS !== undefined && typeof data.customCSS !== 'string') {
-    throw new Error('잘못된 형식: customCSS가 문자열이 아닙니다.');
-  }
-
-  if (
-    data.backgroundMeta !== undefined &&
-    !isBackgroundMeta(data.backgroundMeta)
-  ) {
-    throw new Error('잘못된 형식: backgroundMeta가 올바르지 않습니다.');
-  }
-
-  if (
-    data.backgroundData !== undefined &&
-    typeof data.backgroundData !== 'string'
-  ) {
-    throw new Error('잘못된 형식: backgroundData가 문자열이 아닙니다.');
-  }
-
-  if (typeof data.backgroundData === 'string') {
-    dataUrlToBlob(data.backgroundData);
-  }
-
-  if (data.backgroundData !== undefined) {
-    if (
-      !isBackgroundMedia(data.backgroundMeta) ||
-      data.backgroundMeta.source !== 'file'
-    ) {
-      throw new Error(
-        '잘못된 형식: backgroundData에는 file 배경 정보가 필요합니다.',
-      );
-    }
-  }
-
-  if (data.favicons !== undefined && !isFaviconMap(data.favicons)) {
-    throw new Error('잘못된 형식: favicons가 올바르지 않습니다.');
-  }
-}
-
-function getOptionalBackupData(
-  data: Record<string, unknown>,
-): OptionalBackupData {
-  const optionalData: OptionalBackupData = {};
-
-  if (typeof data.customCSS === 'string') {
-    optionalData.customCSS = data.customCSS;
-  }
-
-  if (isBackgroundMeta(data.backgroundMeta)) {
-    optionalData.backgroundMeta = data.backgroundMeta;
-  }
-
-  if (typeof data.backgroundData === 'string') {
-    optionalData.backgroundData = data.backgroundData;
-  }
-
-  if (isFaviconMap(data.favicons)) {
-    optionalData.favicons = data.favicons;
-  }
-
-  return optionalData;
-}
-
 function shouldApplyBackground(data: ImportData): boolean {
   if (data.backgroundMeta === undefined) {
     return false;
@@ -465,93 +91,6 @@ function shouldApplyBackground(data: ImportData): boolean {
     data.backgroundMeta.source === 'url' ||
     data.backgroundData !== undefined
   );
-}
-
-function parseExportData(value: unknown): ImportData {
-  if (!isRecord(value)) {
-    throw new Error('잘못된 형식: 객체가 아닙니다.');
-  }
-
-  if (
-    value.schemaVersion !== undefined &&
-    value.schemaVersion !== PREVIOUS_BACKUP_SCHEMA_VERSION &&
-    value.schemaVersion !== BACKUP_SCHEMA_VERSION
-  ) {
-    throw new Error(
-      `지원하지 않는 schemaVersion: ${String(value.schemaVersion)}`,
-    );
-  }
-
-  validateCommonFields(value);
-
-  const coreData: BackupCoreData = {
-    colorTheme: value.colorTheme,
-    gridSettings: value.gridSettings,
-    settings: normalizeSettings(value.settings),
-  };
-  const optionalData = getOptionalBackupData(value);
-
-  if (value.schemaVersion === undefined) {
-    return {
-      ...coreData,
-      ...optionalData,
-      colorTheme: normalizeTheme(coreData.colorTheme),
-      gridSettings: normalizeGridSettings(coreData.gridSettings),
-    };
-  }
-
-  const backgroundMeta = value.backgroundMeta;
-
-  if (!isFiniteNumber(value.size)) {
-    throw new Error('잘못된 형식: size가 유한한 숫자가 아닙니다.');
-  }
-
-  if (!isFiniteNumber(value.iconSize)) {
-    throw new Error('잘못된 형식: iconSize가 유한한 숫자가 아닙니다.');
-  }
-
-  if (!isLocale(value.locale)) {
-    throw new Error('잘못된 형식: locale이 올바르지 않습니다.');
-  }
-
-  if (!isGroupPreferences(value.groupPreferences)) {
-    throw new Error('잘못된 형식: groupPreferences가 올바르지 않습니다.');
-  }
-
-  if (!isBookmarkTreePreferences(value.bookmarkTreePrefs)) {
-    throw new Error('잘못된 형식: bookmarkTreePrefs가 올바르지 않습니다.');
-  }
-
-  if (
-    !Object.hasOwn(value, 'backgroundMeta') ||
-    !isBackgroundMeta(backgroundMeta)
-  ) {
-    throw new Error('잘못된 형식: backgroundMeta가 누락되었습니다.');
-  }
-
-  const versionedData: VersionedExportData = {
-    ...coreData,
-    ...optionalData,
-    backgroundMeta,
-    bookmarkTreePrefs: value.bookmarkTreePrefs,
-    groupPreferences: value.groupPreferences,
-    iconSize: value.iconSize,
-    locale: value.locale,
-    size: value.size,
-  };
-
-  if (value.schemaVersion === PREVIOUS_BACKUP_SCHEMA_VERSION) {
-    return {
-      ...versionedData,
-      schemaVersion: PREVIOUS_BACKUP_SCHEMA_VERSION,
-    };
-  }
-
-  return {
-    ...versionedData,
-    ...parseOverlayBackup(value),
-    schemaVersion: BACKUP_SCHEMA_VERSION,
-  };
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -569,72 +108,6 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     reader.onerror = (): void => reject(new Error('blob 읽기 실패'));
     reader.readAsDataURL(blob);
   });
-}
-
-function dataUrlToBlob(dataUrl: string): Blob {
-  const separatorIndex = dataUrl.indexOf(',');
-
-  if (separatorIndex < 0) {
-    throw new Error('잘못된 base64 데이터입니다.');
-  }
-
-  const header = dataUrl.slice(0, separatorIndex);
-  const base64 = dataUrl.slice(separatorIndex + 1);
-  const headerMatch = /^data:([^;,]*);base64$/i.exec(header);
-
-  if (
-    !headerMatch ||
-    !/^[A-Za-z0-9+/]*={0,2}$/.test(base64) ||
-    base64.length % 4 !== 0
-  ) {
-    throw new Error('잘못된 base64 데이터입니다.');
-  }
-
-  let binary: string;
-
-  try {
-    binary = atob(base64);
-  } catch {
-    throw new Error('base64 디코딩에 실패했습니다.');
-  }
-
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return new Blob([bytes], {
-    type: headerMatch[1] || 'application/octet-stream',
-  });
-}
-
-async function validateOverlayMedia(data: ExportData): Promise<void> {
-  for (const image of getOverlayImageLayers(data.overlayScene)) {
-    const mediaData = data.overlayMedia[image.id];
-    if (!mediaData) {
-      throw new Error(`overlay media가 누락되었습니다: ${image.id}`);
-    }
-
-    let bitmap: ImageBitmap;
-    try {
-      bitmap = await createImageBitmap(dataUrlToBlob(mediaData));
-    } catch (error) {
-      throw new Error(`overlay media를 디코딩할 수 없습니다: ${image.name}`, {
-        cause: error,
-      });
-    }
-
-    try {
-      if (bitmap.width <= 0 || bitmap.height <= 0) {
-        throw new Error(
-          `overlay media 크기가 올바르지 않습니다: ${image.name}`,
-        );
-      }
-    } finally {
-      bitmap.close();
-    }
-  }
 }
 
 function getStoredNumber(value: unknown, fallback: number): number {

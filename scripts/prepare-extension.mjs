@@ -1,8 +1,19 @@
-import { cp, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { cp, mkdir, readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DIST = resolve(ROOT, 'dist');
+const PACKAGED_ASSET_PATHS = [
+  'assets/guide/new-tab-overview.jpg',
+  'assets/guide/open-tab-group-confirm.jpg',
+  'assets/guide/settings-appearance.jpg',
+  'assets/guide/settings-bookmark-groups.jpg',
+  'assets/guide/settings-custom-css.jpg',
+  'assets/guide/settings-general.jpg',
+  'assets/guide/settings-layout.jpg',
+  'assets/licenses/IBM-Plex-OFL-1.1.txt',
+  'assets/overlays/getting.png',
+];
 
 async function pathExists(path) {
   try {
@@ -18,23 +29,18 @@ async function prepareExtension() {
   const guideHtml = resolve(DIST, 'guide.html');
 
   await cp(resolve(ROOT, 'manifest.json'), resolve(DIST, 'manifest.json'));
-  await cp(resolve(ROOT, 'assets'), resolve(DIST, 'assets'), {
-    recursive: true,
-  });
+  for (const relativePath of PACKAGED_ASSET_PATHS) {
+    const destinationPath = resolve(DIST, relativePath);
+    await mkdir(dirname(destinationPath), { recursive: true });
+    await cp(resolve(ROOT, relativePath), destinationPath);
+  }
 
   const requiredPaths = [
     resolve(DIST, 'manifest.json'),
     resolve(DIST, 'background/index.js'),
     entryHtml,
     guideHtml,
-    resolve(DIST, 'assets/guide/new-tab-overview.jpg'),
-    resolve(DIST, 'assets/guide/open-tab-group-confirm.jpg'),
-    resolve(DIST, 'assets/guide/settings-appearance.jpg'),
-    resolve(DIST, 'assets/guide/settings-bookmark-groups.jpg'),
-    resolve(DIST, 'assets/guide/settings-custom-css.jpg'),
-    resolve(DIST, 'assets/guide/settings-general.jpg'),
-    resolve(DIST, 'assets/guide/settings-layout.jpg'),
-    resolve(DIST, 'assets/overlays/getting.png'),
+    ...PACKAGED_ASSET_PATHS.map((relativePath) => resolve(DIST, relativePath)),
   ];
   const missingPaths = [];
 

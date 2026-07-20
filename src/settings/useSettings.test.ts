@@ -8,14 +8,18 @@ import { useSettings } from './useSettings';
 
 const storageState = vi.hoisted(() => ({
   setSettings: vi.fn<(settings: Settings) => Promise<void>>(),
-  settings: null as PersistedSettings | null,
+  settings: null as unknown,
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
-  useStorageState: () => ({
+  useStorageState: (
+    _key: string,
+    fallback: Settings,
+    decode: (value: unknown, fallback: Settings) => Settings,
+  ) => ({
     isLoaded: true,
     setValue: storageState.setSettings,
-    value: storageState.settings,
+    value: decode(storageState.settings, fallback),
   }),
 }));
 
@@ -32,6 +36,24 @@ describe('useSettings', () => {
         fontFamily: 'unknown-font',
       }).fontFamily,
     ).toBe('ibm-plex-sans');
+  });
+
+  it('uses the provided fallback for invalid stored leaves', () => {
+    const fallback: Settings = {
+      ...DEFAULT_SETTINGS,
+      fontFamily: 'system',
+      isExpandView: true,
+    };
+
+    expect(
+      normalizeSettings(
+        {
+          fontFamily: 'unknown-font',
+          isExpandView: 'yes',
+        },
+        fallback,
+      ),
+    ).toEqual(fallback);
   });
 
   it('defaults a legacy profile to IBM Plex Sans', () => {

@@ -6,7 +6,7 @@ import type { BackgroundMedia } from './backgroundMedia';
 import { useBackgroundImage } from './useBackgroundImage';
 
 const storageState = vi.hoisted(() => ({
-  meta: null as BackgroundMedia | null,
+  meta: null as unknown,
   setMeta: vi.fn<(meta: BackgroundMedia | null) => Promise<void>>(),
 }));
 
@@ -24,10 +24,17 @@ const gifMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
-  useStorageState: () => ({
+  useStorageState: (
+    _key: string,
+    fallback: BackgroundMedia | null,
+    decode: (
+      value: unknown,
+      fallback: BackgroundMedia | null,
+    ) => BackgroundMedia | null,
+  ) => ({
     isLoaded: true,
     setValue: storageState.setMeta,
-    value: storageState.meta,
+    value: decode(storageState.meta, fallback),
   }),
 }));
 

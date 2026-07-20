@@ -10,15 +10,19 @@ type GridSettingsUpdate =
   | ((previous: GridSettings) => GridSettings);
 
 const storageState = vi.hoisted(() => ({
-  gridSettings: null as GridSettings | null,
+  gridSettings: null as unknown,
   setGridSettings: vi.fn<(next: GridSettingsUpdate) => Promise<void>>(),
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
-  useStorageState: () => ({
+  useStorageState: (
+    _key: string,
+    fallback: GridSettings,
+    decode: (value: unknown, fallback: GridSettings) => GridSettings,
+  ) => ({
     isLoaded: true,
     setValue: storageState.setGridSettings,
-    value: storageState.gridSettings,
+    value: decode(storageState.gridSettings, fallback),
   }),
 }));
 
@@ -33,6 +37,17 @@ describe('useGridSettings', () => {
 
     expect(result.current.gridSettings).toEqual(DEFAULT_GRID_SETTINGS);
     expect(result.current.isLoaded).toBe(true);
+  });
+
+  it('keeps a persisted legacy-equal gap as a current customization', () => {
+    storageState.gridSettings = {
+      ...DEFAULT_GRID_SETTINGS,
+      gap: '1em',
+    };
+
+    const { result } = renderHook(() => useGridSettings());
+
+    expect(result.current.gridSettings.gap).toBe('1em');
   });
 
   it('forwards complete and functional updates to storage', async () => {

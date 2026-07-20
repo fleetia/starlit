@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBookmarks } from './useBookmarks';
@@ -12,7 +12,12 @@ const storageState = vi.hoisted(() => ({
 }));
 
 const faviconMocks = vi.hoisted(() => ({
-  cacheFavicons: vi.fn<() => Promise<void>>(),
+  cacheFavicons:
+    vi.fn<
+      (
+        items: { favicon?: string; id: string }[],
+      ) => Promise<Record<string, string>>
+    >(),
   getFavicon:
     vi.fn<
       (
@@ -22,8 +27,11 @@ const faviconMocks = vi.hoisted(() => ({
       ) => string
     >(),
   loadFavicons: vi.fn<() => Promise<Record<string, string>>>(),
-  removeFavicon: vi.fn<(itemId: string) => Promise<void>>(),
-  saveFavicon: vi.fn<(itemId: string, favicon: string) => Promise<void>>(),
+  removeFavicon: vi.fn<(itemId: string) => Promise<Record<string, string>>>(),
+  saveFavicon:
+    vi.fn<
+      (itemId: string, favicon: string) => Promise<Record<string, string>>
+    >(),
 }));
 
 const chromeBookmarkMocks = vi.hoisted(() => ({
@@ -93,13 +101,13 @@ beforeEach((): void => {
     storageState.bookmarks =
       typeof next === 'function' ? next(storageState.bookmarks) : next;
   });
-  faviconMocks.cacheFavicons.mockResolvedValue(undefined);
+  faviconMocks.cacheFavicons.mockResolvedValue({});
   faviconMocks.getFavicon.mockImplementation(
     (favicons, itemId, fallback): string => favicons[itemId] ?? fallback ?? '',
   );
   faviconMocks.loadFavicons.mockResolvedValue({});
-  faviconMocks.removeFavicon.mockResolvedValue(undefined);
-  faviconMocks.saveFavicon.mockResolvedValue(undefined);
+  faviconMocks.removeFavicon.mockResolvedValue({});
+  faviconMocks.saveFavicon.mockResolvedValue({});
   chromeBookmarkMocks.convertTree.mockReturnValue(
     structuredClone(INITIAL_BOOKMARKS),
   );
@@ -182,11 +190,12 @@ describe('useBookmarks', () => {
   });
 
   it('persists and resets a custom favicon before refreshing resolved data', async () => {
-    faviconMocks.loadFavicons
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ 'bookmark-1': 'data:image/png;base64,custom' })
-      .mockResolvedValueOnce({});
+    faviconMocks.loadFavicons.mockClear();
+    faviconMocks.loadFavicons.mockResolvedValue({});
+    faviconMocks.saveFavicon.mockResolvedValue({
+      'bookmark-1': 'data:image/png;base64,custom',
+    });
+    faviconMocks.removeFavicon.mockResolvedValue({});
     const { result } = renderHook(() => useBookmarks());
     await flushBookmarkEffects();
 
@@ -211,5 +220,39 @@ describe('useBookmarks', () => {
     });
 
     expect(faviconMocks.removeFavicon).toHaveBeenCalledWith('bookmark-1');
+    expect(result.current.bookmarks[0]?.list?.[0]?.favicon).toBe('');
+    expect(faviconMocks.loadFavicons).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a late initial load overwrite a committed favicon map', async () => {
+    const currentFavicon = 'data:image/png;base64,current';
+    const staleFavicon = 'data:image/png;base64,stale';
+    let resolveInitialLoad: (favicons: Record<string, string>) => void = () =>
+      undefined;
+    const initialLoad = new Promise<Record<string, string>>((resolve) => {
+      resolveInitialLoad = resolve;
+    });
+    faviconMocks.loadFavicons
+      .mockReturnValueOnce(initialLoad)
+      .mockResolvedValue({ 'bookmark-1': currentFavicon });
+    faviconMocks.cacheFavicons.mockResolvedValue({
+      'bookmark-1': currentFavicon,
+    });
+    const { result } = renderHook(() => useBookmarks());
+
+    await waitFor(() =>
+      expect(result.current.bookmarks[0]?.list?.[0]?.favicon).toBe(
+        currentFavicon,
+      ),
+    );
+
+    await act(async (): Promise<void> => {
+      resolveInitialLoad({ 'bookmark-1': staleFavicon });
+      await initialLoad;
+    });
+
+    expect(result.current.bookmarks[0]?.list?.[0]?.favicon).toBe(
+      currentFavicon,
+    );
   });
 });

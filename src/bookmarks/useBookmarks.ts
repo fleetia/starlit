@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useStorageState } from '../hooks/useStorageState';
 import {
@@ -13,6 +13,7 @@ import chromeBookmarks, {
   flattenItems,
 } from '../platform/bookmarks/chromeBookmarks';
 import { DEFAULT_BOOKMARKS } from './defaults';
+import { decodeBookmarks } from './storageDecoders';
 import type { Bookmark } from './types';
 
 type UseBookmarksReturn = {
@@ -52,20 +53,44 @@ export function useBookmarks(): UseBookmarksReturn {
     value: bookmarks,
     setValue: setBookmarks,
     isLoaded: isStorageLoaded,
-  } = useStorageState<Bookmark[]>('bookmarks', DEFAULT_BOOKMARKS, 'local');
+  } = useStorageState<Bookmark[]>(
+    'bookmarks',
+    DEFAULT_BOOKMARKS,
+    decodeBookmarks,
+    'local',
+  );
   const [favicons, setFavicons] = useState<Record<string, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
+  const faviconCommitVersionRef = useRef(0);
+
+  const commitFavicons = useCallback(
+    (committedFavicons: Record<string, string>): void => {
+      faviconCommitVersionRef.current += 1;
+      setFavicons(committedFavicons);
+    },
+    [],
+  );
 
   const refreshBookmarks = useCallback(async (): Promise<void> => {
     const tree = await chromeBookmarks.getTree();
     const converted = convertTree(tree);
     await setBookmarks(converted);
-    await cacheFavicons(flattenItems(converted));
-    setFavicons(await loadFavicons());
-  }, [setBookmarks]);
+    commitFavicons(await cacheFavicons(flattenItems(converted)));
+  }, [commitFavicons, setBookmarks]);
 
   useEffect(() => {
-    loadFavicons().then(setFavicons);
+    let isActive = true;
+    const requestedVersion = faviconCommitVersionRef.current;
+
+    void loadFavicons().then((loadedFavicons) => {
+      if (isActive && faviconCommitVersionRef.current === requestedVersion) {
+        setFavicons(loadedFavicons);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -132,13 +157,11 @@ export function useBookmarks(): UseBookmarksReturn {
     itemId: string,
     favicon: string,
   ): Promise<void> => {
-    await saveFavicon(itemId, favicon);
-    setFavicons(await loadFavicons());
+    commitFavicons(await saveFavicon(itemId, favicon));
   };
 
   const handleResetFavicon = async (itemId: string): Promise<void> => {
-    await removeFavicon(itemId);
-    setFavicons(await loadFavicons());
+    commitFavicons(await removeFavicon(itemId));
   };
 
   return {

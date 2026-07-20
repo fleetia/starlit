@@ -93,6 +93,18 @@ function reportOverlayError(error: unknown): void {
   }
 }
 
+function getPersistedOverlaySceneSnapshot(value: unknown): string {
+  if (value === undefined) {
+    return 'missing';
+  }
+
+  try {
+    return `scene:${JSON.stringify(parseOverlayScene(value))}`;
+  } catch {
+    return `invalid:${JSON.stringify(value)}`;
+  }
+}
+
 function createOverlayAggregateError(
   error: unknown,
   failures: readonly unknown[],
@@ -250,6 +262,7 @@ export function useOverlayScene(): UseOverlaySceneReturn {
   const [processingCount, setProcessingCount] = useState(0);
   const [draftSessionId] = useState(createDraftSessionId);
   const isLoadedRef = useRef(false);
+  const lastKnownPersistedSceneSnapshotRef = useRef<string | null>(null);
   const draftLeaseItemsRef = useRef<Map<string, OverlayDraftLeaseItem>>(
     new Map(),
   );
@@ -288,7 +301,11 @@ export function useOverlayScene(): UseOverlaySceneReturn {
           if (storedScene === undefined) {
             await persistDefaultOverlayScene();
             nextScene = DEFAULT_OVERLAY_SCENE;
+            lastKnownPersistedSceneSnapshotRef.current =
+              getPersistedOverlaySceneSnapshot(DEFAULT_OVERLAY_SCENE);
           } else {
+            lastKnownPersistedSceneSnapshotRef.current =
+              getPersistedOverlaySceneSnapshot(storedScene);
             try {
               nextScene = parseOverlayScene(storedScene);
             } catch (error) {
@@ -413,6 +430,24 @@ export function useOverlayScene(): UseOverlaySceneReturn {
       );
 
       await withOverlayMediaMutationLock(async (): Promise<void> => {
+        const lastKnownPersistedSceneSnapshot =
+          lastKnownPersistedSceneSnapshotRef.current;
+        if (lastKnownPersistedSceneSnapshot === null) {
+          throw new Error('Overlay scene persistence state is unavailable.');
+        }
+
+        const latestPersistedScene = await storage.local.get(
+          OVERLAY_SCENE_STORAGE_KEY,
+        );
+        if (
+          getPersistedOverlaySceneSnapshot(latestPersistedScene) !==
+          lastKnownPersistedSceneSnapshot
+        ) {
+          throw new Error(
+            'Overlay scene changed in another session. Reload Starlit and try again.',
+          );
+        }
+
         const promotedMediaKeys: string[] = [];
 
         try {
@@ -437,6 +472,8 @@ export function useOverlayScene(): UseOverlaySceneReturn {
           await storage.local.set({
             [OVERLAY_SCENE_STORAGE_KEY]: parsedScene,
           });
+          lastKnownPersistedSceneSnapshotRef.current =
+            getPersistedOverlaySceneSnapshot(parsedScene);
           setScene(parsedScene);
         } catch (error) {
           return await rollbackPromotedMedia(error, promotedMediaKeys);

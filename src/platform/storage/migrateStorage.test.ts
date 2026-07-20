@@ -197,6 +197,64 @@ describe('migrateStorage', () => {
     expect(dependencies.loadCurrentMedia).not.toHaveBeenCalled();
   });
 
+  it('preserves a future synced schema while migrating old device-local data', async () => {
+    const legacyMedia = new Blob(['legacy']);
+    const dependencies = createDependencies({
+      bookmarks: [{ title: 'Synced' }],
+      storageSchemaVersion: STORAGE_SCHEMA_VERSION + 1,
+    });
+    dependencies.loadLegacyMedia = vi.fn(async () => legacyMedia);
+
+    await migrateStorage(dependencies);
+
+    expect(dependencies.syncSet).not.toHaveBeenCalled();
+    expect(dependencies.localSet).toHaveBeenCalledWith({
+      bookmarks: [{ title: 'Synced' }],
+    });
+    expect(dependencies.saveCurrentMedia).toHaveBeenCalledWith(legacyMedia);
+    expect(dependencies.localSet).toHaveBeenLastCalledWith({
+      [DEVICE_STORAGE_SCHEMA_VERSION_KEY]: STORAGE_SCHEMA_VERSION,
+    });
+  });
+
+  it('preserves a future device-local schema while migrating old synced data', async () => {
+    const dependencies = createDependencies(
+      { storageSchemaVersion: STORAGE_SCHEMA_VERSION - 1 },
+      { [DEVICE_STORAGE_SCHEMA_VERSION_KEY]: STORAGE_SCHEMA_VERSION + 1 },
+    );
+
+    await migrateStorage(dependencies);
+
+    expect(dependencies.syncSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gridSettings: DEFAULT_GRID_SETTINGS,
+        colorTheme: DEFAULT_STARLIT_THEME,
+      }),
+    );
+    expect(dependencies.syncSet).toHaveBeenLastCalledWith({
+      storageSchemaVersion: STORAGE_SCHEMA_VERSION,
+    });
+    expect(dependencies.localSet).not.toHaveBeenCalled();
+    expect(dependencies.loadCurrentMedia).not.toHaveBeenCalled();
+  });
+
+  it('keeps malformed schema versions on the legacy migration path', async () => {
+    const futureVersionText = String(STORAGE_SCHEMA_VERSION + 1);
+    const dependencies = createDependencies(
+      { storageSchemaVersion: futureVersionText },
+      { [DEVICE_STORAGE_SCHEMA_VERSION_KEY]: futureVersionText },
+    );
+
+    await migrateStorage(dependencies);
+
+    expect(dependencies.syncSet).toHaveBeenLastCalledWith({
+      storageSchemaVersion: STORAGE_SCHEMA_VERSION,
+    });
+    expect(dependencies.localSet).toHaveBeenLastCalledWith({
+      [DEVICE_STORAGE_SCHEMA_VERSION_KEY]: STORAGE_SCHEMA_VERSION,
+    });
+  });
+
   it('does not stamp the version when a data write fails', async () => {
     const dependencies = createDependencies({});
     dependencies.local.set = vi.fn(async (): Promise<void> => {

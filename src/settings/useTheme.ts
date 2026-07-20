@@ -1,5 +1,6 @@
 import { useStorageState } from '../hooks/useStorageState';
 import { DEFAULT_STARLIT_THEME } from '../theme/defaults';
+import { decodeTheme } from '../theme/normalizeTheme';
 import { getThemeStyle } from '../theme/starlitTheme';
 import type { CssVariableStyle, StarlitTheme } from '../theme/types';
 
@@ -21,7 +22,11 @@ export function useTheme(): UseThemeReturn {
     isLoaded,
     value: colorTheme,
     setValue: setColorTheme,
-  } = useStorageState<StarlitTheme>('colorTheme', DEFAULT_STARLIT_THEME);
+  } = useStorageState<StarlitTheme>(
+    'colorTheme',
+    DEFAULT_STARLIT_THEME,
+    decodeTheme,
+  );
 
   const updateTheme = async (
     key: keyof StarlitTheme,

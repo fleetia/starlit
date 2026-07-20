@@ -55,6 +55,16 @@ function SettingsIcon(): ReactElement {
   );
 }
 
+function decodeFiniteNumber(rawValue: unknown, fallback: number): number {
+  return typeof rawValue === 'number' && Number.isFinite(rawValue)
+    ? rawValue
+    : fallback;
+}
+
+function decodeString(rawValue: unknown, fallback: string): string {
+  return typeof rawValue === 'string' ? rawValue : fallback;
+}
+
 export function App({ locale, onLocaleChange }: AppProps): ReactElement {
   const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -67,17 +77,21 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     isLoaded: isSizeLoaded,
     value: size,
     setValue: setSize,
-  } = useStorageState<number>('size', DEFAULT_SIZE);
+  } = useStorageState<number>('size', DEFAULT_SIZE, decodeFiniteNumber);
   const {
     isLoaded: isIconSizeLoaded,
     value: iconSize,
     setValue: setIconSize,
-  } = useStorageState<number>('iconSize', DEFAULT_ICON_SIZE);
+  } = useStorageState<number>(
+    'iconSize',
+    DEFAULT_ICON_SIZE,
+    decodeFiniteNumber,
+  );
   const {
     isLoaded: isCustomCSSLoaded,
     value: customCSS,
     setValue: setCustomCSS,
-  } = useStorageState<string>('customCSS', '');
+  } = useStorageState<string>('customCSS', '', decodeString);
   const {
     bookmarks,
     handleDeleteBookmark,

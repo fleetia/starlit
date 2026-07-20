@@ -2,7 +2,7 @@ import { useStorageState } from '../hooks/useStorageState';
 
 import { DEFAULT_SETTINGS } from './defaults';
 import { normalizeSettings } from './normalizeSettings';
-import type { PersistedSettings, Settings } from './types';
+import type { Settings } from './types';
 
 type UseSettingsReturn = {
   isLoaded: boolean;
@@ -13,10 +13,13 @@ type UseSettingsReturn = {
 export function useSettings(): UseSettingsReturn {
   const {
     isLoaded,
-    value: persistedSettings,
+    value: settings,
     setValue: setSettings,
-  } = useStorageState<PersistedSettings>('settings', DEFAULT_SETTINGS);
-  const settings = normalizeSettings(persistedSettings);
+  } = useStorageState<Settings>(
+    'settings',
+    DEFAULT_SETTINGS,
+    normalizeSettings,
+  );
 
   const updateSettings = async (newSettings: Settings): Promise<void> => {
     await setSettings(newSettings);

@@ -1079,6 +1079,108 @@ describe('App', () => {
     });
   });
 
+  it('rolls earlier writes back without retrying a stale overlay conflict', async () => {
+    const conflictMessage =
+      'Overlay scene changed in another session. Reload Starlit and try again.';
+    const overlayImage: OverlayImageLayer = {
+      anchor: 'top-left',
+      height: 120,
+      id: 'overlay-conflict',
+      kind: 'image',
+      name: 'conflict.png',
+      offsetX: 24,
+      offsetY: 24,
+      rotationDeg: 0,
+      width: 160,
+    };
+    appMocks.prepareOverlayFiles.mockResolvedValue([overlayImage]);
+    appMocks.updateOverlayScene.mockRejectedValue(new Error(conflictMessage));
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    fireEvent.click(
+      screen.getByRole('switch', { name: 'Open in new tab by default' }),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Layers' }));
+    fireEvent.change(screen.getByLabelText('Add images'), {
+      target: {
+        files: [new File(['image'], 'conflict.png', { type: 'image/png' })],
+      },
+    });
+    await screen.findByText('conflict.png');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(conflictMessage)).toBeDefined();
+      expect(appMocks.updateSettings).toHaveBeenCalledTimes(2);
+      expect(appMocks.updateOverlayScene).toHaveBeenCalledTimes(1);
+    });
+    expect(appMocks.updateSettings).toHaveBeenNthCalledWith(1, {
+      ...appState.settings,
+      isOpenInNewTab: true,
+    });
+    expect(appMocks.updateSettings).toHaveBeenNthCalledWith(
+      2,
+      appState.settings,
+    );
+    expect(appMocks.updateOverlayScene).toHaveBeenCalledWith({
+      layers: [{ kind: 'bookmarks' }, overlayImage],
+    });
+    expect(appMocks.discardOverlayImages).not.toHaveBeenCalled();
+    expect(appMocks.finalizeOverlayImages).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Options' })).toBeDefined();
+  });
+
+  it('rolls a successful overlay write back when background saving fails', async () => {
+    const initialScene: OverlayScene = {
+      layers: [
+        { kind: 'bookmarks' },
+        {
+          anchor: 'bottom-right',
+          height: 120,
+          id: 'overlay-to-restore',
+          kind: 'image',
+          name: 'restore.png',
+          offsetX: 24,
+          offsetY: 24,
+          rotationDeg: 0,
+          width: 160,
+        },
+      ],
+    };
+    appState.overlayScene = initialScene;
+    appMocks.updateBackgroundFromUrl.mockRejectedValueOnce(
+      new Error('background save failed'),
+    );
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Layers' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove image: restore.png' }),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Image or video URL' }),
+      { target: { value: 'https://example.com/background.png' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('background save failed')).toBeDefined();
+      expect(appMocks.updateOverlayScene).toHaveBeenCalledTimes(2);
+    });
+    expect(appMocks.updateOverlayScene).toHaveBeenNthCalledWith(1, {
+      layers: [{ kind: 'bookmarks' }],
+    });
+    expect(appMocks.updateOverlayScene).toHaveBeenNthCalledWith(
+      2,
+      initialScene,
+    );
+    expect(appMocks.discardOverlayImages).not.toHaveBeenCalled();
+    expect(appMocks.finalizeOverlayImages).not.toHaveBeenCalled();
+  });
+
   it('rolls earlier settings writes back when a later save step fails', async () => {
     appMocks.updateGroupPreferences.mockRejectedValueOnce(
       new Error('group save failed'),

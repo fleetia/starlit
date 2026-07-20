@@ -8,15 +8,19 @@ import { themePresets, useTheme } from './useTheme';
 type ThemeUpdate = StarlitTheme | ((previous: StarlitTheme) => StarlitTheme);
 
 const storageState = vi.hoisted(() => ({
-  colorTheme: null as StarlitTheme | null,
+  colorTheme: null as unknown,
   setColorTheme: vi.fn<(theme: ThemeUpdate) => Promise<void>>(),
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
-  useStorageState: () => ({
+  useStorageState: (
+    _key: string,
+    fallback: StarlitTheme,
+    decode: (value: unknown, fallback: StarlitTheme) => StarlitTheme,
+  ) => ({
     isLoaded: true,
     setValue: storageState.setColorTheme,
-    value: storageState.colorTheme,
+    value: decode(storageState.colorTheme, fallback),
   }),
 }));
 
@@ -26,6 +30,17 @@ beforeEach((): void => {
 });
 
 describe('useTheme', () => {
+  it('keeps a persisted black accent as a current customization', () => {
+    storageState.colorTheme = {
+      ...DEFAULT_STARLIT_THEME,
+      accent: '#000000',
+    };
+
+    const { result } = renderHook(() => useTheme());
+
+    expect(result.current.colorTheme.accent).toBe('#000000');
+  });
+
   it('updates one slot without dropping the remaining persisted theme', async () => {
     const { result } = renderHook(() => useTheme());
 

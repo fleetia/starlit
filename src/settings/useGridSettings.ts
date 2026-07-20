@@ -1,5 +1,6 @@
 import { useStorageState } from '../hooks/useStorageState';
 import { DEFAULT_GRID_SETTINGS } from '../layout/defaults';
+import { decodeGridSettings } from '../layout/normalizeGridSettings';
 import type { GridSettings } from '../layout/types';
 
 type UseGridSettingsReturn = {
@@ -15,7 +16,11 @@ export function useGridSettings(): UseGridSettingsReturn {
     isLoaded,
     value: gridSettings,
     setValue: updateGridSettings,
-  } = useStorageState<GridSettings>('gridSettings', DEFAULT_GRID_SETTINGS);
+  } = useStorageState<GridSettings>(
+    'gridSettings',
+    DEFAULT_GRID_SETTINGS,
+    decodeGridSettings,
+  );
 
   return { gridSettings, isLoaded, updateGridSettings };
 }

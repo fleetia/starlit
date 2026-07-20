@@ -1,44 +1,64 @@
+import {
+  decodeFaviconMap,
+  type FaviconMap,
+} from '../../bookmarks/storageDecoders';
+import { withExclusiveLock } from '../locks/exclusiveLock';
 import storage from '../storage/storage';
 
 const FAVICON_SIZE = 48;
+const FAVICON_MUTATION_LOCK_NAME = 'starlit-favicon-mutation';
 const STORAGE_KEY = 'favicons';
 
-type FaviconMap = Record<string, string>;
+function withFaviconMutationLock<Result>(
+  operation: () => Promise<Result>,
+): Promise<Result> {
+  return withExclusiveLock(FAVICON_MUTATION_LOCK_NAME, operation);
+}
 
 function toDataUrl(faviconUrl: string): Promise<string> {
   return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = FAVICON_SIZE;
-      canvas.height = FAVICON_SIZE;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(faviconUrl);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, FAVICON_SIZE, FAVICON_SIZE);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => resolve(faviconUrl);
-    img.src = faviconUrl;
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = FAVICON_SIZE;
+          canvas.height = FAVICON_SIZE;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(faviconUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, FAVICON_SIZE, FAVICON_SIZE);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(faviconUrl);
+        }
+      };
+      img.onerror = () => resolve(faviconUrl);
+      img.src = faviconUrl;
+    } catch {
+      resolve(faviconUrl);
+    }
   });
 }
 
 export async function loadFavicons(): Promise<FaviconMap> {
-  return ((await storage.local.get(STORAGE_KEY)) as FaviconMap) ?? {};
+  return decodeFaviconMap(await storage.local.get(STORAGE_KEY), {});
 }
 
 export async function cacheFavicons(
   items: { id: string; favicon?: string }[],
-): Promise<void> {
+): Promise<FaviconMap> {
   const existing = await loadFavicons();
   const newEntries = items.filter(
     (item): item is { id: string; favicon: string } =>
       Boolean(item.favicon) && !existing[item.id],
   );
-  if (newEntries.length === 0) return;
+  if (newEntries.length === 0) {
+    return withFaviconMutationLock(loadFavicons);
+  }
 
   const MAX_CONCURRENT = 5;
   const results: { id: string; dataUrl: string }[] = [];
@@ -53,23 +73,43 @@ export async function cacheFavicons(
     results.push(...chunkResults);
   }
 
-  const updated = { ...existing };
-  for (const { id, dataUrl } of results) {
-    updated[id] = dataUrl;
-  }
-  await storage.local.set({ [STORAGE_KEY]: updated });
+  return withFaviconMutationLock(async (): Promise<FaviconMap> => {
+    const current = await loadFavicons();
+    const updated = { ...current };
+    let hasChanges = false;
+    for (const { id, dataUrl } of results) {
+      if (!updated[id]) {
+        updated[id] = dataUrl;
+        hasChanges = true;
+      }
+    }
+    if (hasChanges) {
+      await storage.local.set({ [STORAGE_KEY]: updated });
+    }
+    return updated;
+  });
 }
 
-export async function saveFavicon(id: string, dataUrl: string): Promise<void> {
-  const existing = await loadFavicons();
-  existing[id] = dataUrl;
-  await storage.local.set({ [STORAGE_KEY]: existing });
+export async function saveFavicon(
+  id: string,
+  dataUrl: string,
+): Promise<FaviconMap> {
+  return withFaviconMutationLock(async (): Promise<FaviconMap> => {
+    const existing = await loadFavicons();
+    const updated = { ...existing, [id]: dataUrl };
+    await storage.local.set({ [STORAGE_KEY]: updated });
+    return updated;
+  });
 }
 
-export async function removeFavicon(id: string): Promise<void> {
-  const existing = await loadFavicons();
-  delete existing[id];
-  await storage.local.set({ [STORAGE_KEY]: existing });
+export async function removeFavicon(id: string): Promise<FaviconMap> {
+  return withFaviconMutationLock(async (): Promise<FaviconMap> => {
+    const existing = await loadFavicons();
+    const updated = { ...existing };
+    delete updated[id];
+    await storage.local.set({ [STORAGE_KEY]: updated });
+    return updated;
+  });
 }
 
 export function getFavicon(
