@@ -16,6 +16,7 @@ export default defineConfig(({ command }) => ({
         input: {
           app: resolve(__dirname, 'index.html'),
           background: resolve(__dirname, 'src/background/index.ts'),
+          guide: resolve(__dirname, 'guide.html'),
         },
         output: {
           entryFileNames: '[name]/index.js',

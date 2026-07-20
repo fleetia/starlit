@@ -15,6 +15,7 @@ import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
 import { applySiblingOrder } from '../bookmarks/bookmarkTree';
 import { useTranslation } from '../i18n';
 import { getLayoutStyle } from '../layout/layoutStyle';
+import { createGuideHref } from '../guide/guideRoute';
 import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
 import { getFontFamilyStyle, getThemeStyle } from '../theme/starlitTheme';
 import type { StarlitTheme } from '../theme/types';
@@ -73,6 +74,7 @@ function OptionsSidebarSession({
   onBackgroundFile,
   onBackgroundUrl,
   onBookmarkTreePreferencesUpdate,
+  onBookmarksImported,
   onClose,
   onCustomCSSChange,
   onExport,
@@ -580,6 +582,7 @@ function OptionsSidebarSession({
               value="general"
             >
               <GeneralPanel
+                guideHref={createGuideHref(draftLocale, 'getting-started')}
                 locale={draftLocale}
                 onExport={handleExport}
                 onImportFile={handleImportFile}
@@ -653,7 +656,9 @@ function OptionsSidebarSession({
               value="groups"
             >
               <GroupsPanel
+                guideHref={createGuideHref(draftLocale, 'tab-groups')}
                 groupPreferences={draftGroupPreferences}
+                onBookmarksImported={onBookmarksImported}
                 onOpenBookmarkManager={handleOpenBookmarkManager}
                 onSelectRoot={(path, nextRootId) => {
                   setDraftRootId(nextRootId);

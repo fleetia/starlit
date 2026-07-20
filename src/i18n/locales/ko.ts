@@ -172,6 +172,10 @@ const ko: Translations = {
   'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
   'sidebar.general.fontSystem': '시스템 폰트',
   'sidebar.general.openInNewTab': '기본적으로 새 탭에서 열기',
+  'sidebar.general.guide': '사용 가이드',
+  'sidebar.general.guideDescription':
+    '북마크, 탭 그룹, 레이아웃, 권한 사용법을 별도 페이지에서 확인하세요.',
+  'sidebar.general.openGuide': '전체 사용 가이드 열기',
   'sidebar.general.exportImport': '내보내기 / 가져오기',
   'sidebar.general.export': '내보내기',
   'sidebar.general.import': '가져오기',
@@ -216,6 +220,25 @@ const ko: Translations = {
     '그룹 숨김과 순서, 아이콘 변경은 Chrome 북마크를 바꾸지 않습니다.',
   'groups.guideDelete':
     'Starlit에서 북마크를 삭제하면 Chrome 북마크에서도 삭제됩니다.',
+
+  // Chrome Tab Groups
+  'tabGroups.openAction': '이 폴더의 북마크를 탭 그룹으로 열기',
+  'tabGroups.activationFailed':
+    '탭 그룹은 열렸지만 첫 번째 탭을 활성화하지 못했습니다.',
+  'tabGroups.empty': '이 폴더에는 바로 열 수 있는 북마크가 없습니다.',
+  'tabGroups.failed': '탭 그룹을 열지 못했습니다.',
+  'tabGroups.noValidBookmarks': '지원되는 URL을 가진 북마크가 없습니다.',
+  'tabGroups.openedSuffix': '개의 북마크를 탭 그룹으로 열었습니다.',
+  'tabGroups.skippedSuffix': '개는 열지 못했습니다.',
+  'tabGroups.opening': '탭 그룹을 여는 중입니다.',
+  'tabGroups.permissionDenied': '탭 그룹 권한이 허용되지 않았습니다.',
+  'tabGroups.rollbackIncompleteSuffix': '개의 탭이 닫히지 않았을 수 있습니다.',
+  'tabGroups.openConfirm': '탭 그룹 열기',
+  'tabGroups.openConfirmTitle': '북마크를 탭 그룹으로 여시겠어요?',
+  'tabGroups.singleTabCountSuffix': '개',
+  'tabGroups.tabCountSuffix': '개',
+  'tabGroups.openConfirmDescription':
+    '북마크를 같은 이름의 새 탭 그룹으로 엽니다.',
 
   // PopupApp
   'popup.active': '활성화됨',

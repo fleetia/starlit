@@ -31,6 +31,7 @@ import { useTheme } from '../settings/useTheme';
 import { FontStylesheets } from '../theme/FontStylesheets';
 import { getFontFamilyStyle } from '../theme/starlitTheme';
 import type { CssVariableStyle } from '../theme/types';
+import { FirstInstallTutorial } from '../tutorial';
 
 type AppStyle = CssVariableStyle & {
   '--background-image': string;
@@ -77,6 +78,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     handleResetFavicon,
     handleUpdateFavicon,
     isLoaded: areBookmarksLoaded,
+    refreshBookmarks,
   } = useBookmarks();
   const {
     gridSettings,
@@ -244,6 +246,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           onBackgroundFile={updateBackgroundFromFile}
           onBackgroundUrl={updateBackgroundFromUrl}
           onBookmarkTreePreferencesUpdate={updatePreferences}
+          onBookmarksImported={refreshBookmarks}
           onClose={() => setIsSettingsOpen(false)}
           onCustomCSSChange={setCustomCSS}
           onFontPreviewChange={setFontPreview}
@@ -271,6 +274,10 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
       ) : null}
 
       <BookmarkActionOverlays actions={bookmarkActions} />
+      <FirstInstallTutorial
+        isAppReady={areSettingsSourcesLoaded}
+        locale={locale}
+      />
     </ThemeRoot>
   );
 }

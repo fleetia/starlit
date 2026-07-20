@@ -1,10 +1,11 @@
-import { access } from 'node:fs/promises';
+import { access, cp, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   chromium,
   test as base,
   type BrowserContext,
   type Page,
+  type TestInfo,
   type Worker,
 } from '@playwright/test';
 
@@ -59,6 +60,15 @@ type ExtensionFixtures = {
   extension: ExtensionHarness;
 };
 
+type ExtensionOptions = {
+  pregrantTabGroupPermissions: boolean;
+};
+
+type ExtensionManifest = {
+  optional_permissions?: string[];
+  permissions?: string[];
+};
+
 const EXTENSION_PATH = resolve(process.cwd(), 'dist');
 const TEST_FONT_ROMAN_PATH = resolve(
   process.cwd(),
@@ -104,6 +114,35 @@ const STABLE_FAVICON = `
     <rect x="4" y="4" width="8" height="8" fill="#fffaf0" />
   </svg>
 `;
+
+async function getExtensionPath(
+  pregrantTabGroupPermissions: boolean,
+  testInfo: TestInfo,
+): Promise<string> {
+  if (!pregrantTabGroupPermissions) {
+    return EXTENSION_PATH;
+  }
+
+  const extensionPath = testInfo.outputPath('extension');
+  await cp(EXTENSION_PATH, extensionPath, { recursive: true });
+  const manifestPath = resolve(extensionPath, 'manifest.json');
+  const manifest = JSON.parse(
+    await readFile(manifestPath, 'utf8'),
+  ) as ExtensionManifest;
+  const pregrantedPermissions = new Set([
+    ...(manifest.permissions ?? []),
+    'tabs',
+    'tabGroups',
+  ]);
+
+  manifest.permissions = [...pregrantedPermissions];
+  manifest.optional_permissions = (manifest.optional_permissions ?? []).filter(
+    (permission) => permission !== 'tabs' && permission !== 'tabGroups',
+  );
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  return extensionPath;
+}
 
 async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
   const existingWorker = context.serviceWorkers()[0];
@@ -180,13 +219,22 @@ async function createBackgroundVideo(context: BrowserContext): Promise<Buffer> {
   return Buffer.from(base64, 'base64');
 }
 
-export const test = base.extend<ExtensionFixtures>({
-  extension: async ({ browserName }, runFixture, testInfo): Promise<void> => {
+export const test = base.extend<ExtensionFixtures & ExtensionOptions>({
+  pregrantTabGroupPermissions: [false, { option: true }],
+  extension: async (
+    { browserName, pregrantTabGroupPermissions },
+    runFixture,
+    testInfo,
+  ): Promise<void> => {
     if (browserName !== 'chromium') {
       throw new Error('Built extension tests require bundled Chromium.');
     }
 
-    await access(resolve(EXTENSION_PATH, 'manifest.json'));
+    const extensionPath = await getExtensionPath(
+      pregrantTabGroupPermissions,
+      testInfo,
+    );
+    await access(resolve(extensionPath, 'manifest.json'));
 
     const viewport = testInfo.project.use.viewport ?? {
       height: 900,
@@ -196,8 +244,8 @@ export const test = base.extend<ExtensionFixtures>({
       testInfo.outputPath('profile'),
       {
         args: [
-          `--disable-extensions-except=${EXTENSION_PATH}`,
-          `--load-extension=${EXTENSION_PATH}`,
+          `--disable-extensions-except=${extensionPath}`,
+          `--load-extension=${extensionPath}`,
         ],
         channel: 'chromium',
         colorScheme: 'light',
@@ -539,4 +587,8 @@ export const test = base.extend<ExtensionFixtures>({
     });
     await context.close();
   },
+});
+
+export const tabGroupTest = test.extend({
+  pregrantTabGroupPermissions: true,
 });

@@ -16,10 +16,15 @@ import { positionToPlaceSelf } from '../layout/positionToPlaceSelf';
 import type { GridSettings } from '../layout/types';
 import type { ExpandedGroupsLayout } from '../layout/useExpandedGroupsLayout';
 import { BookmarkGroup } from './BookmarkGroup';
+import { OpenBookmarkTabGroupOverlay } from './OpenBookmarkTabGroupOverlay';
 import { getGroupKey } from './bookmarkRoute';
 import { getCurrentFolder } from './presentation';
 import type { Bookmark, BookmarkItem, BookmarkLayout } from './types';
 import { useBookmarkGroupNavigation } from './useBookmarkGroupNavigation';
+import {
+  useOpenBookmarkTabGroup,
+  type OpenBookmarkTabGroupMessages,
+} from './useOpenBookmarkTabGroup';
 import '../layout/layout.css';
 
 type SurfaceStyle = CSSProperties & {
@@ -63,6 +68,26 @@ export function BookmarkGroupsView({
   size,
 }: BookmarkGroupsViewProps): ReactElement {
   const { t } = useTranslation();
+  const tabGroupMessages = useMemo<OpenBookmarkTabGroupMessages>(
+    () => ({
+      activationFailed: t('tabGroups.activationFailed'),
+      empty: t('tabGroups.empty'),
+      failed: t('tabGroups.failed'),
+      noValidBookmarks: t('tabGroups.noValidBookmarks'),
+      opened: (openedCount, skippedCount) =>
+        `${openedCount}${t('tabGroups.openedSuffix')}${
+          skippedCount > 0
+            ? ` ${skippedCount}${t('tabGroups.skippedSuffix')}`
+            : ''
+        }`,
+      opening: t('tabGroups.opening'),
+      permissionDenied: t('tabGroups.permissionDenied'),
+      rollbackIncomplete: (remainingTabCount) =>
+        `${remainingTabCount}${t('tabGroups.rollbackIncompleteSuffix')}`,
+    }),
+    [t],
+  );
+  const tabGroupController = useOpenBookmarkTabGroup(tabGroupMessages);
   const {
     activeGroupIndex,
     enterFolder,
@@ -118,6 +143,7 @@ export function BookmarkGroupsView({
         gridSettings={gridSettings}
         isContentExpanded={isContentExpanded}
         isExpanded={isExpandView}
+        isOpeningTabGroup={tabGroupController.isOpening}
         layout={layout}
         onActivateBookmark={openBookmark}
         onActivateFolder={(child) => enterFolder(groupKey, child)}
@@ -130,6 +156,7 @@ export function BookmarkGroupsView({
           }
         }}
         onNavigateToLevel={(level) => navigateToLevel(groupKey, level)}
+        onOpenAsTabGroup={tabGroupController.requestOpen}
         onContentExpandedChange={onContentExpandedChange}
         onPageChange={(page) => setPage(groupKey, page)}
         page={pages[groupKey] ?? 0}
@@ -169,75 +196,83 @@ export function BookmarkGroupsView({
 
   if (isExpandView) {
     return (
-      <section
-        className="starlit-masonry"
-        data-position={gridSettings.position}
-        data-starlit-part="expanded-groups"
-        style={expandedSurfaceStyle}
-      >
-        {expandedLayout.columns.map((column, columnIndex) => (
-          <div
-            key={`expanded-column-${columnIndex}`}
-            className="starlit-masonry__column"
-            data-column-index={columnIndex}
-          >
-            {getExpandedColumnVisualOrder(column, gridSettings.position).map(
-              (groupKey) => {
-                const descriptor = groupDescriptorByKey.get(groupKey);
+      <>
+        <section
+          className="starlit-masonry"
+          data-position={gridSettings.position}
+          data-starlit-part="expanded-groups"
+          style={expandedSurfaceStyle}
+        >
+          {expandedLayout.columns.map((column, columnIndex) => (
+            <div
+              key={`expanded-column-${columnIndex}`}
+              className="starlit-masonry__column"
+              data-column-index={columnIndex}
+            >
+              {getExpandedColumnVisualOrder(column, gridSettings.position).map(
+                (groupKey) => {
+                  const descriptor = groupDescriptorByKey.get(groupKey);
 
-                return descriptor
-                  ? renderBookmarkGroup(
-                      descriptor,
-                      expandedLayout.openKeySet.has(groupKey),
-                      (isOpen) => {
-                        void expandedLayout.setGroupOpen(groupKey, isOpen);
-                      },
-                    )
-                  : null;
-              },
-            )}
-          </div>
-        ))}
-      </section>
+                  return descriptor
+                    ? renderBookmarkGroup(
+                        descriptor,
+                        expandedLayout.openKeySet.has(groupKey),
+                        (isOpen) => {
+                          void expandedLayout.setGroupOpen(groupKey, isOpen);
+                        },
+                      )
+                    : null;
+                },
+              )}
+            </div>
+          ))}
+        </section>
+        <OpenBookmarkTabGroupOverlay controller={tabGroupController} />
+      </>
     );
   }
 
   return (
-    <section
-      className="starlit-paged"
-      data-single-group={groups.length === 1 || undefined}
-      data-starlit-part="paged-groups"
-      style={surfaceStyle}
-    >
-      {groups.length > 1 ? (
-        <IconButton
-          data-direction="previous"
-          data-starlit-part="group-navigation"
-          label={t('navigation.previous')}
-          onClick={() => scrollToGroup(activeGroupIndex - 1)}
-          variant="quiet"
-        >
-          ←
-        </IconButton>
-      ) : null}
-      <div
-        ref={groupRailRef}
-        className="starlit-group-rail"
-        data-starlit-part="group-rail"
+    <>
+      <section
+        className="starlit-paged"
+        data-single-group={groups.length === 1 || undefined}
+        data-starlit-part="paged-groups"
+        style={surfaceStyle}
       >
-        {groupDescriptors.map((descriptor) => renderBookmarkGroup(descriptor))}
-      </div>
-      {groups.length > 1 ? (
-        <IconButton
-          data-direction="next"
-          data-starlit-part="group-navigation"
-          label={t('navigation.next')}
-          onClick={() => scrollToGroup(activeGroupIndex + 1)}
-          variant="quiet"
+        {groups.length > 1 ? (
+          <IconButton
+            data-direction="previous"
+            data-starlit-part="group-navigation"
+            label={t('navigation.previous')}
+            onClick={() => scrollToGroup(activeGroupIndex - 1)}
+            variant="quiet"
+          >
+            ←
+          </IconButton>
+        ) : null}
+        <div
+          ref={groupRailRef}
+          className="starlit-group-rail"
+          data-starlit-part="group-rail"
         >
-          →
-        </IconButton>
-      ) : null}
-    </section>
+          {groupDescriptors.map((descriptor) =>
+            renderBookmarkGroup(descriptor),
+          )}
+        </div>
+        {groups.length > 1 ? (
+          <IconButton
+            data-direction="next"
+            data-starlit-part="group-navigation"
+            label={t('navigation.next')}
+            onClick={() => scrollToGroup(activeGroupIndex + 1)}
+            variant="quiet"
+          >
+            →
+          </IconButton>
+        ) : null}
+      </section>
+      <OpenBookmarkTabGroupOverlay controller={tabGroupController} />
+    </>
   );
 }

@@ -20,6 +20,7 @@ import { isLocale } from './helpers';
 import type { StateSetter } from './types';
 
 type GeneralPanelProps = {
+  guideHref: string;
   locale: Locale;
   onExport: () => Promise<void>;
   onImportFile: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
@@ -32,6 +33,7 @@ type GeneralPanelProps = {
 };
 
 export function GeneralPanel({
+  guideHref,
   locale,
   onExport,
   onImportFile,
@@ -99,6 +101,19 @@ export function GeneralPanel({
         >
           {t('sidebar.general.openInNewTab')}
         </Switch>
+      </SettingsSection>
+      <SettingsSection
+        description={t('sidebar.general.guideDescription')}
+        title={t('sidebar.general.guide')}
+      >
+        <a
+          className={styles.link}
+          href={guideHref}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {t('sidebar.general.openGuide')}
+        </a>
       </SettingsSection>
       <SettingsSection title={t('sidebar.general.exportImport')}>
         <Inline gap="sm">

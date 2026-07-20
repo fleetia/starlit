@@ -42,6 +42,31 @@ describe('useLocale', () => {
     expect(result.current.locale).toBe('ko');
   });
 
+  it('uses a fresh-install locale written after the initial storage read', async () => {
+    let handleStorageChange:
+      | ((
+          changes: Record<string, chrome.storage.StorageChange>,
+          areaName: chrome.storage.AreaName,
+        ) => void)
+      | undefined;
+    vi.mocked(chrome.storage.onChanged.addListener).mockImplementation(
+      (listener): void => {
+        handleStorageChange = listener;
+      },
+    );
+    const { result } = renderHook(() => useLocale());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    act((): void => {
+      handleStorageChange?.(
+        { locale: { newValue: 'ja', oldValue: undefined } },
+        'sync',
+      );
+    });
+
+    expect(result.current.locale).toBe('ja');
+  });
+
   it('is immediately ready when Chrome storage is unavailable', () => {
     const originalChrome = globalThis.chrome;
     Object.defineProperty(globalThis, 'chrome', {

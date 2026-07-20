@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useStorageState } from '../hooks/useStorageState';
 import {
@@ -25,6 +25,7 @@ type UseBookmarksReturn = {
   ) => Promise<void>;
   handleResetFavicon: (itemId: string) => Promise<void>;
   isLoaded: boolean;
+  refreshBookmarks: () => Promise<void>;
 };
 
 function resolveFolderFavicons(
@@ -55,6 +56,14 @@ export function useBookmarks(): UseBookmarksReturn {
   const [favicons, setFavicons] = useState<Record<string, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const refreshBookmarks = useCallback(async (): Promise<void> => {
+    const tree = await chromeBookmarks.getTree();
+    const converted = convertTree(tree);
+    await setBookmarks(converted);
+    await cacheFavicons(flattenItems(converted));
+    setFavicons(await loadFavicons());
+  }, [setBookmarks]);
+
   useEffect(() => {
     loadFavicons().then(setFavicons);
   }, []);
@@ -66,11 +75,7 @@ export function useBookmarks(): UseBookmarksReturn {
 
     const syncFromChrome = async (): Promise<void> => {
       try {
-        const tree = await chromeBookmarks.getTree();
-        const converted = convertTree(tree);
-        await setBookmarks(converted);
-        await cacheFavicons(flattenItems(converted));
-        setFavicons(await loadFavicons());
+        await refreshBookmarks();
       } catch (err) {
         console.warn('Bookmark sync failed:', err);
       } finally {
@@ -85,7 +90,7 @@ export function useBookmarks(): UseBookmarksReturn {
     return () => {
       isActive = false;
     };
-  }, [isStorageLoaded, setBookmarks]);
+  }, [isStorageLoaded, refreshBookmarks]);
 
   const resolvedBookmarks = useMemo(
     () => bookmarks.map((folder) => resolveFolderFavicons(folder, favicons)),
@@ -142,5 +147,6 @@ export function useBookmarks(): UseBookmarksReturn {
     handleUpdateFavicon,
     handleResetFavicon,
     isLoaded,
+    refreshBookmarks,
   };
 }

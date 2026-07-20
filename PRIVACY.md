@@ -1,6 +1,6 @@
 # Privacy Policy for Starlit
 
-Last updated: July 19, 2026
+Last updated: July 20, 2026
 
 ## Overview
 
@@ -15,6 +15,16 @@ Starlit does not operate a developer-controlled data collection server. It does 
 With the `bookmarks` permission, Starlit reads the user's bookmark folder structure, titles, and URLs to render bookmark groups and tiles on the New Tab page. A local cache may be stored in `chrome.storage.local` so the interface can load reliably.
 
 Starlit changes Chrome bookmarks only when the user explicitly confirms deleting a bookmark. Hiding or reordering groups and changing icons in Starlit do not modify the underlying Chrome bookmark tree.
+
+When the user explicitly imports an open Chrome tab group, Starlit creates a new bookmark folder and bookmarks for the tabs in that group. Imported folders are a one-time copy and are not synchronized with the source tab group. A failed group import attempts to remove only the folder created by that import.
+
+### Chrome tab groups and open tabs
+
+The optional `tabGroups` permission lets Starlit list open Chrome tab groups and assign a bookmark-folder title to a new live tab group. It is granted only after a user action, remains available for repeat use, and can be disconnected from Starlit's settings. Chrome's extension API does not provide Starlit with closed Saved Tab Groups or control over whether a live group is saved or synchronized.
+
+The optional `tabs` permission lets an explicit import read the titles and URLs of tabs in the selected open groups. Starlit requests it only for the import session and removes it when the import finishes or is cancelled. The snapshot is kept only in the current page's memory and is not written to Starlit storage or sent to a developer-controlled server.
+
+Opening a bookmark folder as a live tab group uses bookmark URLs Starlit already has through the `bookmarks` permission. It does not use `tabs` access to inspect unrelated browsing activity. The resulting live group remains in Chrome until the user closes or saves it through Chrome's own UI.
 
 ### Settings and preferences
 
@@ -44,13 +54,13 @@ Limited requests to Google services and user-selected resource providers occur o
 
 ## Data Retention and Deletion
 
-Settings, caches, custom favicons, and local background media remain in Chrome extension storage until the user resets or replaces them, clears the extension's site data, or uninstalls Starlit. Settings stored through Chrome Sync may remain in the user's Google account according to the user's Chrome Sync settings and Google's retention practices.
+Settings, caches, custom favicons, first-install tutorial completion, and local background media remain in Chrome extension storage until the user resets or replaces them, clears the extension's site data, or uninstalls Starlit. Settings stored through Chrome Sync may remain in the user's Google account according to the user's Chrome Sync settings and Google's retention practices.
 
 Users can reset Starlit's settings from the extension interface. Uninstalling Starlit removes data stored locally for the extension. Chrome bookmarks remain in Chrome unless the user explicitly confirms a bookmark deletion in Starlit.
 
 ## Security
 
-Starlit minimizes requested permissions and does not request general browsing-history, active-tab, or host access. Built-in external services use HTTPS. User-specified resources are requested directly using the URL provided, so users should choose HTTPS sources. User-selected local background files remain in browser-managed local storage.
+Starlit minimizes requested permissions and does not request active-tab or host access. Chrome presents the optional `tabs` permission as browsing-history access because it exposes open-tab titles and URLs; Starlit uses that access only during a user-initiated tab-group import and then removes it. Built-in external services use HTTPS. User-specified resources are requested directly using the URL provided, so users should choose HTTPS sources. User-selected local background files remain in browser-managed local storage.
 
 ## Changes to This Policy
 

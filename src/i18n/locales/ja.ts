@@ -173,6 +173,10 @@ const ja: Translations = {
   'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
   'sidebar.general.fontSystem': 'システムフォント',
   'sidebar.general.openInNewTab': 'デフォルトで新しいタブで開く',
+  'sidebar.general.guide': '使用ガイド',
+  'sidebar.general.guideDescription':
+    'ブックマーク、タブグループ、レイアウト、権限の使い方を別ページで確認できます。',
+  'sidebar.general.openGuide': '使用ガイド全体を開く',
   'sidebar.general.exportImport': 'エクスポート / インポート',
   'sidebar.general.export': 'エクスポート',
   'sidebar.general.import': 'インポート',
@@ -217,6 +221,26 @@ const ja: Translations = {
     'グループの非表示、並べ替え、アイコンの変更は Chrome ブックマークには影響しません。',
   'groups.guideDelete':
     'Starlit でブックマークを削除すると、Chrome ブックマークからも削除されます。',
+
+  // Chrome Tab Groups
+  'tabGroups.openAction': 'このフォルダをタブグループとして開く',
+  'tabGroups.activationFailed':
+    'タブグループは開きましたが、最初のタブを有効にできませんでした。',
+  'tabGroups.empty': 'このフォルダには直接開けるブックマークがありません。',
+  'tabGroups.failed': 'タブグループを開けませんでした。',
+  'tabGroups.noValidBookmarks': '対応する URL のブックマークがありません。',
+  'tabGroups.openedSuffix': '件のブックマークをタブグループで開きました。',
+  'tabGroups.skippedSuffix': '件は開けませんでした。',
+  'tabGroups.opening': 'タブグループを開いています。',
+  'tabGroups.permissionDenied': 'タブグループの権限が許可されませんでした。',
+  'tabGroups.rollbackIncompleteSuffix':
+    '件のタブが開いたままの可能性があります。',
+  'tabGroups.openConfirm': 'タブグループを開く',
+  'tabGroups.openConfirmTitle': 'ブックマークをタブグループで開きますか？',
+  'tabGroups.singleTabCountSuffix': '件。',
+  'tabGroups.tabCountSuffix': '件。',
+  'tabGroups.openConfirmDescription':
+    '同じ名前の新しいタブグループでブックマークを開きます。',
 
   // PopupApp
   'popup.active': '有効',
