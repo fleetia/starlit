@@ -33,7 +33,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           cache: pnpm
-          node-version: 22.14.0
+          node-version-file: .node-version
           registry-url: https://npm.pkg.github.com
 
       - name: Install dependencies

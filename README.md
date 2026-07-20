@@ -6,7 +6,7 @@ Lagrange design system.
 
 ## Requirements
 
-- Node.js 22.14 or newer
+- Node.js 26 or newer
 - pnpm 11.9.0
 - Read access to the private `@fleetia/lagrange` package on GitHub Packages
 
