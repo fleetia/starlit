@@ -5,6 +5,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [react(), vanillaExtractPlugin()],
   test: {
+    execArgv: ['--no-experimental-webstorage'],
     exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
     globals: true,
     environment: 'happy-dom',
