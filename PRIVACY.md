@@ -1,6 +1,6 @@
 # Privacy Policy for Starlit
 
-Last updated: July 20, 2026
+Last updated: July 21, 2026
 
 ## Overview
 

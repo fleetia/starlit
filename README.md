@@ -48,8 +48,8 @@ Open-group snapshots stay in the current page's memory and are neither stored
 by Starlit nor sent to a developer-controlled server.
 
 The packaged `guide.html` page documents bookmarks, tab groups, layout,
-appearance, backup, permissions, and troubleshooting in English, Korean, and
-Japanese.
+appearance, overlay image layers, backup, permissions, and troubleshooting in
+English, Korean, and Japanese.
 
 ## Overlay image layers
 

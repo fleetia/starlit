@@ -22,6 +22,9 @@ describe('GuidePage', () => {
       screen.getByRole('navigation', { name: 'Guide contents' }),
     ).toBeTruthy();
     expect(
+      screen.getByRole('heading', { level: 2, name: 'Overlay image layers' }),
+    ).toBeTruthy();
+    expect(
       screen.getByText(/reference screenshots use the Korean product UI/i),
     ).toBeTruthy();
     expect(container.querySelectorAll('[data-guide-section]')).toHaveLength(
