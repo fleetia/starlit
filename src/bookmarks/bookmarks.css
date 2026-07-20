@@ -79,6 +79,25 @@
   paint-order: stroke fill;
 }
 
+.starlit-bookmark-group__header[aria-busy='true'] [aria-current='page'] {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.starlit-tab-group-status {
+  position: fixed;
+  z-index: 30;
+  inset-block-end: 20px;
+  inset-inline-start: 50%;
+  max-width: min(36rem, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--c-border) 45%, transparent);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
 .starlit-bookmark-grid {
   display: grid;
   grid-template-columns: repeat(var(--starlit-columns), minmax(0, 1fr));

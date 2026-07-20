@@ -6,9 +6,12 @@ import type { Bookmark, GroupPreference } from '../../bookmarks/types';
 import { useTranslation } from '../../i18n';
 import * as styles from '../OptionsSidebar.css';
 import { SettingsSection } from './controls';
+import { TabGroupImportSection } from './TabGroupImportSection';
 
 type GroupsPanelProps = {
+  guideHref?: string;
   groupPreferences: GroupPreference[];
+  onBookmarksImported?: () => Promise<void>;
   onOpenBookmarkManager: () => Promise<void>;
   onSelectRoot: (path: string[], rootId?: string) => void;
   onSiblingReorder: (parentKey: string, titles: string[]) => void;
@@ -20,7 +23,9 @@ type GroupsPanelProps = {
 };
 
 export function GroupsPanel({
+  guideHref,
   groupPreferences,
+  onBookmarksImported,
   onOpenBookmarkManager,
   onSelectRoot,
   onSiblingReorder,
@@ -69,6 +74,11 @@ export function GroupsPanel({
           </Stack>
         </details>
       </SettingsSection>
+      <TabGroupImportSection
+        defaultDestinationId={rootId}
+        guideHref={guideHref}
+        onBookmarksImported={onBookmarksImported}
+      />
       <BookmarkTreeSelector
         bookmarks={orderedTree}
         groupPreferences={groupPreferences}

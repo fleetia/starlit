@@ -18,6 +18,10 @@ beforeAll((): void => {
         create: vi.fn(),
       },
       storage: {
+        onChanged: {
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+        },
         local: {
           get: vi.fn(),
           remove: vi.fn(),

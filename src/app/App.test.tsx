@@ -86,6 +86,7 @@ const appMocks = vi.hoisted(() => ({
   deleteBookmark: vi.fn<(bookmarkId: string) => Promise<void>>(),
   onLocaleChange: vi.fn<(locale: 'en' | 'ja' | 'ko') => Promise<void>>(),
   resetFavicon: vi.fn<(bookmarkId: string) => Promise<void>>(),
+  refreshBookmarks: vi.fn<() => Promise<void>>(),
   resetTheme: vi.fn<() => Promise<void>>(),
   setCustomCSS: vi.fn<(value: string) => Promise<void>>(),
   setExpandedGroupsState:
@@ -121,6 +122,7 @@ vi.mock('../bookmarks/useBookmarks', () => ({
     handleResetFavicon: appMocks.resetFavicon,
     handleUpdateFavicon: appMocks.updateFavicon,
     isLoaded: loadingState.bookmarks,
+    refreshBookmarks: appMocks.refreshBookmarks,
   }),
 }));
 
@@ -239,6 +241,10 @@ vi.mock('../theme/FontStylesheets', () => ({
       data-testid="font-stylesheets"
     />
   ),
+}));
+
+vi.mock('../tutorial', () => ({
+  FirstInstallTutorial: (): null => null,
 }));
 
 function renderApp(): ReturnType<typeof render> {

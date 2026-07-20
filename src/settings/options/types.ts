@@ -53,6 +53,7 @@ export type OptionsSidebarProps = {
   onBookmarkTreePreferencesUpdate: (
     preferences: BookmarkTreePrefs,
   ) => Promise<void>;
+  onBookmarksImported: () => Promise<void>;
   onGridSettingsUpdate: (settings: GridSettings) => Promise<void>;
   onGroupPreferencesUpdate: (preferences: GroupPreference[]) => Promise<void>;
   onIconSizeChange: (value: number) => Promise<void>;

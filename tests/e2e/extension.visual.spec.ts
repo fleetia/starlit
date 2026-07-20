@@ -8,7 +8,7 @@ const GROUP_SELECTOR = ':scope > [data-starlit-part="bookmark-group"]';
 async function getGroupTitles(column: Locator): Promise<string[]> {
   const titles = await column
     .locator(GROUP_SELECTOR)
-    .locator('[aria-current="page"]')
+    .locator('[data-starlit-part="bookmark-group-title"]')
     .allTextContents();
 
   return titles.map((title) => title.trim());
@@ -37,8 +37,9 @@ async function expectEqualExpandedGroupHeights(column: Locator): Promise<void> {
 
 async function waitForBookmarks(page: Page): Promise<void> {
   await expect(page.locator('[data-starlit-part="root"]')).toBeVisible();
-  await page.getByRole('button', { name: 'Bookmarks Bar' }).click();
-  await expect(page.getByRole('button', { name: 'Atlas 01' })).toBeVisible();
+  await expect(
+    page.locator('[data-starlit-part="bookmark-group-title"]').first(),
+  ).toBeVisible();
 }
 
 type PlacementMetrics = {
@@ -173,7 +174,10 @@ test('expanded groups stay in fixed columns with shared height', async ({
 
   await expect(surface).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Group 01', exact: true }),
+    page
+      .locator('[data-starlit-part="bookmark-group-title"]')
+      .filter({ hasText: /^Group 01$/ })
+      .first(),
   ).toBeVisible();
 
   const viewport = page.viewportSize();

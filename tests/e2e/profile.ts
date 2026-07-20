@@ -105,7 +105,13 @@ export function createProfileSeed(
     local: {
       bookmarks: [{ title: 'Local V1 backup' }],
     },
-    sync,
+    sync: {
+      bookmarkTreePrefs: {
+        rootPath: ['Bookmarks Bar'],
+        siblingOrder: {},
+      },
+      ...sync,
+    },
   };
 }
 

@@ -1,4 +1,9 @@
-import { type CSSProperties, type MouseEvent, type ReactElement } from 'react';
+import {
+  type CSSProperties,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import {
   Breadcrumb,
   Button,
@@ -27,6 +32,7 @@ export type BookmarkGroupProps = {
   gridSettings: GridSettings;
   isContentExpanded?: boolean;
   isExpanded: boolean;
+  isOpeningTabGroup?: boolean;
   isPreview?: boolean;
   layout?: BookmarkLayout;
   onActivateBookmark: (bookmark: BookmarkItem) => void;
@@ -40,6 +46,7 @@ export type BookmarkGroupProps = {
     folder: Bookmark,
   ) => void;
   onNavigateToLevel: (level: number) => void;
+  onOpenAsTabGroup?: (folder: Bookmark) => void;
   onContentExpandedChange?: (isExpanded: boolean) => void;
   onPageChange: (page: number) => void;
   page: number;
@@ -49,19 +56,55 @@ function getBreadcrumbItems(
   root: Bookmark,
   path: Bookmark[],
   onNavigateToLevel: (level: number) => void,
+  onOpenAsTabGroup: (() => void) | undefined,
+  openActionLabel: string,
   isPreview: boolean,
 ): BreadcrumbItem[] {
+  function getCurrentLabel(title: string): ReactNode {
+    return (
+      <span>
+        <span aria-hidden="true" data-starlit-part="bookmark-group-title">
+          {title}
+        </span>
+        <span className="starlit-visually-hidden">
+          {title}: {openActionLabel}
+        </span>
+      </span>
+    );
+  }
+
+  function getOnClick(
+    isCurrent: boolean,
+    navigate: () => void,
+  ): (() => void) | undefined {
+    if (isPreview) {
+      return undefined;
+    }
+
+    if (isCurrent) {
+      return onOpenAsTabGroup;
+    }
+
+    return navigate;
+  }
+
+  const isRootCurrent = path.length === 0;
+
   return [
     {
       key: root.id ?? root.title,
-      label: root.title,
-      onClick: isPreview ? undefined : () => onNavigateToLevel(-1),
+      label: isRootCurrent ? getCurrentLabel(root.title) : root.title,
+      onClick: getOnClick(isRootCurrent, () => onNavigateToLevel(-1)),
     },
-    ...path.map((folder, index) => ({
-      key: folder.id ?? `${folder.title}-${index}`,
-      label: folder.title,
-      onClick: isPreview ? undefined : () => onNavigateToLevel(index),
-    })),
+    ...path.map((folder, index) => {
+      const isCurrent = index === path.length - 1;
+
+      return {
+        key: folder.id ?? `${folder.title}-${index}`,
+        label: isCurrent ? getCurrentLabel(folder.title) : folder.title,
+        onClick: getOnClick(isCurrent, () => onNavigateToLevel(index)),
+      };
+    }),
   ];
 }
 
@@ -72,6 +115,7 @@ export function BookmarkGroup({
   gridSettings,
   isContentExpanded = true,
   isExpanded,
+  isOpeningTabGroup = false,
   isPreview = false,
   layout,
   onActivateBookmark,
@@ -79,6 +123,7 @@ export function BookmarkGroup({
   onBookmarkContextMenu,
   onFolderContextMenu,
   onNavigateToLevel,
+  onOpenAsTabGroup,
   onContentExpandedChange,
   onPageChange,
   page,
@@ -118,6 +163,7 @@ export function BookmarkGroup({
       spacing="compact"
     >
       <header
+        aria-busy={isOpeningTabGroup || undefined}
         className="starlit-bookmark-group__header"
         data-starlit-part="bookmark-group-header"
       >
@@ -128,6 +174,10 @@ export function BookmarkGroup({
             folder,
             folderPath,
             onNavigateToLevel,
+            isPreview || !onOpenAsTabGroup
+              ? undefined
+              : () => onOpenAsTabGroup(currentFolder),
+            t('tabGroups.openAction'),
             isPreview,
           )}
         />

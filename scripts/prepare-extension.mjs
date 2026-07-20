@@ -15,6 +15,7 @@ async function pathExists(path) {
 
 async function prepareExtension() {
   const entryHtml = resolve(DIST, 'index.html');
+  const guideHtml = resolve(DIST, 'guide.html');
 
   await cp(resolve(ROOT, 'manifest.json'), resolve(DIST, 'manifest.json'));
   await cp(resolve(ROOT, 'assets'), resolve(DIST, 'assets'), {
@@ -25,6 +26,14 @@ async function prepareExtension() {
     resolve(DIST, 'manifest.json'),
     resolve(DIST, 'background/index.js'),
     entryHtml,
+    guideHtml,
+    resolve(DIST, 'assets/guide/new-tab-overview.jpg'),
+    resolve(DIST, 'assets/guide/open-tab-group-confirm.jpg'),
+    resolve(DIST, 'assets/guide/settings-appearance.jpg'),
+    resolve(DIST, 'assets/guide/settings-bookmark-groups.jpg'),
+    resolve(DIST, 'assets/guide/settings-custom-css.jpg'),
+    resolve(DIST, 'assets/guide/settings-general.jpg'),
+    resolve(DIST, 'assets/guide/settings-layout.jpg'),
   ];
   const missingPaths = [];
 
@@ -56,6 +65,13 @@ async function prepareExtension() {
     throw new Error('Extension must retain storage and bookmarks permissions');
   }
 
+  if (
+    !manifest.optional_permissions?.includes('tabs') ||
+    !manifest.optional_permissions?.includes('tabGroups')
+  ) {
+    throw new Error('Extension must declare optional tab group permissions');
+  }
+
   const manifestReferences = [
     manifest.background?.service_worker,
     manifest.chrome_url_overrides?.newtab,
@@ -70,14 +86,16 @@ async function prepareExtension() {
     }
   }
 
-  const html = await readFile(entryHtml, 'utf8');
-  const assetReferences = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
-    .map((match) => match[1])
-    .filter((reference) => reference?.startsWith('/'));
+  for (const htmlPath of [entryHtml, guideHtml]) {
+    const html = await readFile(htmlPath, 'utf8');
+    const assetReferences = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
+      .map((match) => match[1])
+      .filter((reference) => reference?.startsWith('/'));
 
-  for (const reference of assetReferences) {
-    if (!(await pathExists(resolve(DIST, `.${reference}`)))) {
-      throw new Error(`Invalid app asset reference: ${reference}`);
+    for (const reference of assetReferences) {
+      if (!(await pathExists(resolve(DIST, `.${reference}`)))) {
+        throw new Error(`Invalid HTML asset reference: ${reference}`);
+      }
     }
   }
 }

@@ -47,6 +47,7 @@ const callbacks = {
     vi.fn<NonNullable<BookmarkGroupProps['onContentExpandedChange']>>(),
   onFolderContextMenu: vi.fn<BookmarkGroupProps['onFolderContextMenu']>(),
   onNavigateToLevel: vi.fn<(level: number) => void>(),
+  onOpenAsTabGroup: vi.fn<(folder: Bookmark) => void>(),
   onPageChange: vi.fn<(page: number) => void>(),
 };
 
@@ -136,6 +137,36 @@ describe('BookmarkGroup', () => {
     expect(screen.queryByRole('button', { name: 'GitHub' })).toBeNull();
   });
 
+  it('opens only the current breadcrumb folder as a tab group', () => {
+    const { rerender } = renderGroup(0);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Work: Open this folder as a tab group',
+      }),
+    );
+
+    expect(callbacks.onOpenAsTabGroup).toHaveBeenCalledWith(ROOT_FOLDER);
+    expect(callbacks.onNavigateToLevel).not.toHaveBeenCalled();
+
+    rerender(
+      getGroupElement(0, {
+        currentFolder: CHILD_FOLDER,
+        folderPath: [CHILD_FOLDER],
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Reference: Open this folder as a tab group',
+      }),
+    );
+
+    expect(callbacks.onNavigateToLevel).toHaveBeenCalledWith(-1);
+    expect(callbacks.onOpenAsTabGroup).toHaveBeenLastCalledWith(CHILD_FOLDER);
+  });
+
   it('shows the requested page and wraps page controls', () => {
     const { rerender } = renderGroup(1);
     const github = screen.getByRole('button', { name: 'GitHub' });
@@ -175,6 +206,10 @@ describe('BookmarkGroup', () => {
     expect(
       container.querySelector('[data-starlit-part="bookmark-breadcrumb"]'),
     ).not.toBeNull();
+    expect(
+      container.querySelector('[data-starlit-part="bookmark-group-title"]')
+        ?.textContent,
+    ).toBe('Work');
     expect(
       container.querySelector('[data-starlit-part="bookmark-route"]'),
     ).not.toBeNull();

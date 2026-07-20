@@ -174,6 +174,10 @@ const en: Translations = {
   'sidebar.general.fontIbmPlexSans': 'IBM Plex Sans',
   'sidebar.general.fontSystem': 'System font',
   'sidebar.general.openInNewTab': 'Open in new tab by default',
+  'sidebar.general.guide': 'User guide',
+  'sidebar.general.guideDescription':
+    'Read about bookmarks, tab groups, layouts, and permissions on a separate page.',
+  'sidebar.general.openGuide': 'Open the full user guide',
   'sidebar.general.exportImport': 'Export / Import',
   'sidebar.general.export': 'Export',
   'sidebar.general.import': 'Import',
@@ -217,6 +221,26 @@ const en: Translations = {
     'Hiding or reordering groups and changing icons does not change Chrome bookmarks.',
   'groups.guideDelete':
     'Deleting a bookmark in Starlit also deletes it from Chrome bookmarks.',
+
+  // Chrome Tab Groups
+  'tabGroups.openAction': 'Open this folder as a tab group',
+  'tabGroups.activationFailed':
+    'The tab group opened, but its first tab could not be activated.',
+  'tabGroups.empty': 'This folder has no direct bookmarks to open.',
+  'tabGroups.failed': 'The tab group could not be opened.',
+  'tabGroups.noValidBookmarks':
+    'This folder has no bookmarks with supported URLs.',
+  'tabGroups.openedSuffix': ' bookmarks opened as a tab group.',
+  'tabGroups.skippedSuffix': ' could not be opened.',
+  'tabGroups.opening': 'Opening the tab group.',
+  'tabGroups.permissionDenied': 'Tab group permission was not granted.',
+  'tabGroups.rollbackIncompleteSuffix': ' tabs may still be open.',
+  'tabGroups.openConfirm': 'Open tab group',
+  'tabGroups.openConfirmTitle': 'Open bookmarks as a tab group?',
+  'tabGroups.singleTabCountSuffix': ' tab.',
+  'tabGroups.tabCountSuffix': ' tabs.',
+  'tabGroups.openConfirmDescription':
+    'These bookmarks will open in a new tab group with the same title.',
 
   // PopupApp
   'popup.active': 'Active',

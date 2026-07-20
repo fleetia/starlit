@@ -28,6 +28,29 @@ pnpm dev
 The development server provides deterministic mock bookmarks outside Chrome.
 Production storage and bookmark access use the Chrome extension APIs.
 
+## Chrome tab groups
+
+Starlit can copy an open Chrome tab group into a new Chrome bookmark folder.
+Chrome does not expose closed Saved Tab Groups through the extension API, so a
+saved group must be opened in Chrome before it can be imported. The import is a
+one-time copy rather than a live synchronization.
+
+Clicking the current bookmark-folder title opens that folder's direct
+bookmarks in a new native tab group with the same title. The group is live;
+save it from Chrome's own tab-group UI if it should persist. Starlit never
+merges it into an existing group with the same title.
+
+The optional `tabGroups` permission is retained after the first grant so these
+actions remain available and can be disconnected from Settings. The optional
+`tabs` permission is requested only while an explicit import reads the open
+tabs' titles and URLs, then removed when the import finishes or is cancelled.
+Open-group snapshots stay in the current page's memory and are neither stored
+by Starlit nor sent to a developer-controlled server.
+
+The packaged `guide.html` page documents bookmarks, tab groups, layout,
+appearance, backup, permissions, and troubleshooting in English, Korean, and
+Japanese.
+
 ## Fonts and visual-test baseline
 
 IBM Plex Sans is the default application font. The font setting also provides a
@@ -94,6 +117,8 @@ used.
 ## Source ownership
 
 - `src/platform`: Chrome storage and bookmarks plus IndexedDB media adapters
+- `src/guide`: packaged, localized user guide entry point and content
+- `src/tutorial`: first-install tutorial state and modal
 - `src/bookmarks`: bookmark normalization, ordering, navigation, pagination,
   and bookmark tiles
 - `src/settings`: settings drafts, save/discard behavior, and settings sections

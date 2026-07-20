@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { expect, test } from './extension.fixture';
+import { expect, tabGroupTest, test } from './extension.fixture';
 import {
   createProfileSeed,
   LEGACY_GRID_SETTINGS,
@@ -32,9 +32,272 @@ const BACKGROUND_URL_CASES = [
 
 async function waitForBookmarks(page: Page): Promise<void> {
   await expect(page.locator('[data-starlit-part="root"]')).toBeVisible();
-  await page.getByRole('button', { name: 'Bookmarks Bar' }).click();
-  await expect(page.getByRole('button', { name: 'Atlas 01' })).toBeVisible();
+  await expect(
+    page.locator('[data-starlit-part="bookmark-group-title"]').first(),
+  ).toBeVisible();
 }
+
+test('shows the first-install tutorial once and persists completion', async ({
+  extension,
+}) => {
+  const page = await extension.openNewTab();
+
+  await expect(
+    page.getByRole('dialog', { name: 'Your bookmarks, already here' }),
+  ).toBeVisible();
+  await expect(page.getByText('Step 1 of 4')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Browse folders and reopen a group' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const fullGuideLink = page.getByRole('link', {
+    name: 'Open the full guide',
+  });
+  const tabGroupsGuideLink = page.getByRole('link', {
+    name: 'Read about Chrome tab groups',
+  });
+  await expect(fullGuideLink).toHaveAttribute(
+    'href',
+    /guide\.html\?locale=en#getting-started$/,
+  );
+  await expect(tabGroupsGuideLink).toHaveAttribute(
+    'href',
+    /guide\.html\?locale=en#tab-groups$/,
+  );
+  await page.getByRole('button', { name: 'Finish' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect
+    .poll(async () => (await extension.readStorage('local')).tutorialStatus)
+    .toBe('completed');
+
+  const nextPage = await extension.openNewTab();
+  await expect(nextPage.getByRole('dialog')).toHaveCount(0);
+});
+
+test('opens the guide from Settings and focuses a localized section', async ({
+  extension,
+}) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+  await page.locator('[data-starlit-part="settings-trigger"]').click();
+
+  const guideLink = page.getByRole('link', {
+    name: 'Open the full user guide',
+  });
+  await expect(guideLink).toHaveAttribute(
+    'href',
+    /guide\.html\?locale=en#getting-started$/,
+  );
+  const guidePagePromise = page.waitForEvent('popup');
+  await guideLink.click();
+  const guidePage = await guidePagePromise;
+  await expect(
+    guidePage.getByRole('heading', { level: 1, name: 'Starlit user guide' }),
+  ).toBeVisible();
+  const guideScreenshots = guidePage.locator('img[src^="/assets/guide/"]');
+  const overviewScreenshot = guidePage.locator(
+    'img[src="/assets/guide/new-tab-overview.jpg"]',
+  );
+
+  await expect(guideScreenshots).toHaveCount(7);
+  await expect(overviewScreenshot).toBeVisible();
+  expect(
+    await overviewScreenshot.evaluate((image) =>
+      image instanceof HTMLImageElement ? image.naturalWidth : 0,
+    ),
+  ).toBeGreaterThan(0);
+
+  await guidePage.goto(
+    `chrome-extension://${extension.extensionId}/guide.html?locale=ja#tab-groups`,
+  );
+  const localizedSection = guidePage.getByRole('heading', {
+    level: 2,
+    name: 'Chrome タブグループの取り込みと再オープン',
+  });
+  await expect(localizedSection).toBeVisible();
+  await expect(localizedSection).toBeFocused();
+  await expect(guidePage.locator('html')).toHaveAttribute('lang', 'ja');
+});
+
+tabGroupTest(
+  'confirms before opening every non-empty folder as a tab group',
+  async ({ extension }) => {
+    await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+    const page = await extension.openNewTab();
+    await waitForBookmarks(page);
+
+    await page
+      .getByRole('button', { name: 'Design systems', exact: true })
+      .click();
+    await page
+      .getByRole('button', {
+        name: 'Design systems: Open this folder as a tab group',
+        exact: true,
+      })
+      .click();
+
+    const confirmation = page.getByRole('alertdialog', {
+      name: 'Open bookmarks as a tab group?',
+    });
+    await expect(confirmation).toContainText('Design systems: 1 tab.');
+    expect(
+      await extension.serviceWorker.evaluate(async () =>
+        (await chrome.tabGroups.query({})).some(
+          ({ title }) => title === 'Design systems',
+        ),
+      ),
+    ).toBe(false);
+
+    await confirmation.getByRole('button', { name: 'Cancel' }).click();
+    await expect(confirmation).toHaveCount(0);
+  },
+);
+
+tabGroupTest(
+  'opens direct bookmarks as a new native tab group in bookmark order',
+  async ({ extension }) => {
+    await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+    const page = await extension.openNewTab();
+    await waitForBookmarks(page);
+
+    await page
+      .locator('[data-starlit-part="bookmark-group-title"]')
+      .first()
+      .click();
+    const confirmation = page.getByRole('alertdialog', {
+      name: 'Open bookmarks as a tab group?',
+    });
+    await expect(confirmation).toContainText('Bookmarks Bar: 18 tabs.');
+    await confirmation.getByRole('button', { name: 'Open tab group' }).click();
+    await expect(page.getByRole('status')).toContainText(
+      '18 bookmarks opened as a tab group.',
+    );
+
+    const result = await extension.serviceWorker.evaluate(async () => {
+      const groups = await chrome.tabGroups.query({});
+      const group = groups.find(({ title }) => title === 'Bookmarks Bar');
+
+      if (!group) {
+        throw new Error('Expected the new Bookmarks Bar tab group.');
+      }
+
+      const tabs = (await chrome.tabs.query({ groupId: group.id })).sort(
+        (left, right) => left.index - right.index,
+      );
+      const [starlitTab] = await chrome.tabs.query({
+        url: chrome.runtime.getURL('index.html'),
+      });
+      const activeTab = tabs.find(({ active }) => active);
+
+      return {
+        activeUrl: activeTab?.url || activeTab?.pendingUrl,
+        starlitGroupId: starlitTab?.groupId,
+        title: group.title,
+        urls: tabs.map(({ pendingUrl, url }) => url || pendingUrl),
+      };
+    });
+
+    expect(result.title).toBe('Bookmarks Bar');
+    expect(result.starlitGroupId).toBe(-1);
+    expect(result.activeUrl).toBe('https://example.com/atlas-1');
+    expect(result.urls).toEqual(
+      Array.from(
+        { length: 18 },
+        (_, index) => `https://example.com/atlas-${index + 1}`,
+      ),
+    );
+  },
+);
+
+tabGroupTest(
+  'imports an open native tab group into Chrome bookmarks',
+  async ({ extension }) => {
+    await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+    const page = await extension.openNewTab();
+    await waitForBookmarks(page);
+    await extension.serviceWorker.evaluate(async () => {
+      const [starlitTab] = await chrome.tabs.query({
+        url: chrome.runtime.getURL('index.html'),
+      });
+
+      if (!starlitTab) {
+        throw new Error('Expected the Starlit tab.');
+      }
+
+      const first = await chrome.tabs.create({
+        active: false,
+        url: 'https://example.test/import-one.png',
+        windowId: starlitTab.windowId,
+      });
+      const second = await chrome.tabs.create({
+        active: false,
+        url: 'https://example.test/import-two.png',
+        windowId: starlitTab.windowId,
+      });
+
+      if (first.id === undefined || second.id === undefined) {
+        throw new Error('Expected created Chrome tab IDs.');
+      }
+
+      const groupId = await chrome.tabs.group({
+        tabIds: [first.id, second.id],
+      });
+      await chrome.tabGroups.update(groupId, { title: 'Imported Work' });
+
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const tabs = await Promise.all([
+          chrome.tabs.get(first.id),
+          chrome.tabs.get(second.id),
+        ]);
+
+        if (tabs.every(({ status, url }) => status === 'complete' && url)) {
+          return;
+        }
+
+        await new Promise((resolveAttempt) => setTimeout(resolveAttempt, 25));
+      }
+
+      throw new Error('Source tabs did not finish loading.');
+    });
+    await page.locator('[data-starlit-part="settings-trigger"]').click();
+    await page.getByRole('tab', { name: 'Bookmark groups' }).click();
+    await page
+      .getByRole('button', { name: 'Import Chrome tab groups' })
+      .click();
+    const importer = page.getByRole('dialog', {
+      name: 'Import Chrome tab groups',
+    });
+    await expect(importer).toBeVisible();
+    await importer.getByRole('checkbox', { name: 'Imported Work' }).check();
+    await importer
+      .getByRole('button', { name: 'Import selected groups' })
+      .click();
+    await expect(importer).toContainText('Import result: 1 imported');
+
+    const imported = await extension.serviceWorker.evaluate(async () => {
+      const matches = await chrome.bookmarks.search('Imported Work');
+      const folder = matches.find(
+        ({ title, url }) => title === 'Imported Work' && url === undefined,
+      );
+
+      if (!folder) {
+        throw new Error('Expected imported bookmark folder.');
+      }
+
+      const children = await chrome.bookmarks.getChildren(folder.id);
+      return children.map(({ url }) => url);
+    });
+
+    expect(imported).toEqual([
+      'https://example.test/import-one.png',
+      'https://example.test/import-two.png',
+    ]);
+  },
+);
 
 test('loads the built MV3 artifact with fresh Lagrange defaults', async ({
   extension,
