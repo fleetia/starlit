@@ -172,7 +172,7 @@ test('image widget position editor', async ({ extension }) => {
   });
 });
 
-test('Google Calendar consent before connection', async ({ extension }) => {
+test('Calendar consent before subscription', async ({ extension }) => {
   await extension.seedProfile(createProfileSeed({ locale: 'en' }));
   const page = await extension.openNewTab();
   await waitForBookmarks(page);
@@ -180,40 +180,52 @@ test('Google Calendar consent before connection', async ({ extension }) => {
 
   await openSettingsTab(page, 'Widgets');
   await page.getByRole('button', { name: 'Add widget' }).click();
-  await page.getByRole('menuitem', { name: 'Google Calendar' }).click();
-  const connectButton = page.getByRole('button', {
-    name: 'Connect Google Calendar',
+  await page.getByRole('menuitem', { name: 'Calendar' }).click();
+  await page
+    .getByRole('textbox', { name: 'Calendar URL' })
+    .fill('https://calendar.example.test/private.ics');
+  const subscribeButton = page.getByRole('button', {
+    name: 'Allow and subscribe',
   });
-  await expect(connectButton).toBeVisible();
-  await connectButton.scrollIntoViewIfNeeded();
+  await expect(subscribeButton).toBeEnabled();
+  await subscribeButton.scrollIntoViewIfNeeded();
   await expect(page).toHaveScreenshot('calendar-consent.png', {
     fullPage: false,
   });
 });
 
-test('Google Calendar connection error stays beside consent', async ({
-  extension,
-}) => {
+test('Calendar feed error stays beside consent', async ({ extension }) => {
   await extension.seedProfile(createProfileSeed({ locale: 'en' }));
   await extension.serviceWorker.evaluate(() => {
     Object.defineProperty(chrome.permissions, 'contains', {
       configurable: true,
       value: async () => true,
     });
-    Object.defineProperty(chrome.identity, 'getAuthToken', {
+    Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
-      value: async () => {
-        throw new Error('OAuth denied for visual test');
-      },
+      value: async () =>
+        new Response('<html>not an iCalendar feed</html>', {
+          headers: { 'content-type': 'text/html' },
+          status: 200,
+        }),
     });
   });
   const page = await extension.openNewTab();
+  await page.evaluate(() => {
+    Object.defineProperty(chrome.permissions, 'request', {
+      configurable: true,
+      value: async () => true,
+    });
+  });
   await waitForBookmarks(page);
   await createScene(page, 'Calendar Error');
   await openSettingsTab(page, 'Widgets');
   await page.getByRole('button', { name: 'Add widget' }).click();
-  await page.getByRole('menuitem', { name: 'Google Calendar' }).click();
-  await page.getByRole('button', { name: 'Connect Google Calendar' }).click();
+  await page.getByRole('menuitem', { name: 'Calendar' }).click();
+  await page
+    .getByRole('textbox', { name: 'Calendar URL' })
+    .fill('https://calendar.example.test/invalid.ics');
+  await page.getByRole('button', { name: 'Allow and subscribe' }).click();
 
   const error = page.getByText('Events could not be loaded.');
   await expect(error).toBeVisible();

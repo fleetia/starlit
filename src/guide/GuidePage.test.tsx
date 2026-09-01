@@ -36,7 +36,7 @@ describe('GuidePage', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'Clock and read-only Google Calendar',
+        name: 'Clock and URL-subscribed Calendar',
       }),
     ).toBeTruthy();
     expect(
@@ -51,12 +51,10 @@ describe('GuidePage', () => {
       }),
     ).toBeTruthy();
     expect(
-      screen.getByText(/does not claim either review is complete/i),
+      screen.getByText(/does not claim that review is complete/i),
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        /Google OAuth verification.*Chrome Web Store privacy disclosure/i,
-      ),
+      screen.getByText(/Chrome Web Store privacy disclosure.*optional-host/i),
     ).toBeTruthy();
     expect(
       screen.getByText(/reference screenshots use the English product UI/i),
@@ -88,7 +86,7 @@ describe('GuidePage', () => {
     expect(heading).not.toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(heading?.scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
-    expect(heading?.textContent).toBe('Clock と read-only Google Calendar');
+    expect(heading?.textContent).toBe('Clock と URL 購読 Calendar');
     expect(
       screen.getByRole('complementary', {
         name: 'Calendar の公開審査はまだ完了していません',
@@ -114,7 +112,7 @@ describe('GuidePage', () => {
     ).toBeTruthy();
     expect(
       screen.getByRole('complementary', {
-        name: 'Calendar 출시 심사가 아직 남아 있습니다',
+        name: 'Calendar 출시 전 Store 검토가 남아 있습니다',
       }),
     ).toBeTruthy();
   });

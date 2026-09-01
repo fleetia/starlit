@@ -1,7 +1,13 @@
+import { normalizeCalendarFeedUrl } from '../calendar/feedUrl';
 import { isGridSettings } from '../layout/normalizeGridSettings';
 import type { Placement } from '../layout/types';
 import { isFontFamily } from '../settings/normalizeSettings';
 import { isStarlitTheme } from '../theme/normalizeTheme';
+import {
+  isValidClockFormat,
+  isValidClockTimeZone,
+  normalizeClockWidgetConfig,
+} from '../widgets/clock';
 import {
   CANVAS_SCENE_VERSION,
   SCENE_PRESET_VERSION,
@@ -198,28 +204,71 @@ function parseWidgetLayer(
   }
 
   if (value.widgetType === 'clock') {
+    const hasLegacyConfig =
+      'hourCycle' in value.config || 'showSeconds' in value.config;
+
+    if (hasLegacyConfig) {
+      if (
+        value.config.hourCycle !== 'locale' &&
+        value.config.hourCycle !== 'h12' &&
+        value.config.hourCycle !== 'h24'
+      ) {
+        throw new Error(`${field}.config.hourCycle is invalid.`);
+      }
+
+      parseBoolean(value.config.showSeconds, `${field}.config.showSeconds`);
+
+      return {
+        ...base,
+        config: normalizeClockWidgetConfig(value.config),
+        widgetType: 'clock',
+      };
+    }
+
     if (
-      value.config.hourCycle !== 'locale' &&
-      value.config.hourCycle !== 'h12' &&
-      value.config.hourCycle !== 'h24'
+      value.config.appearance !== 'analog' &&
+      value.config.appearance !== 'digital'
     ) {
-      throw new Error(`${field}.config.hourCycle is invalid.`);
+      throw new Error(`${field}.config.appearance is invalid.`);
+    }
+
+    if (
+      typeof value.config.format !== 'string' ||
+      !isValidClockFormat(value.config.format)
+    ) {
+      throw new Error(`${field}.config.format is invalid.`);
+    }
+
+    if (
+      value.config.timeZone !== null &&
+      typeof value.config.timeZone !== 'string'
+    ) {
+      throw new Error(`${field}.config.timeZone is invalid.`);
+    }
+
+    if (!isValidClockTimeZone(value.config.timeZone)) {
+      throw new Error(`${field}.config.timeZone is invalid.`);
     }
 
     return {
       ...base,
       config: {
-        hourCycle: value.config.hourCycle,
-        showSeconds: parseBoolean(
-          value.config.showSeconds,
-          `${field}.config.showSeconds`,
+        appearance: value.config.appearance,
+        format: value.config.format,
+        showSecondHand: parseBoolean(
+          value.config.showSecondHand,
+          `${field}.config.showSecondHand`,
         ),
+        timeZone: value.config.timeZone,
       },
       widgetType: 'clock',
     };
   }
 
-  if (value.widgetType === 'google-calendar') {
+  if (
+    value.widgetType === 'calendar' ||
+    value.widgetType === 'google-calendar'
+  ) {
     const maxEvents = parseFiniteNumber(
       value.config.maxEvents,
       `${field}.config.maxEvents`,
@@ -232,16 +281,24 @@ function parseWidgetLayer(
       throw new Error(`${field}.config.maxEvents is invalid.`);
     }
 
+    const feedUrl = value.config.feedUrl;
+    const feedLocation =
+      typeof feedUrl === 'string' ? normalizeCalendarFeedUrl(feedUrl) : null;
+    if (feedUrl !== undefined && feedUrl !== null && !feedLocation) {
+      throw new Error(`${field}.config.feedUrl is invalid.`);
+    }
+
     return {
       ...base,
       config: {
+        feedUrl: feedLocation?.url ?? null,
         maxEvents,
         showAllDay: parseBoolean(
           value.config.showAllDay,
           `${field}.config.showAllDay`,
         ),
       },
-      widgetType: 'google-calendar',
+      widgetType: 'calendar',
     };
   }
 
@@ -286,13 +343,6 @@ export function parseCanvasSceneV2(value: unknown): CanvasSceneV2 {
   const layerIds = layers.map((layer) => layer.id);
   if (new Set(layerIds).size !== layerIds.length) {
     throw new Error('Canvas layer ids must be unique.');
-  }
-
-  const widgetTypes = layers.flatMap((layer) =>
-    layer.kind === 'widget' ? [layer.widgetType] : [],
-  );
-  if (new Set(widgetTypes).size !== widgetTypes.length) {
-    throw new Error('A canvas can contain at most one widget of each type.');
   }
 
   return { layers, version: CANVAS_SCENE_VERSION };

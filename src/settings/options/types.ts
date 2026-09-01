@@ -47,6 +47,7 @@ export type FontPreviewState = {
 
 export type OptionsSidebarProps = {
   initialOverlayImageId?: string;
+  initialWidgetId?: string;
   initialTab?: PrimaryTab;
   backgroundMeta: BackgroundMedia | null | undefined;
   colorTheme: StarlitTheme;

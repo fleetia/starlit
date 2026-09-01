@@ -33,6 +33,7 @@ import {
   findDefaultSceneBookmarkParent,
   mergeCanvasWithOverlay,
   previewBookmarkCopy,
+  projectCanvasSceneToStableOverlayScene,
   projectOverlaySceneToCanvasScene,
   remapBookmarkPreferences,
   type CanvasSceneV2,
@@ -138,6 +139,7 @@ function resolveDraftBackgroundMeta(
 
 function OptionsSidebarSession({
   initialOverlayImageId,
+  initialWidgetId,
   initialTab = 'general',
   backgroundMeta,
   colorTheme,
@@ -229,6 +231,9 @@ function OptionsSidebarSession({
   const [preparedOverlayImageIds, setPreparedOverlayImageIds] = useState<
     string[]
   >([]);
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(
+    initialWidgetId ?? null,
+  );
   const [overlayEditorInitialImageId, setOverlayEditorInitialImageId] =
     useState<string | null>(initialOverlayImageId ?? null);
   const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(
@@ -409,6 +414,16 @@ function OptionsSidebarSession({
     draftOverlaySceneRef.current = next;
     setDraftOverlayScene(next);
     setDraftCanvas((canvas) => mergeCanvasWithOverlay(canvas, next));
+  }
+
+  function updateDraftCanvas(canvas: CanvasSceneV2): void {
+    const nextOverlayScene = projectCanvasSceneToStableOverlayScene(
+      canvas,
+      draftOverlaySceneRef.current,
+    );
+    draftOverlaySceneRef.current = nextOverlayScene;
+    setDraftOverlayScene(nextOverlayScene);
+    setDraftCanvas(canvas);
   }
 
   function updateTheme<Key extends keyof StarlitTheme>(
@@ -969,17 +984,24 @@ function OptionsSidebarSession({
                 isImageProcessing={
                   isOverlayProcessing || isOverlayActionProcessing
                 }
-                onChange={setDraftCanvas}
+                onChange={updateDraftCanvas}
                 onImageFilesSelected={(files) =>
                   void handleOverlayFilesSelected(files)
                 }
+                onSelectWidget={setSelectedWidgetId}
+                selectedWidgetId={selectedWidgetId}
               >
                 <LayersPanel
+                  canvas={draftCanvas}
                   copy={{
                     addImages: t('layers.add'),
                     back: t('layers.back'),
                     bookmarks: t('layers.bookmarks'),
                     bookmarksDescription: t('layers.bookmarksDescription'),
+                    calendar: t('widgets.calendar'),
+                    clock: t('widgets.clock'),
+                    configureWidget: (name) =>
+                      `${t('widgets.configure')}: ${name}`,
                     description: t('layers.description'),
                     dragToReorder: t('layers.dragToReorder'),
                     editPositions: t('layers.editPositions'),
@@ -996,9 +1018,12 @@ function OptionsSidebarSession({
                       `${t('layers.action.more')}: ${name}`,
                     processing: t('layers.processing'),
                     removeImage: (name) => `${t('layers.remove')}: ${name}`,
+                    removeWidget: (name) => `${t('widgets.remove')}: ${name}`,
                     title: t('layers.title'),
                   }}
                   isProcessing={isOverlayProcessing}
+                  onCanvasChange={updateDraftCanvas}
+                  onConfigureWidget={setSelectedWidgetId}
                   onEditPositions={openOverlayEditor}
                   onFilesSelected={(files) =>
                     void handleOverlayFilesSelected(files)

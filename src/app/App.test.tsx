@@ -408,7 +408,12 @@ function createActiveScene(image: OverlayImageLayer): ScenePresetV1 {
       layers: [
         {
           anchor: 'top-left',
-          config: { hourCycle: 'locale', showSeconds: false },
+          config: {
+            appearance: 'digital',
+            format: 'HH:mm',
+            showSecondHand: true,
+            timeZone: null,
+          },
           frame: { height: 80, offsetX: 12, offsetY: 18, width: 120 },
           id: 'clock',
           isHidden: false,
@@ -790,6 +795,72 @@ describe('App', () => {
       screen.getByRole('checkbox', {
         name: 'Scenes, appearance, and layout',
       }),
+    ).toBeDefined();
+  });
+
+  it('opens the exact Clock instance editor from the widget context menu', async () => {
+    const image: OverlayImageLayer = {
+      anchor: 'bottom-right',
+      height: 80,
+      id: 'context-widget-image',
+      kind: 'image',
+      name: 'context-widget.png',
+      offsetX: 12,
+      offsetY: 12,
+      rotationDeg: 0,
+      width: 80,
+    };
+    const activeScene = createActiveScene(image);
+    activeScene.canvas.layers.splice(1, 0, {
+      anchor: 'bottom-right',
+      config: {
+        appearance: 'analog',
+        format: 'hh:mm:ss a',
+        showSecondHand: false,
+        timeZone: 'Asia/Seoul',
+      },
+      frame: { height: 160, offsetX: 24, offsetY: 24, width: 160 },
+      id: 'target-clock',
+      isHidden: false,
+      isLocked: false,
+      kind: 'widget',
+      widgetType: 'clock',
+    });
+    appState.activeScene = activeScene;
+    appState.scenes = [activeScene];
+    renderApp();
+
+    const targetClock = document.querySelector(
+      '[data-canvas-layer-id="target-clock"] [data-starlit-part="widget-clock"]',
+    );
+    expect(targetClock).not.toBeNull();
+    fireEvent.contextMenu(targetClock as Element, {
+      clientX: 140,
+      clientY: 160,
+    });
+
+    const menu = screen.getByRole('menu', { name: 'Configure widget' });
+    fireEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Configure widget' }),
+    );
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Options' }),
+    ).toBeDefined();
+    expect(
+      screen
+        .getByRole('tab', { name: 'Widgets' })
+        .getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(
+      (
+        screen.getByRole('combobox', {
+          name: 'Clock style',
+        }) as HTMLSelectElement
+      ).value,
+    ).toBe('analog');
+    expect(
+      screen.getByRole('button', { name: 'Configure widget: Clock 2' }),
     ).toBeDefined();
   });
 

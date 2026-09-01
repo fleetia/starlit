@@ -2,7 +2,6 @@ import type { ChangeEvent, MouseEvent, ReactElement, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import {
   Button,
-  Checkbox,
   ContextMenu,
   ContextMenuItem,
   FormField,
@@ -12,17 +11,24 @@ import {
   Stack,
   Switch,
   Text,
+  TextField,
 } from '@fleetia/lagrange';
 
+import { normalizeCalendarFeedUrl } from '../../calendar';
 import { useTranslation, type TranslationKey } from '../../i18n';
 import {
   CANVAS_SCENE_VERSION,
+  type CalendarWidgetInstance,
   type CanvasSceneV2,
   type ClockWidgetInstance,
-  type GoogleCalendarWidgetInstance,
   type WidgetInstance,
 } from '../../scenes';
-import { canAddBuiltInWidget, useCalendarWidget } from '../../widgets';
+import {
+  DEFAULT_CLOCK_WIDGET_CONFIG,
+  isValidClockFormat,
+  isValidClockTimeZone,
+  useCalendarWidget,
+} from '../../widgets';
 import { RangeControl, SettingsSection } from './controls';
 
 type WidgetsPanelProps = {
@@ -31,11 +37,15 @@ type WidgetsPanelProps = {
   isImageProcessing: boolean;
   onChange: (canvas: CanvasSceneV2) => void;
   onImageFilesSelected: (files: File[]) => void;
+  onSelectWidget: (widgetId: string | null) => void;
+  selectedWidgetId: string | null;
 };
 
 type ConfiguredWidgetsPanelProps = {
   canvas: CanvasSceneV2;
   onChange: (canvas: CanvasSceneV2) => void;
+  onSelectWidget: (widgetId: string | null) => void;
+  selectedWidgetId: string | null;
 };
 
 const WIDGET_ANCHOR_LABEL_KEYS: Record<
@@ -77,9 +87,7 @@ function reorderWidget(
   id: string,
   offset: -1 | 1,
 ): CanvasSceneV2 {
-  const index = canvas.layers.findIndex(
-    (layer) => layer.kind === 'widget' && layer.id === id,
-  );
+  const index = canvas.layers.findIndex((layer) => layer.id === id);
   const targetIndex = index + offset;
   if (index < 0 || targetIndex < 0 || targetIndex >= canvas.layers.length) {
     return canvas;
@@ -102,9 +110,7 @@ function WidgetPlacementControls({
   widget: WidgetInstance;
 }): ReactElement {
   const { t } = useTranslation();
-  const layerIndex = canvas.layers.findIndex(
-    (layer) => layer.kind === 'widget' && layer.id === widget.id,
-  );
+  const layerIndex = canvas.layers.findIndex((layer) => layer.id === widget.id);
 
   function updateFrame(frame: Partial<WidgetInstance['frame']>): void {
     onChange(
@@ -149,7 +155,7 @@ function WidgetPlacementControls({
       <RangeControl
         label={t('widgets.width')}
         max={720}
-        min={160}
+        min={120}
         onValueChange={(width) => updateFrame({ width })}
         value={widget.frame.width}
       />
@@ -210,11 +216,274 @@ function WidgetPlacementControls({
   );
 }
 
-function createClockWidget(): ClockWidgetInstance {
+function updateClockConfig(
+  canvas: CanvasSceneV2,
+  widgetId: string,
+  config: Partial<ClockWidgetInstance['config']>,
+): CanvasSceneV2 {
+  return updateWidget(canvas, widgetId, (widget) =>
+    widget.widgetType === 'clock'
+      ? { ...widget, config: { ...widget.config, ...config } }
+      : widget,
+  );
+}
+
+function ClockEditor({
+  canvas,
+  onChange,
+  widget,
+}: {
+  canvas: CanvasSceneV2;
+  onChange: (canvas: CanvasSceneV2) => void;
+  widget: ClockWidgetInstance;
+}): ReactElement {
+  const { t } = useTranslation();
+  const [formatInput, setFormatInput] = useState(widget.config.format);
+  const [timeZoneInput, setTimeZoneInput] = useState(
+    widget.config.timeZone ?? '',
+  );
+  const isFormatValid = isValidClockFormat(formatInput);
+  const normalizedTimeZone = timeZoneInput.trim() || null;
+  const isTimeZoneValid = isValidClockTimeZone(normalizedTimeZone);
+
+  function commitFormat(): void {
+    if (isFormatValid && formatInput !== widget.config.format) {
+      onChange(updateClockConfig(canvas, widget.id, { format: formatInput }));
+    }
+  }
+
+  function commitTimeZone(): void {
+    if (isTimeZoneValid && normalizedTimeZone !== widget.config.timeZone) {
+      onChange(
+        updateClockConfig(canvas, widget.id, {
+          timeZone: normalizedTimeZone,
+        }),
+      );
+    }
+  }
+
+  return (
+    <Stack gap="md">
+      <FormField label={t('widgets.appearance')}>
+        <Select
+          onChange={(event) => {
+            const appearance = event.currentTarget.value;
+            if (appearance !== 'analog' && appearance !== 'digital') return;
+            onChange(updateClockConfig(canvas, widget.id, { appearance }));
+          }}
+          value={widget.config.appearance}
+        >
+          <option value="digital">{t('widgets.digital')}</option>
+          <option value="analog">{t('widgets.analog')}</option>
+        </Select>
+      </FormField>
+      {widget.config.appearance === 'digital' ? (
+        <FormField
+          description={t('widgets.formatDescription')}
+          label={t('widgets.format')}
+        >
+          <Stack gap="xs">
+            <TextField
+              aria-invalid={!isFormatValid || undefined}
+              onBlur={commitFormat}
+              onChange={(event) => setFormatInput(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitFormat();
+              }}
+              value={formatInput}
+            />
+            {!isFormatValid ? (
+              <Text tone="critical" variant="caption">
+                {t('widgets.invalidFormat')}
+              </Text>
+            ) : null}
+          </Stack>
+        </FormField>
+      ) : (
+        <Switch
+          checked={widget.config.showSecondHand}
+          onChange={(event) =>
+            onChange(
+              updateClockConfig(canvas, widget.id, {
+                showSecondHand: event.currentTarget.checked,
+              }),
+            )
+          }
+        >
+          {t('widgets.showSecondHand')}
+        </Switch>
+      )}
+      <FormField
+        description={t('widgets.timeZoneDescription')}
+        label={t('widgets.timeZone')}
+      >
+        <Stack gap="xs">
+          <TextField
+            aria-invalid={!isTimeZoneValid || undefined}
+            onBlur={commitTimeZone}
+            onChange={(event) => setTimeZoneInput(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitTimeZone();
+            }}
+            placeholder="Asia/Seoul"
+            value={timeZoneInput}
+          />
+          {!isTimeZoneValid ? (
+            <Text tone="critical" variant="caption">
+              {t('widgets.invalidTimeZone')}
+            </Text>
+          ) : null}
+        </Stack>
+      </FormField>
+      <WidgetPlacementControls
+        canvas={canvas}
+        onChange={onChange}
+        widget={widget}
+      />
+    </Stack>
+  );
+}
+
+function updateCalendarConfig(
+  canvas: CanvasSceneV2,
+  widgetId: string,
+  config: Partial<CalendarWidgetInstance['config']>,
+): CanvasSceneV2 {
+  return updateWidget(canvas, widgetId, (widget) =>
+    widget.widgetType === 'calendar'
+      ? { ...widget, config: { ...widget.config, ...config } }
+      : widget,
+  );
+}
+
+function CalendarEditor({
+  canvas,
+  onChange,
+  widget,
+}: {
+  canvas: CanvasSceneV2;
+  onChange: (canvas: CanvasSceneV2) => void;
+  widget: CalendarWidgetInstance;
+}): ReactElement {
+  const { t } = useTranslation();
+  const [feedUrlInput, setFeedUrlInput] = useState(widget.config.feedUrl ?? '');
+  const location = normalizeCalendarFeedUrl(feedUrlInput);
+  const calendar = useCalendarWidget(widget.config.feedUrl);
+
+  function commitFeedUrl(): string | null {
+    if (feedUrlInput.trim() === '') {
+      if (widget.config.feedUrl !== null) {
+        onChange(updateCalendarConfig(canvas, widget.id, { feedUrl: null }));
+      }
+      return null;
+    }
+    if (!location) return null;
+    if (location.url !== widget.config.feedUrl) {
+      onChange(
+        updateCalendarConfig(canvas, widget.id, { feedUrl: location.url }),
+      );
+    }
+    return location.url;
+  }
+
+  async function subscribe(): Promise<void> {
+    const feedUrl = commitFeedUrl();
+    if (feedUrl) await calendar.subscribe(feedUrl);
+  }
+
+  return (
+    <Stack gap="md">
+      <FormField
+        description={t('widgets.feedUrlDescription')}
+        label={t('widgets.feedUrl')}
+      >
+        <Stack gap="xs">
+          <TextField
+            aria-invalid={
+              feedUrlInput.trim() !== '' && !location ? true : undefined
+            }
+            inputMode="url"
+            onBlur={commitFeedUrl}
+            onChange={(event) => setFeedUrlInput(event.currentTarget.value)}
+            placeholder="webcal://example.com/calendar.ics"
+            type="url"
+            value={feedUrlInput}
+          />
+          {feedUrlInput.trim() !== '' && !location ? (
+            <Text tone="critical" variant="caption">
+              {t('widgets.invalidFeedUrl')}
+            </Text>
+          ) : null}
+        </Stack>
+      </FormField>
+      <Text tone="muted" variant="caption">
+        {t('widgets.calendarConsent')}
+      </Text>
+      <Inline gap="sm" wrap>
+        <Button
+          disabled={!location || calendar.status === 'loading'}
+          isPending={calendar.status === 'loading'}
+          onClick={() => void subscribe()}
+          size="compact"
+        >
+          {t('widgets.subscribe')}
+        </Button>
+        {widget.config.feedUrl ? (
+          <Button
+            disabled={calendar.status === 'loading'}
+            onClick={() => void calendar.refresh()}
+            size="compact"
+            variant="secondary"
+          >
+            {t('widgets.refresh')}
+          </Button>
+        ) : null}
+      </Inline>
+      {calendar.error ? (
+        <Text aria-live="polite" tone="critical" variant="caption">
+          {t('widgets.error')}
+        </Text>
+      ) : null}
+      <RangeControl
+        label={t('widgets.maxEvents')}
+        max={50}
+        min={1}
+        onValueChange={(maxEvents) =>
+          onChange(updateCalendarConfig(canvas, widget.id, { maxEvents }))
+        }
+        value={widget.config.maxEvents}
+      />
+      <Switch
+        checked={widget.config.showAllDay}
+        onChange={(event) =>
+          onChange(
+            updateCalendarConfig(canvas, widget.id, {
+              showAllDay: event.currentTarget.checked,
+            }),
+          )
+        }
+      >
+        {t('widgets.showAllDay')}
+      </Switch>
+      <WidgetPlacementControls
+        canvas={canvas}
+        onChange={onChange}
+        widget={widget}
+      />
+    </Stack>
+  );
+}
+
+function createClockWidget(index: number): ClockWidgetInstance {
   return {
     anchor: 'top-right',
-    config: { hourCycle: 'locale', showSeconds: false },
-    frame: { height: 88, offsetX: 24, offsetY: 24, width: 240 },
+    config: { ...DEFAULT_CLOCK_WIDGET_CONFIG },
+    frame: {
+      height: 112,
+      offsetX: 24 + index * 24,
+      offsetY: 24 + index * 24,
+      width: 240,
+    },
     id: crypto.randomUUID(),
     isHidden: false,
     isLocked: false,
@@ -223,16 +492,21 @@ function createClockWidget(): ClockWidgetInstance {
   };
 }
 
-function createGoogleCalendarWidget(): GoogleCalendarWidgetInstance {
+function createCalendarWidget(index: number): CalendarWidgetInstance {
   return {
     anchor: 'top-right',
-    config: { maxEvents: 8, showAllDay: true },
-    frame: { height: 320, offsetX: 24, offsetY: 168, width: 360 },
+    config: { feedUrl: null, maxEvents: 8, showAllDay: true },
+    frame: {
+      height: 320,
+      offsetX: 24 + index * 24,
+      offsetY: 168 + index * 24,
+      width: 360,
+    },
     id: crypto.randomUUID(),
     isHidden: false,
     isLocked: false,
     kind: 'widget',
-    widgetType: 'google-calendar',
+    widgetType: 'calendar',
   };
 }
 
@@ -240,16 +514,6 @@ function appendWidget(
   canvas: CanvasSceneV2,
   widget: WidgetInstance,
 ): CanvasSceneV2 {
-  const widgets = getWidgets(canvas);
-  if (
-    !canAddBuiltInWidget(
-      widgets.map((item) => ({ kind: item.widgetType })),
-      widget.widgetType,
-    )
-  ) {
-    return canvas;
-  }
-
   return {
     layers: [...canvas.layers, widget],
     version: CANVAS_SCENE_VERSION,
@@ -259,225 +523,63 @@ function appendWidget(
 function ConfiguredWidgetsPanel({
   canvas,
   onChange,
-}: ConfiguredWidgetsPanelProps): ReactElement {
+  onSelectWidget,
+  selectedWidgetId,
+}: ConfiguredWidgetsPanelProps): ReactElement | null {
   const { t } = useTranslation();
-  const calendar = useCalendarWidget();
+  const widgets = getWidgets(canvas);
+  const selectedWidget =
+    widgets.find((widget) => widget.id === selectedWidgetId) ??
+    widgets.at(0) ??
+    null;
 
-  const activeCanvas = canvas;
-  const widgets = getWidgets(activeCanvas);
-  const clock = widgets.find(
-    (widget): widget is ClockWidgetInstance => widget.widgetType === 'clock',
-  );
-  const googleCalendar = widgets.find(
-    (widget): widget is GoogleCalendarWidgetInstance =>
-      widget.widgetType === 'google-calendar',
-  );
+  if (!selectedWidget) return null;
+  const selectedWidgetIdValue = selectedWidget.id;
 
-  function removeWidget(id: string): void {
+  function removeWidget(): void {
     onChange({
-      ...activeCanvas,
-      layers: activeCanvas.layers.filter((layer) => layer.id !== id),
+      ...canvas,
+      layers: canvas.layers.filter(
+        (layer) => layer.id !== selectedWidgetIdValue,
+      ),
     });
+    onSelectWidget(null);
   }
 
   return (
-    <Stack gap="lg">
-      {clock ? (
-        <SettingsSection
-          aside={
-            <Button
-              onClick={() => removeWidget(clock.id)}
-              size="compact"
-              variant="quiet"
-            >
-              {t('widgets.remove')}
-            </Button>
-          }
-          description={t('widgets.clockDescription')}
-          title={t('widgets.clock')}
-        >
-          <Stack gap="sm">
-            <FormField label={t('widgets.hourCycle')}>
-              <Select
-                onChange={(event) => {
-                  const hourCycle = event.currentTarget.value;
-                  if (
-                    hourCycle !== 'locale' &&
-                    hourCycle !== 'h12' &&
-                    hourCycle !== 'h24'
-                  )
-                    return;
-                  onChange(
-                    updateWidget(activeCanvas, clock.id, (widget) =>
-                      widget.widgetType === 'clock'
-                        ? {
-                            ...widget,
-                            config: { ...widget.config, hourCycle },
-                          }
-                        : widget,
-                    ),
-                  );
-                }}
-                value={clock.config.hourCycle}
-              >
-                <option value="locale">{t('widgets.hourCycleLocale')}</option>
-                <option value="h12">{t('widgets.hourCycle12')}</option>
-                <option value="h24">{t('widgets.hourCycle24')}</option>
-              </Select>
-            </FormField>
-            <Switch
-              checked={clock.config.showSeconds}
-              onChange={(event) =>
-                onChange(
-                  updateWidget(activeCanvas, clock.id, (widget) =>
-                    widget.widgetType === 'clock'
-                      ? {
-                          ...widget,
-                          config: {
-                            ...widget.config,
-                            showSeconds: event.currentTarget.checked,
-                          },
-                        }
-                      : widget,
-                  ),
-                )
-              }
-            >
-              {t('widgets.showSeconds')}
-            </Switch>
-            <WidgetPlacementControls
-              canvas={activeCanvas}
-              onChange={onChange}
-              widget={clock}
-            />
-          </Stack>
-        </SettingsSection>
-      ) : null}
-
-      {googleCalendar ? (
-        <SettingsSection
-          aside={
-            <Button
-              onClick={() => removeWidget(googleCalendar.id)}
-              size="compact"
-              variant="quiet"
-            >
-              {t('widgets.remove')}
-            </Button>
-          }
-          description={t('widgets.calendarDescription')}
-          title={t('widgets.calendar')}
-        >
-          <Stack gap="md">
-            <RangeControl
-              label={t('widgets.maxEvents')}
-              max={50}
-              min={1}
-              onValueChange={(maxEvents) =>
-                onChange(
-                  updateWidget(activeCanvas, googleCalendar.id, (widget) =>
-                    widget.widgetType === 'google-calendar'
-                      ? {
-                          ...widget,
-                          config: { ...widget.config, maxEvents },
-                        }
-                      : widget,
-                  ),
-                )
-              }
-              value={googleCalendar.config.maxEvents}
-            />
-            <Switch
-              checked={googleCalendar.config.showAllDay}
-              onChange={(event) =>
-                onChange(
-                  updateWidget(activeCanvas, googleCalendar.id, (widget) =>
-                    widget.widgetType === 'google-calendar'
-                      ? {
-                          ...widget,
-                          config: {
-                            ...widget.config,
-                            showAllDay: event.currentTarget.checked,
-                          },
-                        }
-                      : widget,
-                  ),
-                )
-              }
-            >
-              {t('widgets.showAllDay')}
-            </Switch>
-
-            <WidgetPlacementControls
-              canvas={activeCanvas}
-              onChange={onChange}
-              widget={googleCalendar}
-            />
-
-            {calendar.status === 'disconnected' ? (
-              <Stack gap="sm">
-                <Text tone="muted">{t('widgets.calendarConsent')}</Text>
-                <Button onClick={() => void calendar.connect()}>
-                  {t('widgets.connect')}
-                </Button>
-                {calendar.error ? (
-                  <Text aria-live="polite" tone="critical">
-                    {t('widgets.error')}
-                  </Text>
-                ) : null}
-              </Stack>
-            ) : (
-              <Stack gap="sm">
-                {calendar.calendars.length === 0 ? (
-                  <Button
-                    onClick={() => void calendar.loadCalendars()}
-                    variant="secondary"
-                  >
-                    {t('widgets.loadCalendars')}
-                  </Button>
-                ) : (
-                  calendar.calendars.map((item) => (
-                    <Checkbox
-                      key={item.id}
-                      checked={calendar.selectedCalendarIds.includes(item.id)}
-                      onChange={(event) => {
-                        const ids = event.currentTarget.checked
-                          ? [...calendar.selectedCalendarIds, item.id]
-                          : calendar.selectedCalendarIds.filter(
-                              (id) => id !== item.id,
-                            );
-                        void calendar.setSelectedCalendarIds(ids);
-                      }}
-                    >
-                      {item.name}
-                    </Checkbox>
-                  ))
-                )}
-                <Inline gap="sm">
-                  <Button
-                    onClick={() => void calendar.refresh()}
-                    size="compact"
-                    variant="secondary"
-                  >
-                    {t('widgets.refresh')}
-                  </Button>
-                  <Button
-                    onClick={() => void calendar.disconnect()}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    {t('widgets.disconnect')}
-                  </Button>
-                </Inline>
-                {calendar.error ? (
-                  <Text tone="critical">{t('widgets.error')}</Text>
-                ) : null}
-              </Stack>
-            )}
-          </Stack>
-        </SettingsSection>
-      ) : null}
-    </Stack>
+    <SettingsSection
+      aside={
+        <Button onClick={removeWidget} size="compact" variant="quiet">
+          {t('widgets.remove')}
+        </Button>
+      }
+      description={t(
+        selectedWidget.widgetType === 'clock'
+          ? 'widgets.clockDescription'
+          : 'widgets.calendarDescription',
+      )}
+      title={t(
+        selectedWidget.widgetType === 'clock'
+          ? 'widgets.clock'
+          : 'widgets.calendar',
+      )}
+    >
+      {selectedWidget.widgetType === 'clock' ? (
+        <ClockEditor
+          key={selectedWidget.id}
+          canvas={canvas}
+          onChange={onChange}
+          widget={selectedWidget}
+        />
+      ) : (
+        <CalendarEditor
+          key={selectedWidget.id}
+          canvas={canvas}
+          onChange={onChange}
+          widget={selectedWidget}
+        />
+      )}
+    </SettingsSection>
   );
 }
 
@@ -487,6 +589,8 @@ export function WidgetsPanel({
   isImageProcessing,
   onChange,
   onImageFilesSelected,
+  onSelectWidget,
+  selectedWidgetId,
 }: WidgetsPanelProps): ReactElement {
   const { t } = useTranslation();
   const [addMenuPoint, setAddMenuPoint] = useState<{
@@ -494,29 +598,14 @@ export function WidgetsPanel({
     y: number;
   } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const widgets = canvas ? getWidgets(canvas) : [];
-  const canAddClock =
-    canvas !== null &&
-    canAddBuiltInWidget(
-      widgets.map((widget) => ({ kind: widget.widgetType })),
-      'clock',
-    );
-  const canAddCalendar =
-    canvas !== null &&
-    canAddBuiltInWidget(
-      widgets.map((widget) => ({ kind: widget.widgetType })),
-      'google-calendar',
-    );
+  const widgetCount = canvas ? getWidgets(canvas).length : 0;
 
   function handleImageFilesSelected(
     event: ChangeEvent<HTMLInputElement>,
   ): void {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';
-
-    if (files.length > 0) {
-      onImageFilesSelected(files);
-    }
+    if (files.length > 0) onImageFilesSelected(files);
   }
 
   function handleAddImage(): void {
@@ -526,11 +615,9 @@ export function WidgetsPanel({
 
   function handleAddBuiltInWidget(widget: WidgetInstance): void {
     if (!canvas) return;
-    const nextCanvas = appendWidget(canvas, widget);
-    if (nextCanvas !== canvas) {
-      onChange(nextCanvas);
-      setAddMenuPoint(null);
-    }
+    onChange(appendWidget(canvas, widget));
+    onSelectWidget(widget.id);
+    setAddMenuPoint(null);
   }
 
   function handleOpenAddMenu(event: MouseEvent<HTMLButtonElement>): void {
@@ -569,7 +656,12 @@ export function WidgetsPanel({
         {!canvas ? (
           <Text tone="muted">{t('widgets.sceneRequired')}</Text>
         ) : (
-          <ConfiguredWidgetsPanel canvas={canvas} onChange={onChange} />
+          <ConfiguredWidgetsPanel
+            canvas={canvas}
+            onChange={onChange}
+            onSelectWidget={onSelectWidget}
+            selectedWidgetId={selectedWidgetId}
+          />
         )}
       </Stack>
       <ContextMenu
@@ -584,18 +676,20 @@ export function WidgetsPanel({
           {t('widgets.image')}
         </ContextMenuItem>
         <ContextMenuItem
-          disabled={!canAddCalendar}
-          onSelect={() => handleAddBuiltInWidget(createGoogleCalendarWidget())}
+          disabled={!canvas}
+          onSelect={() =>
+            handleAddBuiltInWidget(createCalendarWidget(widgetCount))
+          }
         >
           {t('widgets.calendar')}
-          {canvas && !canAddCalendar ? ` · ${t('widgets.alreadyAdded')}` : ''}
         </ContextMenuItem>
         <ContextMenuItem
-          disabled={!canAddClock}
-          onSelect={() => handleAddBuiltInWidget(createClockWidget())}
+          disabled={!canvas}
+          onSelect={() =>
+            handleAddBuiltInWidget(createClockWidget(widgetCount))
+          }
         >
           {t('widgets.clock')}
-          {canvas && !canAddClock ? ` · ${t('widgets.alreadyAdded')}` : ''}
         </ContextMenuItem>
       </ContextMenu>
     </>

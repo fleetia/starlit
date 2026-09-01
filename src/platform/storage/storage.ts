@@ -100,6 +100,18 @@ const local = {
 };
 
 const session = {
+  clear: async (): Promise<void> => {
+    if (import.meta.env.DEV) {
+      const prefix = '__session__';
+      const keys = Array.from({ length: sessionStorage.length }, (_, index) =>
+        sessionStorage.key(index),
+      ).filter((key): key is string => key?.startsWith(prefix) === true);
+      keys.forEach((key) => sessionStorage.removeItem(key));
+      return;
+    }
+
+    await chrome.storage.session.clear();
+  },
   set: async (items: { [key: string]: unknown }): Promise<void> => {
     if (import.meta.env.DEV) {
       Object.keys(items).forEach((key) =>

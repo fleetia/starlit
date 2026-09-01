@@ -238,7 +238,12 @@ function createCanvasWithClock(decorationAssetId: string): CanvasSceneV2 {
     layers: [
       {
         anchor: 'top-right',
-        config: { hourCycle: 'h24', showSeconds: true },
+        config: {
+          appearance: 'digital',
+          format: 'HH:mm:ss',
+          showSecondHand: true,
+          timeZone: null,
+        },
         frame: { height: 80, offsetX: 10, offsetY: 10, width: 180 },
         id: 'clock',
         isHidden: false,
@@ -428,7 +433,12 @@ describe('Scene compatibility projection', () => {
         createDecoration('front', 'shared-front'),
         {
           anchor: 'top-right',
-          config: { hourCycle: 'locale', showSeconds: false },
+          config: {
+            appearance: 'digital',
+            format: 'HH:mm',
+            showSecondHand: true,
+            timeZone: null,
+          },
           frame: { height: 80, offsetX: 10, offsetY: 10, width: 180 },
           id: 'clock',
           isHidden: false,
@@ -492,7 +502,12 @@ describe('Scene compatibility projection', () => {
     expect(scene.appearance.bookmark).not.toHaveProperty('isOpenInNewTab');
     expect(scene.canvas.layers).toMatchObject([
       {
-        config: { hourCycle: 'h24', showSeconds: true },
+        config: {
+          appearance: 'digital',
+          format: 'HH:mm:ss',
+          showSecondHand: true,
+          timeZone: null,
+        },
         id: 'clock',
         kind: 'widget',
         widgetType: 'clock',

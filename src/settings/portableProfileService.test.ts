@@ -370,8 +370,23 @@ describe('portable profile service', () => {
     expect(dependencies.bookmarks.getSubTree).not.toHaveBeenCalled();
   });
 
-  it('excludes local Calendar account data from export and import', async () => {
-    const dependencies = createDependencies();
+  it('redacts Calendar feed URLs from export and import', async () => {
+    const scene = createSceneFixture();
+    scene.canvas.layers.push({
+      anchor: 'top-right',
+      config: {
+        feedUrl: 'https://calendar.example.com/private-token.ics',
+        maxEvents: 8,
+        showAllDay: true,
+      },
+      frame: { height: 320, offsetX: 24, offsetY: 24, width: 360 },
+      id: 'calendar-widget',
+      isHidden: false,
+      isLocked: false,
+      kind: 'widget',
+      widgetType: 'calendar',
+    });
+    const dependencies = createDependencies(createCollection([scene]));
     vi.mocked(dependencies.local.get).mockResolvedValue({
       accessToken: 'private-access-token',
       calendarIds: ['private-calendar-id'],
@@ -385,6 +400,12 @@ describe('portable profile service', () => {
     expect(exportedJson).not.toContain('private-access-token');
     expect(exportedJson).not.toContain('private-calendar-id');
     expect(exportedJson).not.toContain('private-event-summary');
+    expect(exportedJson).not.toContain('private-token');
+    expect(
+      profile.scenes[0]?.canvas.layers.find(
+        (layer) => layer.kind === 'widget' && layer.widgetType === 'calendar',
+      ),
+    ).toMatchObject({ config: { feedUrl: null } });
 
     const preview = await previewPortableProfileImport(
       {

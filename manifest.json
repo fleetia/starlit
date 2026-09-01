@@ -9,16 +9,9 @@
     "48": "assets/icons/icon-48.png",
     "128": "assets/icons/icon-128.png"
   },
-  "permissions": ["storage", "bookmarks", "identity"],
+  "permissions": ["storage", "bookmarks"],
   "optional_permissions": ["tabs", "tabGroups"],
-  "optional_host_permissions": ["https://www.googleapis.com/*"],
-  "oauth2": {
-    "client_id": "__STARLIT_GOOGLE_OAUTH_CLIENT_ID__",
-    "scopes": [
-      "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
-      "https://www.googleapis.com/auth/calendar.events.readonly"
-    ]
-  },
+  "optional_host_permissions": ["https://*/*"],
   "background": {
     "service_worker": "background/index.js",
     "type": "module"

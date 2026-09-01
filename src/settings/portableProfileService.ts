@@ -60,6 +60,7 @@ import {
   parsePortableProfileV4,
   planPortableProfileImport,
   portableDataUrlToBlob,
+  redactCalendarFeedUrls,
   type PortableAsset,
   type PortableBookmarkNode,
   type PortableBookmarkTree,
@@ -399,8 +400,10 @@ function createPortableScene(
     scene.bookmarkCollection,
     bookmarkIdentityMap,
   );
+  const portableScene = redactCalendarFeedUrls(scene);
+
   return {
-    ...structuredClone(scene),
+    ...portableScene,
     bookmarkCollection: {
       ...bookmarkPreferences,
       ...remappedPreferences,

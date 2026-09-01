@@ -67,18 +67,18 @@ const COPY: Record<Locale, GuideCopy> = {
         'Bookmark folders, bookmark titles, URLs, and the changes you make to them',
         'Open Chrome tab groups and their tabs while you explicitly import them',
         'Live tab groups after Starlit opens them, including whether you save or close them in Chrome',
-        'Calendar lists and events remain in Google Calendar; Starlit reads selected data only after explicit connection',
+        'Calendar feeds remain with their providers; Starlit reads an entered feed only after explicit host permission',
       ],
-      title: 'Chrome and Google remain the sources of truth',
+      title: 'Chrome and feed providers remain the sources of truth',
     },
     dataOwnershipDescription:
-      'Starlit combines Chrome-owned bookmarks, explicitly authorized Google Calendar data, and its own display preferences. Knowing the boundary helps you predict what syncs, what a reset removes, and where to edit an item.',
+      'Starlit combines Chrome-owned bookmarks, explicitly authorized Calendar feeds, and its own display preferences. Knowing the boundary helps you predict what syncs, what a reset removes, and where to edit an item.',
     dataOwnershipTitle:
       'What belongs to an external provider and what belongs to Starlit?',
     detailsTitle: 'Questions and answers',
     factsTitle: 'Good to know',
     intro:
-      'A practical reference for bookmark-first Scenes, Image, Clock, and Google Calendar widgets, Cmd/Ctrl+K search, and Portable Profile V4.',
+      'A practical reference for bookmark-first Scenes, Image, Clock, and Calendar widgets, Cmd/Ctrl+K search, and Portable Profile V4.',
     language: 'Guide language',
     navigation: 'Guide contents',
     quickStart: {
@@ -104,7 +104,7 @@ const COPY: Record<Locale, GuideCopy> = {
     screenshotNote:
       'The reference screenshots use the English product UI. Control positions and section layouts are the same in every language.',
     releaseStatus: {
-      body: 'The v2 Calendar release remains blocked until Google OAuth verification is approved and the Chrome Web Store privacy disclosure matches this behavior. This guide does not claim either review is complete.',
+      body: 'The v2 Calendar release remains blocked until the Chrome Web Store privacy disclosure and optional-host justification match this behavior. This guide does not claim that review is complete.',
       title: 'Calendar release review is still pending',
     },
     sections: {
@@ -118,7 +118,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Save appearance, layout, canvas widgets, and one bookmark-folder reference as a setup you can return to.',
         details: [
           {
-            body: 'A Scene includes theme, font, background, bookmark presentation, Custom CSS, Image widget media and order, Clock and Google Calendar configuration, and its Chrome bookmark folder. Language, bookmark opening behavior, tutorial state, permissions, and Google connection stay global.',
+            body: 'A Scene includes theme, font, background, bookmark presentation, Custom CSS, Image widget media and order, Clock and Calendar configuration, and its Chrome bookmark folder. Language, bookmark opening behavior, tutorial state, and permissions stay global.',
             title: 'What does a Scene save?',
           },
           {
@@ -155,48 +155,48 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       'widgets-calendar': {
         callout: {
-          body: 'Starlit never starts interactive Calendar authorization on first run. OAuth begins only when you choose Connect after reading the explanation in Settings.',
-          title: 'Calendar connection is always explicit',
+          body: 'Starlit never requests Calendar host access on first run. It requests only the entered URL origin when you choose Allow and subscribe after reading the explanation in Settings.',
+          title: 'Calendar host access is always explicit',
           tone: 'warning',
         },
         description:
-          'Add one Clock and one read-only Google Calendar widget to each Scene without turning the new tab into a general plugin dashboard.',
+          'Add as many independent Clock and read-only Calendar widgets as a Scene needs without turning the new tab into a general plugin dashboard.',
         details: [
           {
-            body: 'Starlit uses only calendar-list and event read-only scopes. It reads the next seven days from selected calendars, merges up to 50 events, and keeps summary, time, all-day status, calendar color, and the event link. Descriptions and attendees are discarded.',
+            body: 'Starlit fetches an entered HTTPS iCalendar URL with credentials omitted. It parses the next seven days, keeps up to 50 events, and retains summary, time, all-day status, calendar color, and an HTTPS event link. Descriptions, attendees, and the raw feed are discarded.',
             title: 'What Calendar data is read?',
           },
           {
-            body: 'Chrome Identity caches the access token. Selected calendar IDs and the latest list metadata (ID, name, color, and primary status) stay in local storage. Event results are cached in session storage and reused for at most five minutes. Authorization, IDs, list metadata, and events are not included in a Scene or Portable Profile V4.',
+            body: 'Each feed URL stays in its device-local Scene. Event results are cached under an opaque URL-derived key in session storage for at most five minutes. Portable Profile V4 preserves the widget but replaces its feed URL with null and never includes cached events or Chrome permissions.',
             title: 'Where is Calendar state stored?',
           },
         ],
         facts: [
-          'Clock needs no permission and supports locale, 12-hour, and 24-hour formats.',
-          'Each Scene can contain at most one Clock and one Google Calendar widget.',
-          'Calendar requests go directly from the extension to Google; there is no Starlit backend in the middle.',
-          'If one calendar fails, events from other selected calendars can still appear with a partial-failure notice.',
+          'Clock needs no permission and supports token-based digital formats, IANA time zones, and analog faces with an optional second hand.',
+          'Each Scene can contain any number of Clock and Calendar widgets with independent settings.',
+          'Calendar requests go directly from the extension to the entered feed provider; there is no Starlit backend in the middle.',
+          'The gear beside a widget row and a widget right-click open the same instance editor.',
         ],
         media: [],
         steps: [
           {
-            body: 'Open Settings > Widgets, choose Add widget, then choose Clock and configure its hour cycle and whether to show seconds.',
-            title: 'Add a local Clock',
+            body: 'Open Settings > Widgets, choose Add widget, then choose Clock. Select Digital or Analog, configure the format or second hand, and optionally enter an IANA time zone.',
+            title: 'Add and format a Clock',
           },
           {
-            body: 'Choose Add widget, then Google Calendar. Read the consent explanation and choose Connect only if you want to grant read-only access.',
-            title: 'Start Calendar connection',
+            body: 'Choose Add widget, then Calendar. Enter an HTTPS or webcal iCalendar subscription URL and review the host-access explanation.',
+            title: 'Enter a Calendar URL',
           },
           {
-            body: 'Complete Google authorization, load the calendar list, and select the calendars whose upcoming events should appear.',
-            title: 'Choose calendars',
+            body: 'Choose Allow and subscribe. Chrome grants only the entered origin, then Starlit loads that feed. Repeat Add widget for another feed.',
+            title: 'Allow the feed origin',
           },
           {
-            body: 'Use Disconnect to clear the selected calendar IDs, saved calendar-list metadata, five-minute event cache, cached token when available, and optional Google API host access.',
-            title: 'Disconnect completely',
+            body: 'Clear the URL or remove the widget to delete it from the Scene. Reset all clears event caches. Revoke a previously granted host from Chrome extension settings when access should also be removed.',
+            title: 'Remove data and permission deliberately',
           },
         ],
-        title: 'Clock and read-only Google Calendar',
+        title: 'Clock and URL-subscribed Calendar',
       },
       'command-palette': {
         callout: {
@@ -364,7 +364,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Move selected Scene data with Portable Profile V4, resolve conflicts before import, and understand permission and reset boundaries.',
         details: [
           {
-            body: 'Scene, appearance, layout, Image widget media references, and Clock and Google Calendar configuration are included by default. Chrome bookmark URLs and uploaded media are off by default and show a sensitive-data warning when enabled. Locale and bookmark opening behavior are global preferences and remain included even when Scene is off. Permissions, tutorial state, Google authorization, calendar IDs, calendar-list metadata, and cached events are always excluded.',
+            body: 'Scene, appearance, layout, Image widget media references, and non-secret Clock and Calendar configuration are included by default. Every Calendar feed URL is replaced with null. Chrome bookmark URLs and uploaded media are off by default and show a sensitive-data warning when enabled. Locale and bookmark opening behavior remain global preferences. Permissions, tutorial state, feed URLs, and cached events are always excluded.',
             title: 'What does Portable Profile V4 include?',
           },
           {
@@ -372,7 +372,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'How are import conflicts handled?',
           },
           {
-            body: 'Storage and bookmarks are required. tabGroups remains optional until disconnected; tabs is requested only for an explicit open-group import and then removed. Calendar uses identity plus optional Google API host access and only read-only scopes after the Connect action.',
+            body: 'Storage and bookmarks are required. tabGroups remains optional until disconnected; tabs is requested only for an explicit open-group import and then removed. Calendar declares optional HTTPS hosts but requests only the exact feed origin after Allow and subscribe.',
             title: 'Why does Starlit request these permissions?',
           },
         ],
@@ -383,7 +383,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Skipped Scenes stay unchanged, while the profile’s global language and bookmark-opening preference are still imported.',
           'Replace Scene switches references only after new folders and assets are prepared; existing bookmark folders are not overwritten in place.',
           'Reset theme restores only the color theme. Reset all removes Starlit settings, Scene records, caches, custom favicons, and local media according to the reset confirmation.',
-          'Reset does not delete Chrome bookmarks or Scene folders. Reset all clears selected calendar IDs and saved calendar-list metadata, while Calendar authorization and Chrome optional permissions remain managed through their own disconnect actions.',
+          'Reset does not delete Chrome bookmarks or Scene folders. Reset all clears Calendar event caches, while granted Calendar host permissions remain managed in Chrome extension settings.',
         ],
         media: [
           {
@@ -636,9 +636,8 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Why will a Scene not apply?',
           },
           {
-            body: "Calendar does not connect automatically. Start Connect from Settings, approve the read-only scopes and optional Google API host access, then select calendars. If authorization becomes stale, Disconnect clears Starlit's local selection and caches before you connect again.",
-            title:
-              'Why does Calendar show a connection or authorization error?',
+            body: 'Calendar does not request access automatically. Enter a valid HTTPS or webcal URL, choose Allow and subscribe, and approve the exact feed origin. For a stale or denied permission, review that origin in Chrome extension settings and subscribe again.',
+            title: 'Why does Calendar show a connection or permission error?',
           },
           {
             body: 'Scene settings and uploaded media belong to one extension profile and do not arrive on another device through Chrome Sync. Export a Portable Profile with the Scene category, plus uploaded media when needed, then import it in the destination profile. A URL background still requires its provider to remain reachable.',
@@ -654,7 +653,7 @@ const COPY: Record<Locale, GuideCopy> = {
         media: [],
         steps: [
           {
-            body: 'Name the missing item first: a Scene bookmark folder, a local asset, an open tab group, a Calendar connection, or a display preference.',
+            body: 'Name the missing item first: a Scene bookmark folder, a local asset, an open tab group, a Calendar feed or host permission, or a display preference.',
             title: 'Identify who owns the data',
           },
           {
@@ -666,7 +665,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Check the storage boundary',
           },
           {
-            body: 'Export the recoverable Scenes. Enable bookmark URLs or uploaded media only if the destination needs those private categories. Only then try Relink, Restore, Calendar Disconnect and reconnect, a targeted reset, or Reset all.',
+            body: 'Export the recoverable Scenes. Enable bookmark URLs or uploaded media only if the destination needs those private categories. Calendar URLs are always redacted, so save them separately. Only then try Relink, Restore, resubscribe, a targeted reset, or Reset all.',
             title: 'Export before recovery or reset',
           },
         ],
@@ -675,10 +674,10 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     starlitData: {
       items: [
-        'Scene records: appearance, layout, bookmark-folder references, canvas widget order, Image widget media references, and Clock and Google Calendar configuration',
+        'Scene records: appearance, layout, bookmark-folder references, canvas widget order, Image widget media references, and Clock and Calendar configuration including device-local feed URLs',
         'Global language, bookmark opening behavior, favicon overrides, and UI caches',
         'Uploaded media and shared Scene assets stored locally in the extension profile',
-        'Selected Calendar IDs and list metadata (ID, name, color, and primary status) stored locally, with event results cached in the current session for five minutes',
+        'Calendar feed URLs stored in device-local Scenes, with parsed event results cached in the current session for five minutes',
       ],
       title: 'Starlit stores Scenes and device-scoped preferences',
     },
@@ -699,17 +698,17 @@ const COPY: Record<Locale, GuideCopy> = {
         'ブックマークフォルダー、タイトル、URL、およびそれらに加えた変更',
         '明示的に取り込む間だけ参照する、現在開いている Chrome タブグループとタブ',
         'Starlit が開いた後のライブタブグループと、Chrome での保存・終了状態',
-        'Calendar 一覧と event は Google Calendar に残り、Starlit は明示的な接続後に選択した data だけを読みます',
+        'Calendar feed は提供元に残り、Starlit は明示的に host 権限を許可した URL だけを読みます',
       ],
-      title: '原本は Chrome と Google にあります',
+      title: '原本は Chrome と feed 提供元にあります',
     },
     dataOwnershipDescription:
-      'Starlit は Chrome が所有する bookmark、明示的に認証した Google Calendar data、Starlit 独自の表示設定を組み合わせます。この境界を知ると、同期されるもの、reset で消えるもの、編集すべき場所を判断できます。',
+      'Starlit は Chrome が所有する bookmark、明示的に許可した Calendar feed、Starlit 独自の表示設定を組み合わせます。この境界を知ると、同期されるもの、reset で消えるもの、編集すべき場所を判断できます。',
     dataOwnershipTitle: '外部 provider の data と Starlit の data',
     detailsTitle: 'よくある質問',
     factsTitle: '知っておきたいこと',
     intro:
-      'Bookmark 中心の Scene、画像・時計・Google Calendar ウィジェット、Cmd/Ctrl+K 検索、Portable Profile V4 の実用ガイドです。',
+      'Bookmark 中心の Scene、画像・時計・Calendar ウィジェット、Cmd/Ctrl+K 検索、Portable Profile V4 の実用ガイドです。',
     language: 'ガイドの言語',
     navigation: 'ガイドの目次',
     quickStart: {
@@ -735,7 +734,7 @@ const COPY: Record<Locale, GuideCopy> = {
     screenshotNote:
       '参考スクリーンショットは英語版の画面です。操作位置と各セクションの配置は、どの言語でも共通です。',
     releaseStatus: {
-      body: 'v2 の Calendar を公開するには、Google OAuth verification の承認と、この動作に一致する Chrome Web Store のプライバシー申告が必要です。このガイドは、どちらの審査も完了したとは示していません。',
+      body: 'v2 の Calendar を公開するには、この動作に一致する Chrome Web Store のプライバシー申告と optional-host 権限の説明が必要です。このガイドは審査が完了したとは示していません。',
       title: 'Calendar の公開審査はまだ完了していません',
     },
     sections: {
@@ -749,7 +748,7 @@ const COPY: Record<Locale, GuideCopy> = {
           '外観、レイアウト、canvas のウィジェット、ブックマークフォルダーの参照を、あとで戻せる一つの設定として保存します。',
         details: [
           {
-            body: 'Scene には theme、font、背景、ブックマーク表示、Custom CSS、画像ウィジェットの media と順序、時計・Google Calendar ウィジェットの設定、Chrome ブックマークフォルダーが含まれます。言語、リンクを開く方法、tutorial、権限、Google 接続は全体設定のままです。',
+            body: 'Scene には theme、font、背景、ブックマーク表示、Custom CSS、画像ウィジェットの media と順序、時計・Calendar ウィジェットの設定、Chrome ブックマークフォルダーが含まれます。言語、リンクを開く方法、tutorial、権限は全体設定のままです。',
             title: 'Scene には何が保存されますか？',
           },
           {
@@ -786,48 +785,48 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       'widgets-calendar': {
         callout: {
-          body: 'Starlit は初回起動時に Calendar の interactive authorization を開始しません。設定の説明を読んで［接続］を選んだ場合だけ OAuth が始まります。',
-          title: 'Calendar 接続は必ず明示的に行います',
+          body: 'Starlit は初回起動時に Calendar host access を要求しません。設定の説明を読み、［アクセスを許可して購読］を選んだ場合だけ、入力した URL の origin を要求します。',
+          title: 'Calendar host access は必ず明示的に行います',
           tone: 'warning',
         },
         description:
-          '新しいタブを一般的な plugin dashboard に変えず、Scene ごとに Clock と read-only Google Calendar を一つずつ追加します。',
+          '新しいタブを一般的な plugin dashboard に変えず、Scene に Clock と read-only Calendar を必要な数だけ追加します。',
         details: [
           {
-            body: 'Starlit が使うのは calendar list と event の read-only scope だけです。選択した Calendar の今後 7 日分から最大 50 件をまとめ、件名、開始・終了、終日かどうか、Calendar 色、event link だけを残します。説明と参加者は破棄します。',
+            body: 'Starlit は入力した HTTPS iCalendar URL を credential なしで取得します。今後 7 日分から最大 50 件を読み、件名、開始・終了、終日かどうか、Calendar 色、HTTPS event link だけを残します。説明、参加者、raw feed は破棄します。',
             title: 'どの Calendar data を読みますか？',
           },
           {
-            body: 'Access token は Chrome Identity が cache します。選択した Calendar ID と最新の一覧 metadata（ID、名前、色、primary 状態）は local storage に保存し、event 結果は session storage で cache して最長 5 分間再利用します。認証、ID、一覧 metadata、event は Scene と Portable Profile V4 に含まれません。',
+            body: 'Feed URL は device-local Scene に保存します。Event 結果は URL から作った opaque key で session storage に最長 5 分間 cache します。Portable Profile V4 は widget を保持しますが feed URL を null にし、cached event と Chrome permission は含めません。',
             title: 'Calendar の状態はどこに保存されますか？',
           },
         ],
         facts: [
-          'Clock に権限は不要で、locale、12 時間、24 時間表示を選べます。',
-          '一つの Scene に追加できるのは Clock と Google Calendar を各一つまでです。',
-          'Calendar request は拡張機能から Google へ直接送られ、Starlit backend を経由しません。',
-          '一つの Calendar が失敗しても、他の Calendar の event は partial-failure 表示とともに確認できます。',
+          'Clock に権限は不要で、token-based digital format、IANA time zone、秒針を選べる analog 表示に対応します。',
+          '一つの Scene に Clock と Calendar を必要な数だけ追加し、それぞれ個別に設定できます。',
+          'Calendar request は拡張機能から入力した feed provider へ直接送られ、Starlit backend を経由しません。',
+          'Widget row の歯車と widget の右クリックは、同じ instance editor を開きます。',
         ],
         media: [],
         steps: [
           {
-            body: '設定の［ウィジェット］を開き、［ウィジェットを追加］、［時計］の順に選んで、時間表示と秒の表示有無を設定します。',
-            title: 'Local Clock を追加する',
+            body: '設定の［ウィジェット］で［ウィジェットを追加］、［時計］の順に選びます。Digital または Analog、表示 format または秒針、必要に応じて IANA time zone を設定します。',
+            title: 'Clock を追加して表示を設定する',
           },
           {
-            body: '［ウィジェットを追加］、［Google Calendar］の順に選びます。同意画面の説明を読み、read-only access を許可する場合だけ［接続］を選びます。',
-            title: 'Calendar 接続を始める',
+            body: '［ウィジェットを追加］、［Calendar］の順に選び、HTTPS または webcal の iCalendar 購読 URL を入力して host access の説明を確認します。',
+            title: 'Calendar URL を入力する',
           },
           {
-            body: 'Google の認証を完了し、Calendar 一覧を読み込んで、予定を表示する Calendar を選びます。',
-            title: 'Calendar を選ぶ',
+            body: '［アクセスを許可して購読］を選びます。Chrome は入力した origin だけを許可し、Starlit が feed を読み込みます。別の feed は新しい widget として追加します。',
+            title: 'Feed origin を許可する',
           },
           {
-            body: '［接続解除］を選ぶと、Calendar ID、保存した一覧 metadata、5 分間の event cache、利用可能な cached token、任意の Google API host access を削除します。',
-            title: '接続を完全に解除する',
+            body: 'URL を消すか widget を削除すると Scene から取り除けます。［すべてリセット］は event cache を消します。許可済み host も解除する場合は Chrome の拡張機能設定を使います。',
+            title: 'Data と permission を意図して削除する',
           },
         ],
-        title: 'Clock と read-only Google Calendar',
+        title: 'Clock と URL 購読 Calendar',
       },
       'command-palette': {
         callout: {
@@ -995,7 +994,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Portable Profile V4 で選択した Scene data を移し、import 前に conflict を解決し、権限とリセットの境界を確認します。',
         details: [
           {
-            body: 'Scene、外観、layout、画像ウィジェットの media 参照、時計・Google Calendar ウィジェットの設定は既定で含まれます。Chrome bookmark URL と uploaded media は既定で除外され、有効にすると sensitive-data 警告が表示されます。Locale とリンクを開く方法は global preference で、Scene を無効にしても含まれます。権限、tutorial、Google authorization、Calendar ID、Calendar 一覧 metadata、cached event は常に除外します。',
+            body: 'Scene、外観、layout、画像ウィジェットの media 参照、秘密情報を除いた時計・Calendar 設定は既定で含まれます。Calendar feed URL はすべて null に置き換えます。Chrome bookmark URL と uploaded media は既定で除外されます。権限、tutorial、feed URL、cached event は常に除外します。',
             title: 'Portable Profile V4 には何が含まれますか？',
           },
           {
@@ -1003,7 +1002,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Import conflict はどのように処理しますか？',
           },
           {
-            body: 'Storage と bookmarks は必須です。tabGroups は接続解除まで任意で保持し、tabs は明示的な open group import の間だけ要求して解除します。Calendar は［接続］後に identity、任意の Google API host access、read-only scope だけを使います。',
+            body: 'Storage と bookmarks は必須です。tabGroups は接続解除まで任意で保持し、tabs は明示的な open group import の間だけ要求して解除します。Calendar は optional HTTPS host を宣言しますが、［アクセスを許可して購読］の後に exact feed origin だけを要求します。',
             title: 'それぞれの権限はなぜ必要ですか？',
           },
         ],
@@ -1014,7 +1013,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Skip した Scene は変更せず、profile の global language とブックマークを開く設定は取り込みます。',
           'Replace Scene は新しい folder と asset の準備後に参照を切り替え、既存 bookmark folder を直接上書きしません。',
           '［Theme をリセット］は色だけを戻します。［すべてリセット］は確認内容に従って Starlit 設定、Scene record、cache、custom favicon、local media を削除します。',
-          'Reset は Chrome bookmark や Scene folder を削除しません。［すべてリセット］は Calendar ID と保存した一覧 metadata を消去しますが、Calendar authorization と Chrome optional permission はそれぞれの接続解除で管理します。',
+          'Reset は Chrome bookmark や Scene folder を削除しません。［すべてリセット］は Calendar event cache を消去しますが、許可済み host permission は Chrome の拡張機能設定で管理します。',
         ],
         media: [
           {
@@ -1268,8 +1267,9 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Scene を適用できないのはなぜですか？',
           },
           {
-            body: 'Calendar は自動接続されません。設定から［接続］を開始し、read-only scope と任意の Google API host access を許可してから calendar を選びます。認証が古くなった場合、接続解除で Starlit の local 選択と cache を削除してから再接続します。',
-            title: 'Calendar に接続または認証のエラーが出るのはなぜですか？',
+            body: 'Calendar は自動で host access を要求しません。有効な HTTPS または webcal URL を入力し、［アクセスを許可して購読］で exact origin を許可します。拒否または古い permission は Chrome の拡張機能設定を確認してから再購読します。',
+            title:
+              'Calendar feed または permission のエラーが出るのはなぜですか？',
           },
           {
             body: 'Scene 設定と uploaded media は一つの extension profile にあり、Chrome Sync では別端末に届きません。Scene category と、必要な場合は uploaded media を有効にして Portable Profile を export し、移動先 profile で import します。URL 背景では提供元へ接続できる必要があります。',
@@ -1285,7 +1285,7 @@ const COPY: Record<Locale, GuideCopy> = {
         media: [],
         steps: [
           {
-            body: '見えないものを特定します。Scene の bookmark folder、local asset、開いている tab group、Calendar 接続、表示設定のどれかを確認します。',
+            body: '見えないものを特定します。Scene の bookmark folder、local asset、開いている tab group、Calendar feed または host permission、表示設定のどれかを確認します。',
             title: 'データの所有者を特定する',
           },
           {
@@ -1297,7 +1297,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '保存領域の境界を確認する',
           },
           {
-            body: '復元できる Scene を export します。移動先で必要な場合だけ bookmark URL または uploaded media を有効にします。その後で Relink、Restore、Calendar の接続解除と再接続、対象だけの reset、または［すべてリセット］を試します。',
+            body: '復元できる Scene を export します。Calendar URL は常に redact されるため別に保管します。その後で Relink、Restore、再購読、対象だけの reset、または［すべてリセット］を試します。',
             title: '復旧またはリセット前にエクスポートする',
           },
         ],
@@ -1306,10 +1306,10 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     starlitData: {
       items: [
-        'Scene record：外観、layout、bookmark folder 参照、canvas の widget 順、画像ウィジェットの media 参照、時計・Google Calendar ウィジェットの設定',
+        'Scene record：外観、layout、bookmark folder 参照、canvas の widget 順、画像ウィジェットの media 参照、device-local feed URL を含む時計・Calendar 設定',
         'Global の言語、bookmark を開く方法、favicon override、UI cache',
         '拡張機能 profile に local 保存した uploaded media と shared Scene asset',
-        'Local 保存した Calendar ID と一覧 metadata（ID、名前、色、primary 状態）、現在の session に 5 分間 cache する event 結果',
+        'Device-local Scene に保存した Calendar feed URL と、現在の session に 5 分間 cache する parsed event 結果',
       ],
       title: 'Starlit は Scene と端末ごとの設定を保存します',
     },
@@ -1330,17 +1330,17 @@ const COPY: Record<Locale, GuideCopy> = {
         '북마크 폴더, 북마크 제목과 URL, 그리고 이를 편집한 결과',
         '사용자가 명시적으로 가져오는 동안 읽는 현재 열린 Chrome 탭 그룹과 탭',
         'Starlit이 연 뒤 Chrome에서 저장하거나 닫는 live tab group',
-        'Calendar 목록과 event는 Google Calendar에 남으며 Starlit은 명시적으로 연결한 뒤 선택한 data만 읽습니다',
+        'Calendar feed와 event는 feed 제공자에 남으며 Starlit은 사용자가 URL별 접근을 허용한 뒤 필요한 data만 읽습니다',
       ],
-      title: 'Chrome과 Google이 원본을 관리합니다',
+      title: 'Chrome과 Calendar 제공자가 원본을 관리합니다',
     },
     dataOwnershipDescription:
-      'Starlit은 Chrome이 관리하는 북마크, 명시적으로 인증한 Google Calendar data, 자체 화면 설정을 함께 사용합니다. 이 경계를 알면 무엇이 동기화되고, 초기화 때 무엇이 사라지며, 어디에서 항목을 편집해야 하는지 판단하기 쉽습니다.',
+      'Starlit은 Chrome이 관리하는 북마크, 사용자가 구독한 Calendar feed, 자체 화면 설정을 함께 사용합니다. 이 경계를 알면 무엇이 동기화되고, 초기화 때 무엇이 사라지며, 어디에서 항목을 편집해야 하는지 판단하기 쉽습니다.',
     dataOwnershipTitle: '외부 provider data와 Starlit data',
     detailsTitle: '자주 묻는 질문',
     factsTitle: '알아두면 좋은 점',
     intro:
-      '북마크 중심 Scene, 이미지·시계·Google Calendar 위젯, Cmd/Ctrl+K 검색, Portable Profile V4를 설명하는 실용 가이드입니다.',
+      '북마크 중심 Scene, 이미지·시계·Calendar 위젯, Cmd/Ctrl+K 검색, Portable Profile V4를 설명하는 실용 가이드입니다.',
     language: '가이드 언어',
     navigation: '가이드 목차',
     quickStart: {
@@ -1364,8 +1364,8 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     sectionKicker: '가이드',
     releaseStatus: {
-      body: 'v2 Calendar를 출시하려면 Google OAuth verification 승인과 이 동작에 맞춘 Chrome Web Store privacy practices 갱신이 필요합니다. 이 가이드는 두 심사가 끝났다고 주장하지 않습니다.',
-      title: 'Calendar 출시 심사가 아직 남아 있습니다',
+      body: 'v2 Calendar를 출시하려면 URL별 선택적 host 접근과 data 처리 방식에 맞춰 Chrome Web Store privacy practices를 갱신해야 합니다. 이 가이드는 Store 검토가 끝났다고 주장하지 않습니다.',
+      title: 'Calendar 출시 전 Store 검토가 남아 있습니다',
     },
     sections: {
       scenes: {
@@ -1378,7 +1378,7 @@ const COPY: Record<Locale, GuideCopy> = {
           '화면 모양, 레이아웃, canvas 위젯, 북마크 폴더 참조를 나중에 돌아올 수 있는 하나의 설정으로 저장합니다.',
         details: [
           {
-            body: 'Scene에는 theme, font, 배경, 북마크 표시 방식, Custom CSS, 이미지 위젯의 media와 순서, 시계·Google Calendar 위젯 설정, Chrome 북마크 폴더가 들어갑니다. 언어, 링크 열기 방식, tutorial 상태, 권한, Google 연결은 전체 설정으로 남습니다.',
+            body: 'Scene에는 theme, font, 배경, 북마크 표시 방식, Custom CSS, 이미지 위젯의 media와 순서, 시계·Calendar 위젯 설정, Chrome 북마크 폴더가 들어갑니다. 언어, 링크 열기 방식, tutorial 상태와 Chrome 권한은 전체 설정으로 남습니다.',
             title: 'Scene에는 무엇이 저장되나요?',
           },
           {
@@ -1415,48 +1415,49 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       'widgets-calendar': {
         callout: {
-          body: 'Starlit은 첫 실행에서 Calendar 인증을 자동으로 시작하지 않습니다. 설정의 설명을 읽고 연결을 선택했을 때만 OAuth가 시작됩니다.',
-          title: 'Calendar 연결은 항상 명시적으로 시작합니다',
+          body: 'Starlit은 첫 실행에서 Calendar feed에 접근하지 않습니다. URL을 입력하고 접근 허용 및 구독을 선택했을 때만 Chrome이 해당 URL의 정확한 origin 접근을 요청합니다.',
+          title: 'Calendar 구독은 항상 명시적으로 시작합니다',
           tone: 'warning',
         },
         description:
-          '새 탭을 범용 plugin dashboard로 만들지 않고 Scene마다 Clock과 읽기 전용 Google Calendar를 하나씩 추가합니다.',
+          'Scene에 Clock과 읽기 전용 Calendar를 필요한 만큼 추가하고, 각 위젯을 독립적으로 배치하고 설정합니다.',
         details: [
           {
-            body: 'Starlit은 calendar list와 event의 읽기 전용 scope만 사용합니다. 선택한 Calendar에서 앞으로 7일의 event를 읽어 최대 50개까지 합치며 제목, 시작·종료, 종일 여부, Calendar 색상, event link만 남깁니다. 설명과 참석자는 바로 버립니다.',
+            body: 'Starlit은 인증 정보가 포함되지 않은 HTTPS iCalendar URL을 읽습니다. 앞으로 7일의 event를 최대 50개까지 표시하며 제목, 시작·종료, 종일 여부, Calendar 색상, 안전한 HTTPS event link만 남깁니다. 설명, 참석자와 raw feed는 저장하지 않습니다.',
             title: '어떤 Calendar data를 읽나요?',
           },
           {
-            body: 'Access token은 Chrome Identity가 cache합니다. 선택한 Calendar ID와 최신 목록 metadata(ID, 이름, 색상, primary 상태)는 local storage에 저장하고 event 결과는 session storage에서 최대 5분 동안 다시 사용합니다. 인증, ID, 목록 metadata, event는 Scene과 Portable Profile V4에 포함하지 않습니다.',
+            body: 'Feed URL은 해당 Calendar 위젯의 Scene 설정에 기기별로 저장합니다. event 결과는 raw URL이 드러나지 않는 key로 session storage에서 최대 5분 동안 다시 사용합니다. Portable Profile V4에는 Calendar 위젯 설정을 넣되 feed URL은 null로 가립니다.',
             title: 'Calendar 상태는 어디에 저장되나요?',
           },
         ],
         facts: [
-          'Clock은 권한이 필요 없고 locale, 12시간, 24시간 표시를 지원합니다.',
-          'Scene 하나에는 Clock과 Google Calendar를 각각 최대 하나만 둘 수 있습니다.',
-          'Calendar request는 extension에서 Google로 직접 보내며 중간에 Starlit backend가 없습니다.',
-          'Calendar 하나가 실패해도 다른 Calendar의 event는 일부 실패 안내와 함께 표시할 수 있습니다.',
+          'Digital Clock은 HH, H, hh, h, mm, m, ss, s, a token을 조합하고 IANA time zone을 지정할 수 있습니다.',
+          'Analog Clock은 별도 표시 방식으로 선택하며 초침을 켜거나 끌 수 있습니다.',
+          'Scene 하나에 Clock과 Calendar를 각각 여러 개 둘 수 있습니다.',
+          'Calendar request는 extension에서 feed 제공자로 직접 보내며 중간에 Starlit backend가 없습니다.',
+          '메뉴의 톱니바퀴와 canvas 위젯 우클릭은 같은 위젯별 설정 화면을 엽니다.',
         ],
         media: [],
         steps: [
           {
-            body: '설정 > 위젯에서 위젯 추가, 시계 순서로 선택하고 시간 표시 방식과 초 표시 여부를 고릅니다.',
+            body: '설정 > 위젯에서 위젯 추가, 시계 순서로 선택합니다. Digital 또는 Analog를 고르고 표시 형식, time zone이나 초침을 설정합니다.',
             title: 'Local Clock 추가하기',
           },
           {
-            body: '위젯 추가, Google Calendar 순서로 선택합니다. 동의 설명을 읽은 뒤 읽기 전용 접근을 허용하려는 경우에만 연결을 선택합니다.',
-            title: 'Calendar 연결 시작하기',
+            body: '위젯 추가, Calendar 순서로 선택하고 HTTPS 또는 webcal Calendar URL을 입력합니다. 설명을 확인한 뒤 접근 허용 및 구독을 선택합니다.',
+            title: 'Calendar URL 구독하기',
           },
           {
-            body: 'Google 인증을 마치고 Calendar 목록을 불러온 다음 새 탭에 event를 표시할 Calendar를 선택합니다.',
-            title: 'Calendar 고르기',
+            body: 'Chrome 권한 dialog에서 입력한 URL의 정확한 origin만 허용합니다. 구독되면 앞으로 7일의 event가 해당 위젯에 표시됩니다.',
+            title: 'URL별 접근 허용하기',
           },
           {
-            body: '연결 해제를 선택하면 Calendar ID, 저장된 목록 metadata, 5분 event cache, 사용할 수 있는 cached token, 선택 Google API host 접근을 정리합니다.',
-            title: '연결 완전히 해제하기',
+            body: '위젯을 삭제하거나 전체 초기화하면 저장된 URL과 event cache가 사라집니다. 이미 허용한 host 권한까지 없애려면 Chrome의 확장 프로그램 site access 설정에서 직접 회수합니다.',
+            title: '구독과 host 권한 정리하기',
           },
         ],
-        title: 'Clock과 읽기 전용 Google Calendar',
+        title: '설정 가능한 Clock과 URL 구독 Calendar',
       },
       'command-palette': {
         callout: {
@@ -1624,7 +1625,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Portable Profile V4로 선택한 Scene data를 옮기고 적용 전에 충돌을 해결하며 권한과 초기화 범위를 확인합니다.',
         details: [
           {
-            body: 'Scene, 화면 모양, layout, 이미지 위젯 media 참조, 시계·Google Calendar 위젯 설정은 기본으로 포함합니다. Chrome 북마크 URL과 uploaded media는 기본으로 제외하며 켜면 민감정보 안내를 표시합니다. Locale과 링크 열기 방식은 global preference이며 Scene을 꺼도 포함합니다. 권한, tutorial 상태, Google 인증, Calendar ID, Calendar 목록 metadata, cached event는 항상 제외합니다.',
+            body: 'Scene, 화면 모양, layout, 이미지 위젯 media 참조, 시계·Calendar 위젯 설정은 기본으로 포함합니다. Calendar feed URL은 항상 null로 가립니다. Chrome 북마크 URL과 uploaded media는 기본으로 제외하며 켜면 민감정보 안내를 표시합니다. Locale과 링크 열기 방식은 global preference이며 Scene을 꺼도 포함합니다. 권한, tutorial 상태와 cached event도 항상 제외합니다.',
             title: 'Portable Profile V4에는 무엇이 들어가나요?',
           },
           {
@@ -1632,7 +1633,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '가져오기 충돌은 어떻게 처리하나요?',
           },
           {
-            body: 'Storage와 bookmarks는 필수입니다. tabGroups는 연결을 해제할 때까지 선택 권한으로 유지하고 tabs는 명시적인 열린 그룹 가져오기 동안만 요청한 뒤 회수합니다. Calendar는 연결한 뒤 identity, 선택 Google API host 접근, 읽기 전용 scope만 사용합니다.',
+            body: 'Storage와 bookmarks는 필수입니다. tabGroups는 연결을 해제할 때까지 선택 권한으로 유지하고 tabs는 명시적인 열린 그룹 가져오기 동안만 요청한 뒤 회수합니다. Calendar는 구독할 때 입력한 URL의 정확한 HTTPS origin에 대한 선택 권한만 요청합니다.',
             title: '각 Chrome 권한은 왜 필요한가요?',
           },
         ],
@@ -1643,7 +1644,7 @@ const COPY: Record<Locale, GuideCopy> = {
           '건너뛴 Scene은 바꾸지 않고 profile의 global 언어와 북마크 열기 preference는 가져옵니다.',
           'Scene 교체는 새 폴더와 asset을 준비한 뒤 참조를 바꾸며 기존 북마크 폴더를 직접 덮어쓰지 않습니다.',
           '테마 초기화는 색상만 되돌립니다. 전체 초기화는 확인 내용에 따라 Starlit 설정, Scene record, cache, custom favicon, local media를 지웁니다.',
-          '초기화는 Chrome 북마크와 Scene 폴더를 삭제하지 않습니다. 전체 초기화는 Calendar ID와 저장된 목록 metadata를 지우지만 Calendar 인증과 Chrome 선택 권한은 각 연결 해제 작업으로 관리합니다.',
+          '초기화는 Chrome 북마크와 Scene 폴더를 삭제하지 않습니다. 전체 초기화는 Calendar feed URL과 event cache를 지우지만 이미 허용한 host 권한은 Chrome의 확장 프로그램 site access 설정에서 관리합니다.',
         ],
         media: [
           {
@@ -1885,7 +1886,7 @@ const COPY: Record<Locale, GuideCopy> = {
           tone: 'warning',
         },
         description:
-          'Scene이 적용되지 않거나 북마크·미디어가 사라졌거나 Calendar 연결과 화면 갱신에 문제가 있을 때, 초기화보다 먼저 데이터 소유권과 저장 공간 경계를 확인합니다.',
+          'Scene이 적용되지 않거나 북마크·미디어가 사라졌거나 Calendar 구독과 화면 갱신에 문제가 있을 때, 초기화보다 먼저 데이터 소유권과 저장 공간 경계를 확인합니다.',
         details: [
           {
             body: '같은 Store 설치의 정상 업데이트는 같은 extension ID를 유지하므로 저장 공간도 보존합니다. Store build, unpacked build, 다른 Chrome profile, 다른 경로에서 다시 불러온 unpacked build는 별도 저장 공간을 사용할 수 있습니다. 이전 설치에서 내보내고 새 설치에서 가져오세요.',
@@ -1896,8 +1897,8 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Scene이 적용되지 않아요',
           },
           {
-            body: 'Calendar는 자동으로 연결되지 않습니다. 설정에서 연결을 시작하고 read-only scope와 선택적 Google API host access를 허용한 뒤 calendar를 고르세요. 인증이 만료된 경우 연결 해제로 Starlit의 local 선택과 cache를 지운 다음 다시 연결합니다.',
-            title: 'Calendar 연결 또는 인증 오류가 보여요',
+            body: 'Calendar는 자동으로 구독되지 않습니다. 위젯 설정에서 유효한 HTTPS 또는 webcal URL을 입력하고 해당 origin의 접근을 허용하세요. 제공자가 iCalendar 대신 로그인 page나 HTML을 반환하거나 URL이 만료되면 새 feed URL이 필요합니다.',
+            title: 'Calendar 구독 또는 feed 오류가 보여요',
           },
           {
             body: 'Scene 설정과 업로드한 미디어는 한 extension profile에 있으며 Chrome Sync로 다른 기기에 전달되지 않습니다. Scene category와 필요한 경우 uploaded media를 켜서 Portable Profile을 내보낸 뒤 대상 profile에서 가져오세요. URL 배경은 제공처에 계속 접속할 수 있어야 합니다.',
@@ -1913,7 +1914,7 @@ const COPY: Record<Locale, GuideCopy> = {
         media: [],
         steps: [
           {
-            body: '무엇이 보이지 않는지 먼저 구분합니다. Scene 북마크 폴더, local asset, 열린 탭 그룹, Calendar 연결, 화면 설정 중 어디에 해당하는지 확인하세요.',
+            body: '무엇이 보이지 않는지 먼저 구분합니다. Scene 북마크 폴더, local asset, 열린 탭 그룹, Calendar feed, 화면 설정 중 어디에 해당하는지 확인하세요.',
             title: '데이터 소유자 확인하기',
           },
           {
@@ -1925,7 +1926,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '저장 공간 경계 확인하기',
           },
           {
-            body: '복구 가능한 Scene을 내보냅니다. 대상 profile에 필요한 경우에만 북마크 URL이나 uploaded media를 켜세요. 그다음 Relink, Restore, Calendar 연결 해제·재연결, 선택 초기화 또는 전체 초기화를 시도합니다.',
+            body: '복구 가능한 Scene을 내보냅니다. Calendar feed URL은 내보내지 않으므로 따로 보관하세요. 대상 profile에 필요한 경우에만 북마크 URL이나 uploaded media를 켜고, 그다음 Relink, Restore, URL 재구독, 선택 초기화 또는 전체 초기화를 시도합니다.',
             title: '복구·초기화 전에 내보내기',
           },
         ],
@@ -1934,10 +1935,10 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     starlitData: {
       items: [
-        'Scene record: 화면 모양, layout, 북마크 폴더 참조, canvas 위젯 순서, 이미지 위젯 media 참조, 시계·Google Calendar 위젯 설정',
+        'Scene record: 화면 모양, layout, 북마크 폴더 참조, canvas 위젯 순서, 이미지 위젯 media 참조, 시계·Calendar 위젯 설정',
         'Global 언어, 북마크 열기 방식, favicon override, UI cache',
         'Extension profile에 local로 저장한 uploaded media와 shared Scene asset',
-        'Local에 저장한 Calendar ID와 목록 metadata(ID, 이름, 색상, primary 상태), 현재 session에 5분 동안 cache한 event 결과',
+        '각 Calendar 위젯에 local로 저장한 feed URL과 raw URL을 드러내지 않는 key로 현재 session에 최대 5분 동안 cache한 event 결과',
       ],
       title: 'Starlit은 Scene과 기기별 설정을 저장합니다',
     },

@@ -8,7 +8,7 @@ const resetMocks = vi.hoisted(() => ({
   localRemove: vi.fn(async (): Promise<void> => undefined),
   localSet: vi.fn(async (): Promise<void> => undefined),
   replaceIndexedRecordSet: vi.fn(async (): Promise<void> => undefined),
-  sessionRemove: vi.fn(async (): Promise<void> => undefined),
+  sessionClear: vi.fn(async (): Promise<void> => undefined),
   syncRemove: vi.fn(async (): Promise<void> => undefined),
   syncSet: vi.fn(async (): Promise<void> => undefined),
   withExclusiveLock: vi.fn(
@@ -45,7 +45,7 @@ vi.mock('../platform/storage/storage', () => ({
       set: resetMocks.syncSet,
     },
     session: {
-      remove: resetMocks.sessionRemove,
+      clear: resetMocks.sessionClear,
     },
   },
 }));
@@ -112,9 +112,7 @@ describe('resetAllSettings', () => {
         'overlayMediaMutationLease:import-1',
       ]),
     );
-    expect(resetMocks.sessionRemove).toHaveBeenCalledWith(
-      'googleCalendar.eventCache.v1',
-    );
+    expect(resetMocks.sessionClear).toHaveBeenCalledOnce();
     expect(resetMocks.deleteMedia).toHaveBeenCalledWith('backgroundMedia');
     expect(resetMocks.deleteLegacyMedia).toHaveBeenCalledWith(
       'backgroundMedia',

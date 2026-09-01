@@ -7,7 +7,12 @@ import { CanvasWidgets } from './CanvasWidgets';
 function createClock(id: string, isHidden = false): ClockWidgetInstance {
   return {
     anchor: 'top-left',
-    config: { hourCycle: 'locale', showSeconds: false },
+    config: {
+      appearance: 'digital',
+      format: 'HH:mm',
+      showSecondHand: true,
+      timeZone: null,
+    },
     frame: { height: 80, offsetX: 12, offsetY: 18, width: 120 },
     id,
     isHidden,
@@ -22,7 +27,6 @@ const CALENDAR_COPY = {
   empty: 'Empty',
   error: 'Error',
   loading: 'Loading',
-  partialFailure: 'Partial failure',
 };
 
 describe('CanvasWidgets', () => {

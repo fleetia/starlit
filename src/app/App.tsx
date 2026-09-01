@@ -135,7 +135,7 @@ type SceneApplyPreview = {
   appearance: string;
   bookmarkFolder: string;
   decorationCount: number;
-  widgetTypes: Array<'clock' | 'google-calendar'>;
+  widgetTypes: Array<'calendar' | 'clock'>;
 };
 
 function createSceneApplyPreview(scene: ScenePresetV1): SceneApplyPreview {
@@ -160,6 +160,14 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     useState<PrimaryTab>('general');
   const [settingsInitialOverlayImageId, setSettingsInitialOverlayImageId] =
     useState<string | null>(null);
+  const [settingsInitialWidgetId, setSettingsInitialWidgetId] = useState<
+    string | null
+  >(null);
+  const [widgetContextTarget, setWidgetContextTarget] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [settingsContextMenuPoint, setSettingsContextMenuPoint] = useState<{
     x: number;
     y: number;
@@ -351,11 +359,14 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     tab: PrimaryTab,
     trigger: HTMLElement | null,
     initialOverlayImageId: string | null = null,
+    initialWidgetId: string | null = null,
   ): void {
     setSettingsContextMenuPoint(null);
+    setWidgetContextTarget(null);
     settingsSessionTriggerRef.current = trigger;
     setSettingsInitialTab(tab);
     setSettingsInitialOverlayImageId(initialOverlayImageId);
+    setSettingsInitialWidgetId(initialWidgetId);
     setIsSettingsOpen(true);
   }
 
@@ -566,6 +577,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     event.preventDefault();
     bookmarkActions.closeContextMenu();
     overlayImageActions.closeMenu();
+    setWidgetContextTarget(null);
     setSettingsContextMenuPoint({ x: event.clientX, y: event.clientY });
   }
 
@@ -575,8 +587,26 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
     isFolder: boolean,
   ): void {
     setSettingsContextMenuPoint(null);
+    setWidgetContextTarget(null);
     overlayImageActions.closeMenu();
     bookmarkActions.openContextMenu(event, bookmarkId, isFolder);
+  }
+
+  function handleWidgetContextMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    widgetId: string,
+  ): void {
+    if (!isSettingsContextMenuEnabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSettingsContextMenuPoint(null);
+    bookmarkActions.closeContextMenu();
+    overlayImageActions.closeMenu();
+    setWidgetContextTarget({
+      id: widgetId,
+      x: event.clientX,
+      y: event.clientY,
+    });
   }
 
   function openSettingsFromContextMenu(tab: PrimaryTab): void {
@@ -618,10 +648,10 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           empty: t('widgets.empty'),
           error: t('widgets.error'),
           loading: t('widgets.loading'),
-          partialFailure: t('widgets.partialFailure'),
         }}
         canvas={sceneController.activeScene?.canvas ?? null}
         locale={locale}
+        onWidgetContextMenu={handleWidgetContextMenu}
       />
 
       <main
@@ -695,6 +725,9 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           {...(settingsInitialOverlayImageId
             ? { initialOverlayImageId: settingsInitialOverlayImageId }
             : {})}
+          {...(settingsInitialWidgetId
+            ? { initialWidgetId: settingsInitialWidgetId }
+            : {})}
           initialTab={settingsInitialTab}
           backgroundMeta={backgroundMeta}
           colorTheme={colorTheme}
@@ -753,6 +786,32 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
 
       <BookmarkActionOverlays actions={bookmarkActions} />
       <ContextMenu
+        anchorPoint={
+          widgetContextTarget
+            ? { x: widgetContextTarget.x, y: widgetContextTarget.y }
+            : { x: 0, y: 0 }
+        }
+        isOpen={isSettingsContextMenuEnabled && widgetContextTarget !== null}
+        label={t('widgets.configure')}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setWidgetContextTarget(null);
+        }}
+      >
+        <ContextMenuItem
+          onSelect={() => {
+            if (!widgetContextTarget) return;
+            openSettings(
+              'widgets',
+              settingsTriggerRef.current,
+              null,
+              widgetContextTarget.id,
+            );
+          }}
+        >
+          {t('widgets.configure')}
+        </ContextMenuItem>
+      </ContextMenu>
+      <ContextMenu
         anchorPoint={settingsContextMenuPoint ?? { x: 0, y: 0 }}
         isOpen={
           isSettingsContextMenuEnabled && settingsContextMenuPoint !== null
@@ -788,6 +847,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
         }
         onTarget={({ clientX, clientY, imageId }) => {
           setSettingsContextMenuPoint(null);
+          setWidgetContextTarget(null);
           bookmarkActions.closeContextMenu();
           overlayImageActions.openMenu({
             imageId,
@@ -817,6 +877,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           !overlayImageActions.isProcessing &&
           !sceneController.isProcessing &&
           settingsContextMenuPoint === null &&
+          widgetContextTarget === null &&
           bookmarkActions.contextTarget === null &&
           overlayImageActions.menuTarget === null &&
           pendingScene === null &&

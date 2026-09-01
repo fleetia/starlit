@@ -190,7 +190,7 @@ const ko: Translations = {
   'sidebar.general.resetAll': '전체 초기화',
   'sidebar.general.resetAllConfirmTitle': 'Starlit 데이터를 전체 초기화할까요?',
   'sidebar.general.resetAllConfirmDescription':
-    'Starlit 설정, Scene, cache, custom favicon, tutorial·화면 상태, local media를 영구 삭제합니다. Chrome 북마크, Scene 폴더, Calendar 인증, 허용한 선택 권한은 남습니다.',
+    'Starlit 설정, Scene, cache, custom favicon, tutorial·화면 상태, local media를 영구 삭제합니다. Chrome 북마크, Scene 폴더, 허용한 선택 권한은 남습니다.',
   'sidebar.general.resetAllConfirmAction': '영구 초기화',
   'sidebar.general.credits': '크레딧',
   'sidebar.general.credits.dev': '개발 & 디자인',
@@ -209,24 +209,24 @@ const ko: Translations = {
   'sidebar.confirm.yes': '예',
   'sidebar.confirm.no': '아니오',
 
-  // Overlay image layers
-  'layers.title': '이미지',
+  // Canvas layers
+  'layers.title': '캔버스 순서',
   'layers.description':
-    '이미지 위젯을 북마크 뒤나 앞에 배치할 수 있습니다. 위쪽 행일수록 화면 앞에 표시됩니다.',
+    '이미지, 캘린더, 시계와 북마크의 순서를 정합니다. 위쪽 행일수록 화면 앞에 표시됩니다.',
   'layers.add': '이미지 추가',
   'layers.processing': '이미지 위젯 처리 중',
-  'layers.empty': '추가된 이미지 위젯이 없습니다.',
+  'layers.empty': '추가된 위젯이 없습니다.',
   'layers.bookmarks': '북마크',
   'layers.bookmarksDescription': '전체 북마크 화면',
   'layers.front': '앞',
   'layers.back': '뒤',
   'layers.frontToBackDescription':
-    '이미지 위젯은 앞에서 뒤 순서입니다. 북마크를 이미지 사이로 옮겨 어떤 이미지가 북마크를 덮을지 정하세요.',
-  'layers.layerList': '이미지 위젯 순서',
+    '캔버스 항목은 앞에서 뒤 순서입니다. 항목을 옮겨 북마크의 위나 아래에 무엇을 표시할지 정하세요.',
+  'layers.layerList': '캔버스 항목 순서',
   'layers.moveForward': '앞으로 이동',
   'layers.moveBackward': '뒤로 이동',
   'layers.remove': '이미지 삭제',
-  'layers.dragToReorder': '드래그하여 이미지 위젯 순서 변경',
+  'layers.dragToReorder': '드래그하여 캔버스 항목 순서 변경',
   'layers.editPositions': '위치 편집',
   'layers.fileDescription':
     '정적 이미지는 WebP로, GIF는 WebM으로 변환합니다. 동영상과 업로드 파일은 현재 기기에만 저장됩니다.',
@@ -281,25 +281,37 @@ const ko: Translations = {
 
   // Widgets
   'widgets.sceneRequired':
-    'Google Calendar나 시계를 추가하려면 현재 구성을 먼저 Scene으로 저장하세요.',
+    '캘린더나 시계 위젯을 추가하려면 현재 구성을 먼저 Scene으로 저장하세요.',
   'widgets.description':
-    '새 탭에 이미지, Google Calendar 또는 시계를 추가합니다.',
+    '새 탭에 이미지, 캘린더, 시계를 필요한 만큼 추가합니다.',
   'widgets.image': '이미지',
-  'widgets.alreadyAdded': '이미 추가됨',
   'widgets.chooseTitle': '추가할 위젯 선택',
   'widgets.clock': '시계',
   'widgets.clockDescription':
-    '권한 없이 현재 언어와 시간 형식에 맞춰 표시합니다.',
-  'widgets.calendar': 'Google Calendar',
+    '시계마다 디지털·아날로그 형식과 시간대를 따로 설정합니다.',
+  'widgets.calendar': '캘린더',
   'widgets.calendarDescription':
-    '선택한 캘린더의 앞으로 7일 일정을 읽기 전용으로 표시합니다.',
+    'iCalendar URL을 구독해 앞으로 7일의 일정을 표시합니다.',
   'widgets.add': '위젯 추가',
   'widgets.remove': '위젯 제거',
-  'widgets.hourCycle': '시간 형식',
-  'widgets.hourCycleLocale': '언어 설정 따르기',
-  'widgets.hourCycle12': '12시간제',
-  'widgets.hourCycle24': '24시간제',
-  'widgets.showSeconds': '초 표시',
+  'widgets.configure': '위젯 설정',
+  'widgets.appearance': '시계 모양',
+  'widgets.digital': '디지털',
+  'widgets.analog': '아날로그',
+  'widgets.format': '시간 표시 형식',
+  'widgets.formatDescription':
+    'HH, H, hh, h, mm, m, ss, s, a 토큰을 사용할 수 있습니다.',
+  'widgets.invalidFormat': '올바른 시간 표시 형식을 입력하세요.',
+  'widgets.timeZone': '시간대',
+  'widgets.timeZoneDescription':
+    '비워 두면 현재 시간대를 사용합니다. 예: Asia/Seoul',
+  'widgets.invalidTimeZone': '올바른 IANA 시간대를 입력하세요.',
+  'widgets.showSecondHand': '초침 표시',
+  'widgets.feedUrl': '캘린더 URL',
+  'widgets.feedUrlDescription':
+    'HTTPS 또는 webcal iCalendar 구독 URL을 지원하며 URL은 이 기기에만 저장됩니다.',
+  'widgets.invalidFeedUrl': '올바른 HTTPS 또는 webcal URL을 입력하세요.',
+  'widgets.subscribe': '접근 허용 및 구독',
   'widgets.maxEvents': '최대 일정 수',
   'widgets.showAllDay': '종일 일정 표시',
   'widgets.offsetX': '가로 간격',
@@ -307,18 +319,13 @@ const ko: Translations = {
   'widgets.width': '너비',
   'widgets.height': '높이',
   'widgets.calendarConsent':
-    '연결을 누르면 읽기 전용 Calendar 권한을 요청합니다. Starlit 서버로 전송하지 않습니다.',
-  'widgets.connect': 'Google Calendar 연결',
+    '입력한 URL의 정확한 origin에만 접근 권한을 요청하며 일정 데이터는 Starlit 서버로 전송하지 않습니다.',
   'widgets.configureInSettings':
-    'Settings의 Widgets에서 Google Calendar를 연결하고 표시할 Calendar를 선택하세요.',
-  'widgets.disconnect': '연결 해제',
-  'widgets.loadCalendars': '캘린더 목록 불러오기',
+    '이 위젯 설정에서 캘린더 URL을 구성하거나 구독하세요.',
   'widgets.refresh': '새로고침',
   'widgets.empty': '표시할 일정이 없습니다.',
   'widgets.loading': '일정을 불러오는 중입니다.',
   'widgets.error': '일정을 불러오지 못했습니다.',
-  'widgets.partialFailure':
-    '일부 캘린더를 불러오지 못했지만 나머지 일정은 표시합니다.',
 
   // Command palette
   'palette.title': 'Starlit 검색',

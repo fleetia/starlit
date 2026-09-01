@@ -1,28 +1,26 @@
-export type BuiltInWidgetKind = 'clock' | 'google-calendar';
+export type BuiltInWidgetKind = 'calendar' | 'clock';
 
-export type ClockHourCycle = 'locale' | 'h12' | 'h24';
+export type ClockAppearance = 'analog' | 'digital';
 
 export type ClockWidgetConfig = {
-  hourCycle: ClockHourCycle;
-  showSeconds: boolean;
+  appearance: ClockAppearance;
+  format: string;
+  showSecondHand: boolean;
+  timeZone: string | null;
 };
 
-export type GoogleCalendarWidgetConfig = {
+export type CalendarWidgetConfig = {
+  feedUrl: string | null;
   maxEvents: number;
   showAllDay: boolean;
 };
 
 export type BuiltInWidgetConfigByKind = {
+  calendar: CalendarWidgetConfig;
   clock: ClockWidgetConfig;
-  'google-calendar': GoogleCalendarWidgetConfig;
-};
-
-export type BuiltInWidgetInstanceLike = {
-  kind: BuiltInWidgetKind;
 };
 
 export type BuiltInWidgetDefinition<Kind extends BuiltInWidgetKind> = {
   defaultConfig: BuiltInWidgetConfigByKind[Kind];
   kind: Kind;
-  maxInstancesPerScene: 1;
 };

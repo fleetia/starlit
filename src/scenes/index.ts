@@ -20,7 +20,10 @@ export {
   parseSceneCollectionV3,
   parseScenePresetV1,
 } from './codec';
-export { mergeCanvasWithOverlay } from './canvasProjection';
+export {
+  mergeCanvasWithOverlay,
+  projectCanvasSceneToStableOverlayScene,
+} from './canvasProjection';
 export {
   createSceneConflictPreviews,
   planSceneConflicts,
@@ -89,10 +92,10 @@ export {
   type CanvasFrame,
   type CanvasLayerV2,
   type CanvasSceneV2,
+  type CalendarWidgetConfig,
+  type CalendarWidgetInstance,
   type ClockWidgetConfig,
   type ClockWidgetInstance,
-  type GoogleCalendarWidgetConfig,
-  type GoogleCalendarWidgetInstance,
   type LegacySceneSettingsSnapshot,
   type SceneAppearanceSnapshotV1,
   type SceneBackgroundV1,

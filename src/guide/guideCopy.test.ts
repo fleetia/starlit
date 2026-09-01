@@ -7,7 +7,7 @@ type GuideIaExpectation = {
   appearanceRoute: string;
   bookmarkGroupsRoute: string;
   calendarAddFlow: string;
-  calendarListTerm: string;
+  calendarFeedTerm: string;
   clockAddFlow: string;
   emptyCanvasRoute: string;
   imageAddFlow: string;
@@ -26,8 +26,8 @@ const GUIDE_IA_EXPECTATIONS: GuideIaExpectation[] = [
   {
     appearanceRoute: 'Settings > Appearance',
     bookmarkGroupsRoute: 'Settings > Bookmark groups',
-    calendarAddFlow: 'Add widget, then Google Calendar',
-    calendarListTerm: 'calendar-list metadata',
+    calendarAddFlow: 'Add widget, then Calendar',
+    calendarFeedTerm: 'feed URL',
     clockAddFlow: 'Add widget, then choose Clock',
     emptyCanvasRoute: 'right-click an empty area',
     imageAddFlow: 'Add widget, then Image',
@@ -44,8 +44,8 @@ const GUIDE_IA_EXPECTATIONS: GuideIaExpectation[] = [
   {
     appearanceRoute: '設定の［外観］',
     bookmarkGroupsRoute: '設定の［ブックマークグループ］',
-    calendarAddFlow: '［ウィジェットを追加］、［Google Calendar］',
-    calendarListTerm: '一覧 metadata',
+    calendarAddFlow: '［ウィジェットを追加］、［Calendar］',
+    calendarFeedTerm: 'Feed URL',
     clockAddFlow: '［ウィジェットを追加］、［時計］',
     emptyCanvasRoute: '何もない場所を右クリック',
     imageAddFlow: '［ウィジェットを追加］、［画像］',
@@ -62,8 +62,8 @@ const GUIDE_IA_EXPECTATIONS: GuideIaExpectation[] = [
   {
     appearanceRoute: '설정 > 외형',
     bookmarkGroupsRoute: '설정 > 북마크 그룹',
-    calendarAddFlow: '위젯 추가, Google Calendar',
-    calendarListTerm: '목록 metadata',
+    calendarAddFlow: '위젯 추가, Calendar',
+    calendarFeedTerm: 'feed URL',
     clockAddFlow: '위젯 추가, 시계',
     emptyCanvasRoute: '빈 공간을 우클릭',
     imageAddFlow: '위젯 추가, 이미지',
@@ -86,7 +86,7 @@ describe('getGuideCopy', () => {
       appearanceRoute,
       bookmarkGroupsRoute,
       calendarAddFlow,
-      calendarListTerm,
+      calendarFeedTerm,
       clockAddFlow,
       emptyCanvasRoute,
       imageAddFlow,
@@ -130,7 +130,7 @@ describe('getGuideCopy', () => {
       );
       expect(copy.starlitData.items.join(' ')).not.toContain('Custom CSS');
       expect(fullCopy).toContain(screenPositionTerm);
-      expect(fullCopy).toContain(calendarListTerm);
+      expect(fullCopy).toContain(calendarFeedTerm);
       expect(fullCopy).toContain(portableRoute);
       expect(fullCopy).not.toContain(previousPortableRoute);
       expect(fullCopy).not.toMatch(

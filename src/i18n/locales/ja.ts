@@ -192,7 +192,7 @@ const ja: Translations = {
   'sidebar.general.resetAllConfirmTitle':
     'Starlit データをすべてリセットしますか？',
   'sidebar.general.resetAllConfirmDescription':
-    'Starlit の設定、Scene、cache、custom favicon、tutorial・表示状態、local media を完全に削除します。Chrome bookmark、Scene folder、Calendar 認証、許可済みの optional permission は残ります。',
+    'Starlit の設定、Scene、cache、custom favicon、tutorial・表示状態、local media を完全に削除します。Chrome bookmark、Scene folder、許可済みの optional permission は残ります。',
   'sidebar.general.resetAllConfirmAction': '完全にリセット',
   'sidebar.general.credits': 'クレジット',
   'sidebar.general.credits.dev': '開発 & デザイン',
@@ -211,24 +211,24 @@ const ja: Translations = {
   'sidebar.confirm.yes': 'はい',
   'sidebar.confirm.no': 'いいえ',
 
-  // Overlay image layers
-  'layers.title': '画像',
+  // Canvas layers
+  'layers.title': 'キャンバスの順序',
   'layers.description':
-    '画像ウィジェットをブックマークの後ろまたは前に配置できます。上の行ほど手前に表示されます。',
+    '画像、Calendar、時計、ブックマークの順序を設定します。上の行ほど手前に表示されます。',
   'layers.add': '画像を追加',
   'layers.processing': '画像ウィジェットを処理中',
-  'layers.empty': '画像ウィジェットはまだ追加されていません。',
+  'layers.empty': 'ウィジェットはまだ追加されていません。',
   'layers.bookmarks': 'ブックマーク',
   'layers.bookmarksDescription': 'ブックマーク画面全体',
   'layers.front': '前',
   'layers.back': '後ろ',
   'layers.frontToBackDescription':
-    '画像ウィジェットは前から後ろの順です。ブックマークを画像の間に移動して、どの画像を手前に表示するか決めます。',
-  'layers.layerList': '画像ウィジェットの順序',
+    'キャンバス項目は前から後ろの順です。項目を移動して、ブックマークの上または下に表示するものを決めます。',
+  'layers.layerList': 'キャンバス項目の順序',
   'layers.moveForward': '前へ移動',
   'layers.moveBackward': '後ろへ移動',
   'layers.remove': '画像を削除',
-  'layers.dragToReorder': 'ドラッグして画像ウィジェットを並べ替え',
+  'layers.dragToReorder': 'ドラッグしてキャンバス項目を並べ替え',
   'layers.editPositions': '位置を編集',
   'layers.fileDescription':
     '静止画はWebP、GIFはWebMに変換し、再生可能な動画も使用できます。アップロードしたファイルはこのデバイスにのみ保存されます。',
@@ -283,25 +283,37 @@ const ja: Translations = {
 
   // Widgets
   'widgets.sceneRequired':
-    'Google Calendarまたは時計を追加するには、現在の設定をSceneとして保存してください。',
+    'カレンダーまたは時計を追加するには、現在の設定をSceneとして保存してください。',
   'widgets.description':
-    '新しいタブに画像、Google Calendar、または時計を追加します。',
+    '新しいタブに画像、カレンダー、時計を必要な数だけ追加します。',
   'widgets.image': '画像',
-  'widgets.alreadyAdded': '追加済み',
   'widgets.chooseTitle': '追加するウィジェットを選択',
   'widgets.clock': '時計',
   'widgets.clockDescription':
-    '権限を要求せず、言語設定に合った時刻を表示します。',
-  'widgets.calendar': 'Google Calendar',
+    '時計ごとにデジタル・アナログ表示とタイムゾーンを設定します。',
+  'widgets.calendar': 'カレンダー',
   'widgets.calendarDescription':
-    '選択したカレンダーの今後7日間の予定を読み取り専用で表示します。',
+    'iCalendar URLを購読し、今後7日間の予定を表示します。',
   'widgets.add': 'ウィジェットを追加',
   'widgets.remove': 'ウィジェットを削除',
-  'widgets.hourCycle': '時刻形式',
-  'widgets.hourCycleLocale': '言語設定に従う',
-  'widgets.hourCycle12': '12時間制',
-  'widgets.hourCycle24': '24時間制',
-  'widgets.showSeconds': '秒を表示',
+  'widgets.configure': 'ウィジェットを設定',
+  'widgets.appearance': '時計のスタイル',
+  'widgets.digital': 'デジタル',
+  'widgets.analog': 'アナログ',
+  'widgets.format': '時刻表示形式',
+  'widgets.formatDescription':
+    'HH、H、hh、h、mm、m、ss、s、aトークンを使用できます。',
+  'widgets.invalidFormat': '有効な時刻表示形式を入力してください。',
+  'widgets.timeZone': 'タイムゾーン',
+  'widgets.timeZoneDescription':
+    '空欄の場合は現在のタイムゾーンを使用します。例: Asia/Tokyo',
+  'widgets.invalidTimeZone': '有効なIANAタイムゾーンを入力してください。',
+  'widgets.showSecondHand': '秒針を表示',
+  'widgets.feedUrl': 'カレンダーURL',
+  'widgets.feedUrlDescription':
+    'HTTPSまたはwebcalのiCalendar購読URLに対応し、URLはこの端末にのみ保存されます。',
+  'widgets.invalidFeedUrl': '有効なHTTPSまたはwebcal URLを入力してください。',
+  'widgets.subscribe': 'アクセスを許可して購読',
   'widgets.maxEvents': '最大予定数',
   'widgets.showAllDay': '終日の予定を表示',
   'widgets.offsetX': '横方向の間隔',
@@ -309,18 +321,13 @@ const ja: Translations = {
   'widgets.width': '幅',
   'widgets.height': '高さ',
   'widgets.calendarConsent':
-    '接続すると読み取り専用のCalendar権限を要求します。Starlitのサーバーには送信しません。',
-  'widgets.connect': 'Google Calendarに接続',
+    '入力したURLの正確なオリジンだけにアクセスを要求し、予定データをStarlitのサーバーへ送信しません。',
   'widgets.configureInSettings':
-    'SettingsのWidgetsでGoogle Calendarを接続し、表示するCalendarを選択してください。',
-  'widgets.disconnect': '接続解除',
-  'widgets.loadCalendars': 'カレンダー一覧を読み込む',
+    'このウィジェットの設定でカレンダーURLを設定または購読してください。',
   'widgets.refresh': '更新',
   'widgets.empty': '表示する予定がありません。',
   'widgets.loading': '予定を読み込んでいます。',
   'widgets.error': '予定を読み込めませんでした。',
-  'widgets.partialFailure':
-    '一部のカレンダーを読み込めなかったため、取得できた予定のみ表示します。',
 
   // Command palette
   'palette.title': 'Starlitを検索',

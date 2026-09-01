@@ -1,16 +1,15 @@
 import { createCalendarGateway } from './gateway';
+import { normalizeCalendarFeedUrl } from './feedUrl';
 import {
   createCalendarMessageListener,
   isCalendarMessageResponse,
   type CalendarMessage,
   type CalendarMessageResponse,
 } from './messages';
-import {
-  GOOGLE_CALENDAR_HOST_PERMISSION,
-  type CalendarGateway,
-  type CalendarHostPermissionPort,
-  type CalendarIdentityPort,
-  type CalendarStoragePort,
+import type {
+  CalendarGateway,
+  CalendarHostPermissionPort,
+  CalendarStoragePort,
 } from './types';
 
 function createChromeStoragePort(
@@ -23,48 +22,49 @@ function createChromeStoragePort(
   };
 }
 
-function createChromeIdentityPort(): CalendarIdentityPort {
-  return {
-    getAuthToken: async (details) => chrome.identity.getAuthToken(details),
-    removeCachedAuthToken: async (details) =>
-      chrome.identity.removeCachedAuthToken(details),
-  };
-}
-
 function createChromeHostPermissionPort(): CalendarHostPermissionPort {
-  const permission = { origins: [GOOGLE_CALENDAR_HOST_PERMISSION] };
-
   return {
-    contains: async () => chrome.permissions.contains(permission),
-    remove: async () => chrome.permissions.remove(permission),
-    request: async () => chrome.permissions.request(permission),
+    contains: async (originPattern) =>
+      chrome.permissions.contains({ origins: [originPattern] }),
   };
 }
 
 function hasChromeCalendarApis(): boolean {
   return Boolean(
     typeof chrome !== 'undefined' &&
-    typeof chrome.identity?.getAuthToken === 'function' &&
-    typeof chrome.identity?.removeCachedAuthToken === 'function' &&
     typeof chrome.permissions?.contains === 'function' &&
-    typeof chrome.permissions?.remove === 'function' &&
-    typeof chrome.permissions?.request === 'function' &&
     typeof chrome.runtime?.onMessage?.addListener === 'function' &&
-    chrome.storage?.local &&
     chrome.storage?.session,
   );
 }
 
-export function createChromeCalendarGateway(): CalendarGateway | null {
-  if (!hasChromeCalendarApis()) {
-    return null;
+export async function requestCalendarFeedPermission(
+  feedUrl: string,
+): Promise<boolean> {
+  const location = normalizeCalendarFeedUrl(feedUrl);
+  if (
+    !location ||
+    typeof chrome === 'undefined' ||
+    typeof chrome.permissions?.request !== 'function'
+  ) {
+    return false;
   }
+
+  try {
+    return await chrome.permissions.request({
+      origins: [location.originPattern],
+    });
+  } catch {
+    return false;
+  }
+}
+
+export function createChromeCalendarGateway(): CalendarGateway | null {
+  if (!hasChromeCalendarApis()) return null;
 
   return createCalendarGateway({
     fetch: (url, init) => fetch(url, init),
     hostPermission: createChromeHostPermissionPort(),
-    identity: createChromeIdentityPort(),
-    localStorage: createChromeStoragePort(chrome.storage.local),
     now: () => new Date(),
     sessionStorage: createChromeStoragePort(chrome.storage.session),
   });
@@ -72,9 +72,7 @@ export function createChromeCalendarGateway(): CalendarGateway | null {
 
 export function installChromeCalendarMessageHandler(): boolean {
   const gateway = createChromeCalendarGateway();
-  if (!gateway) {
-    return false;
-  }
+  if (!gateway) return false;
 
   const listener = createCalendarMessageListener(gateway);
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) =>
@@ -90,38 +88,25 @@ export async function sendCalendarMessage(
     return {
       error: {
         code: 'unavailable',
-        message: 'Google Calendar APIs are unavailable.',
+        message: 'Calendar feed access is unavailable.',
       },
       ok: false,
       requestType: message.type,
       type: 'calendar.error',
     };
   }
-
-  let response: unknown;
 
   try {
-    response = await chrome.runtime.sendMessage(message);
+    const response: unknown = await chrome.runtime.sendMessage(message);
+    if (isCalendarMessageResponse(response)) return response;
   } catch {
-    return {
-      error: {
-        code: 'unavailable',
-        message: 'Google Calendar APIs are unavailable.',
-      },
-      ok: false,
-      requestType: message.type,
-      type: 'calendar.error',
-    };
-  }
-
-  if (isCalendarMessageResponse(response)) {
-    return response;
+    // Use the same unavailable result for worker startup and messaging failures.
   }
 
   return {
     error: {
-      code: 'invalid-response',
-      message: 'Google Calendar returned an invalid response.',
+      code: 'unavailable',
+      message: 'Calendar feed access is unavailable.',
     },
     ok: false,
     requestType: message.type,

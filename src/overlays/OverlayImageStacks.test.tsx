@@ -259,7 +259,12 @@ describe('OverlayImageStacks', () => {
         },
         {
           anchor: 'top-left',
-          config: { hourCycle: 'locale', showSeconds: false },
+          config: {
+            appearance: 'digital',
+            format: 'HH:mm',
+            showSecondHand: true,
+            timeZone: null,
+          },
           frame: { height: 80, offsetX: 10, offsetY: 10, width: 120 },
           id: 'clock',
           isHidden: false,

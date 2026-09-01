@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { Text } from '@fleetia/lagrange';
 
 import type { Locale } from '../i18n';
-import type {
-  ClockWidgetInstance,
-  GoogleCalendarWidgetInstance,
-} from '../scenes';
-import { formatClockTime } from './clock';
+import type { CalendarWidgetInstance, ClockWidgetInstance } from '../scenes';
+import {
+  doesClockTickEverySecond,
+  formatClockTime,
+  getClockParts,
+} from './clock';
 import { useCalendarWidget } from './useCalendarWidget';
 import * as styles from './WidgetViews.css';
 
@@ -15,7 +16,6 @@ export type CalendarWidgetCopy = {
   empty: string;
   error: string;
   loading: string;
-  partialFailure: string;
 };
 
 type ClockWidgetViewProps = {
@@ -23,11 +23,68 @@ type ClockWidgetViewProps = {
   locale: Locale;
 };
 
-type GoogleCalendarWidgetViewProps = {
+type CalendarWidgetViewProps = {
   copy: CalendarWidgetCopy;
-  instance: GoogleCalendarWidgetInstance;
+  instance: CalendarWidgetInstance;
   locale: Locale;
 };
+
+function AnalogClock({
+  instance,
+  now,
+}: {
+  instance: ClockWidgetInstance;
+  now: Date;
+}): ReactElement {
+  const parts = getClockParts(now, instance.config.timeZone);
+  const secondAngle = parts.second * 6;
+  const minuteAngle = parts.minute * 6 + parts.second * 0.1;
+  const hourAngle = (parts.hour12 % 12) * 30 + parts.minute * 0.5;
+
+  return (
+    <svg aria-hidden="true" className={styles.analogFace} viewBox="0 0 100 100">
+      <circle className={styles.analogDial} cx="50" cy="50" r="46" />
+      {Array.from({ length: 12 }, (_, index) => (
+        <line
+          key={index}
+          className={styles.analogMark}
+          transform={`rotate(${index * 30} 50 50)`}
+          x1="50"
+          x2="50"
+          y1="8"
+          y2={index % 3 === 0 ? '17' : '13'}
+        />
+      ))}
+      <line
+        className={styles.analogHourHand}
+        transform={`rotate(${hourAngle} 50 50)`}
+        x1="50"
+        x2="50"
+        y1="50"
+        y2="28"
+      />
+      <line
+        className={styles.analogMinuteHand}
+        transform={`rotate(${minuteAngle} 50 50)`}
+        x1="50"
+        x2="50"
+        y1="55"
+        y2="18"
+      />
+      {instance.config.showSecondHand ? (
+        <line
+          className={styles.analogSecondHand}
+          transform={`rotate(${secondAngle} 50 50)`}
+          x1="50"
+          x2="50"
+          y1="58"
+          y2="14"
+        />
+      ) : null}
+      <circle className={styles.analogPin} cx="50" cy="50" r="2.5" />
+    </svg>
+  );
+}
 
 export function ClockWidgetView({
   instance,
@@ -36,7 +93,9 @@ export function ClockWidgetView({
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const tickIntervalMs = instance.config.showSeconds ? 1_000 : 60_000;
+    const tickIntervalMs = doesClockTickEverySecond(instance.config)
+      ? 1_000
+      : 60_000;
     let timeoutId: number;
 
     function scheduleNextTick(): void {
@@ -51,7 +110,7 @@ export function ClockWidgetView({
 
     scheduleNextTick();
     return () => window.clearTimeout(timeoutId);
-  }, [instance.config.showSeconds]);
+  }, [instance.config]);
 
   const time = useMemo(
     () => formatClockTime(now, locale, instance.config),
@@ -60,10 +119,21 @@ export function ClockWidgetView({
 
   return (
     <time
-      className={`${styles.widget} ${styles.clock}`}
+      className={`${styles.widget} ${styles.clock} ${
+        instance.config.appearance === 'analog'
+          ? styles.analogClock
+          : styles.digitalClock
+      }`}
       dateTime={now.toISOString()}
     >
-      {time}
+      {instance.config.appearance === 'analog' ? (
+        <>
+          <AnalogClock instance={instance} now={now} />
+          <span className={styles.visuallyHidden}>{time}</span>
+        </>
+      ) : (
+        time
+      )}
     </time>
   );
 }
@@ -90,12 +160,12 @@ function formatEventTime(
   }).format(date);
 }
 
-export function GoogleCalendarWidgetView({
+export function CalendarWidgetView({
   copy,
   instance,
   locale,
-}: GoogleCalendarWidgetViewProps): ReactElement {
-  const controller = useCalendarWidget();
+}: CalendarWidgetViewProps): ReactElement {
+  const controller = useCalendarWidget(instance.config.feedUrl);
   const visibleEvents = controller.events
     .filter((event) => instance.config.showAllDay || !event.allDay)
     .slice(0, instance.config.maxEvents);
@@ -118,9 +188,6 @@ export function GoogleCalendarWidgetView({
       ) : null}
       {controller.status === 'error' ? (
         <p className={styles.status}>{copy.error}</p>
-      ) : null}
-      {controller.failures.length > 0 ? (
-        <p className={styles.status}>{copy.partialFailure}</p>
       ) : null}
       {controller.status === 'ready' && visibleEvents.length === 0 ? (
         <p className={styles.status}>{copy.empty}</p>

@@ -1,6 +1,6 @@
 # Privacy Policy for Starlit
 
-Last updated: September 1, 2026
+Last updated: September 2, 2026
 
 ## Overview
 
@@ -8,11 +8,11 @@ Starlit is a Chrome extension that replaces the New Tab page with a customizable
 
 Starlit does not operate a developer-controlled backend or data-collection server. It does not sell user data, use user data for advertising or credit decisions, run analytics, or provide the developer with access to a user's bookmarks, calendar, or locally selected files.
 
-“Local” in this policy means there is no Starlit backend. It does not mean the extension never connects to another service. After the actions described below, the extension can request Google Calendar directly from Google, request favicon and font resources from Google, and load URLs chosen by the user.
+“Local” in this policy means there is no Starlit backend. It does not mean the extension never connects to another service. After the actions described below, the extension can request a user-provided Calendar feed directly from its provider, request favicon and font resources from Google, and load URLs chosen by the user.
 
 ## Release status
 
-The v2 release that includes Google Calendar remains blocked until Google OAuth verification is approved and the Chrome Web Store privacy-practices disclosure is updated to match this policy. The presence of Calendar code, OAuth scopes, this policy, or a release acknowledgement flag is not a claim that either external review is complete. Starlit v2 must not be published until both blockers are confirmed.
+The v2 release that includes URL-subscribed Calendar widgets remains blocked until the Chrome Web Store privacy-practices disclosure and optional-host permission justification are updated to match this policy. The presence of Calendar code, this policy, or a release acknowledgement flag is not a claim that the external review is complete. Starlit v2 must not be published until that blocker is confirmed.
 
 ## Data Starlit Handles
 
@@ -36,7 +36,7 @@ Opening a bookmark folder as a live tab group uses bookmark URLs Starlit already
 
 ### Settings, Scenes, and storage
 
-With the `storage` permission, Starlit stores settings such as layout, group visibility and order, colors, typography, spacing, language, bookmark opening behavior, Custom CSS, background metadata, Image widget positions and layer order, Clock and Google Calendar widget configuration, custom favicons, and expanded or collapsed group state.
+With the `storage` permission, Starlit stores settings such as layout, group visibility and order, colors, typography, spacing, language, bookmark opening behavior, Custom CSS, background metadata, Image widget positions and layer order, Clock and Calendar widget configuration, custom favicons, and expanded or collapsed group state. A Calendar widget's subscription URL, including any private token in its path or query, is part of the device-local Scene record.
 
 Scene records, appearance and layout settings, bookmark-folder references, Custom CSS, and shared media assets created by v2 are device-local and are not saved as new profile payloads in `chrome.storage.sync`. Normal v2 Sync writes contain only the selected locale, the default bookmark-opening behavior, and storage-version metadata. For an installation upgraded from v1, pre-existing synchronized Scene-setting keys and a copy of the former combined settings record can remain in Chrome Sync solely so another Chrome device can complete its local migration and so rollback remains possible. V2 does not add bookmark URLs or media Blobs to that legacy set. Google processes Chrome Sync data under Google's terms; the Starlit developer does not receive it.
 
@@ -50,22 +50,21 @@ Background and Image widget media remain in browser-managed storage for the curr
 
 When the user provides a background URL, Chrome requests that resource directly from its provider. That provider may receive ordinary request information such as the user's IP address and browser request metadata under the provider's privacy policy. Starlit removes Custom CSS `@import` rules and network-loading functions before applying the CSS. Only embedded raster `data:` URLs are retained in Custom CSS, so Custom CSS does not initiate external resource requests.
 
-### Clock and Google Calendar widgets
+### Clock and Calendar widgets
 
-Clock uses the device time and selected locale and requires no additional permission.
+Clock uses the device time, selected display format, and optional IANA time zone and requires no additional permission. It supports independent digital and analog instances.
 
-Google Calendar is read-only. Starlit does not start interactive authorization on first run. It requests access only after the user chooses Connect in Settings after seeing an explanation. Calendar access uses `chrome.identity`, optional host access to `https://www.googleapis.com/*`, and only these Google OAuth scopes:
+Calendar is read-only. The user supplies an HTTPS or `webcal` iCalendar subscription URL. Starlit normalizes `webcal` to HTTPS and does not request host access on first run. It requests optional access only after the user chooses `Allow and subscribe` in Settings after seeing an explanation.
 
-- `calendar.calendarlist.readonly`
-- `calendar.events.readonly`
+The manifest's `https://*/*` optional-host declaration is the set of HTTPS origins that Starlit may ask Chrome to grant at runtime. Starlit requests only the exact origin of the URL entered by the user. Granting one feed host does not grant every HTTPS host. The granted origin remains managed by Chrome until the user revokes it in Chrome's extension settings or uninstalls the extension; removing a widget or using Reset all does not revoke that browser permission.
 
-The background service worker requests Calendar data directly from Google; the React interface does not receive an OAuth access token. Access tokens remain in Chrome Identity's cache. Starlit stores the selected calendar IDs and the most recently loaded calendar list in `chrome.storage.local`. The versioned calendar-list record retains only each calendar's ID, name, color, and primary status; it does not contain tokens or events. A merged event result is stored in `chrome.storage.session` and reused for at most five minutes.
+The background service worker requests the feed directly from its provider with cookies and other credentials omitted, no referrer, a ten-second timeout, and a 2 MiB response limit. The provider still receives ordinary network information such as the user's IP address and the requested URL under the provider's privacy policy. A subscription URL can itself contain a secret token, so users should treat it as sensitive.
 
-For the selected calendars, Starlit requests events from now through the next seven days. It keeps at most 50 merged events and retains only summary, start and end, all-day status, calendar color, and the Google Calendar link. Descriptions and attendee data are discarded during response parsing. A failure from one calendar can be recorded while results from other calendars remain visible.
+Starlit parses RFC 5545 iCalendar data locally, expands recurrences within a bounded work budget, requests events from now through the next seven days, and keeps at most 50 events. It retains only summary, start and end, all-day status, calendar color, and an HTTPS event link. Descriptions, attendees, and the raw feed body are discarded after parsing. Parsed events are cached in `chrome.storage.session` under an opaque URL-derived key and reused for at most five minutes.
 
-Disconnecting Calendar removes the cached token when available, selected calendar IDs, saved calendar-list metadata, the session event cache, and optional Google API host access. Reset all also removes the selected IDs and saved calendar list. Calendar authorization, selected calendar IDs, calendar-list metadata, and cached event data are excluded from Scenes and Portable Profile V4.
+Calendar feed URLs remain in their device-local Scene until the user clears the URL, removes the widget, replaces or deletes the Scene, resets Starlit, clears extension data, or uninstalls Starlit. Reset all clears Calendar session caches. Portable Profile V4 keeps Calendar widget layout and display settings but replaces each feed URL with `null`; cached event data and Chrome host permissions are never exported.
 
-Google processes OAuth and Calendar API requests under Google's privacy terms. Starlit does not proxy those requests through a developer-controlled server.
+The selected Calendar provider processes feed requests under its own privacy terms. Starlit does not proxy those requests through a developer-controlled server.
 
 ### Command palette
 
@@ -73,13 +72,13 @@ The `Cmd+K` or `Ctrl+K` command palette searches bookmark titles, URLs, folder p
 
 ### Portable Profile V4
 
-Portable Profile V4 includes Scene names and timestamps, appearance, layout, Custom CSS, Image widget media references, and Clock and Google Calendar widget configuration by default. Device-specific Chrome bookmark-folder identifiers and recovery references are always removed. If bookmark URLs are explicitly included, they are stored separately and imported into a newly created folder. Locale and bookmark opening behavior are included as global preferences. Google authorization, selected calendar IDs, calendar-list metadata, and cached events are excluded. Chrome bookmark URLs and uploaded media are separate categories and are excluded by default.
+Portable Profile V4 includes Scene names and timestamps, appearance, layout, Custom CSS, Image widget media references, and non-secret Clock and Calendar widget configuration by default. Every Calendar feed URL is replaced with `null`. Device-specific Chrome bookmark-folder identifiers and recovery references are always removed. If bookmark URLs are explicitly included, they are stored separately and imported into a newly created folder. Locale and bookmark opening behavior are included as global preferences. Chrome permissions and cached Calendar events are excluded. Chrome bookmark URLs and uploaded media are separate categories and are excluded by default.
 
 If the user includes bookmark URLs or media, Starlit shows a warning because the downloaded JSON can contain private URLs or embedded file data. The file is created locally and should be stored and shared only where the user intends.
 
 Before import, Starlit displays aggregate counts, per-Scene changes, and bookmark/media counts. Every Scene ID conflict requires `Add as copy`, `Replace Scene`, or `Skip`. When bookmark URLs are included, import creates a new dedicated folder rather than overwriting an existing Chrome folder in place.
 
-Portable Profile V4 never includes Chrome permissions, tutorial completion, Google authorization, selected calendar IDs, calendar-list metadata, or cached Calendar events.
+Portable Profile V4 never includes Chrome permissions, tutorial completion, Calendar feed URLs, or cached Calendar events.
 
 ### External visual resources
 
@@ -99,21 +98,21 @@ Portable-profile files are transferred only when the user downloads, moves, or s
 
 ## Data Retention and Deletion
 
-Settings, Scene records, caches, custom favicons, first-install tutorial completion, selected calendar IDs, calendar-list metadata, and local media remain in Chrome extension storage until the user resets, replaces, removes, or explicitly cleans them up; clears the extension's site data; or uninstalls Starlit. Calendar event results are treated as expired after five minutes. OAuth token retention is controlled by Chrome Identity and is cleared by the disconnect flow when a cached token is available.
+Settings, Scene records, caches, custom favicons, first-install tutorial completion, Calendar feed URLs, and local media remain in Chrome extension storage until the user resets, replaces, removes, or explicitly cleans them up; clears the extension's site data; or uninstalls Starlit. Calendar event results are treated as expired after five minutes. Optional Calendar host permissions remain under Chrome's permission management until revoked or the extension is uninstalled.
 
-Locale and bookmark-opening preferences written through Chrome Sync may remain in the user's Google account according to Chrome Sync settings and Google's retention practices. Uninstalling Starlit removes extension-local data, while Chrome Sync and OAuth providers may have their own retention behavior.
+Locale and bookmark-opening preferences written through Chrome Sync may remain in the user's Google account according to Chrome Sync settings and Google's retention practices. Uninstalling Starlit removes extension-local data, while Chrome Sync and Calendar providers may have their own retention behavior.
 
 Reset and Scene deletion preserve Chrome bookmark folders unless the user separately confirms folder deletion. Confirmed bookmark deletion, Scene-folder cleanup, tab-group import, and portable bookmark import modify Chrome bookmarks and cannot be undone by cancelling an unrelated Settings draft.
 
 ## Security and permissions
 
-Starlit limits Calendar access to read-only scopes and keeps interactive OAuth behind an explained user action. Google API host access is optional. The `identity` permission delegates token acquisition and cache management to Chrome; access tokens are not stored in Scene or portable-profile records.
+Starlit limits Calendar access to an HTTPS GET for the user-entered feed, omits browser credentials, and keeps exact-origin host permission behind an explained user action. The broad optional-host declaration permits runtime requests for arbitrary HTTPS feed providers but does not grant those origins automatically. Feed URLs are stored only in device-local Scene records and are redacted from portable exports.
 
 Chrome presents the optional `tabs` permission as browsing-history access because it exposes open-tab titles and URLs. Starlit uses that access only during a user-initiated tab-group import and then removes it. Built-in external services use HTTPS. User-specified resources are requested directly using the provided URL, so users should choose HTTPS sources.
 
 ## Changes to This Policy
 
-This policy may be updated when Starlit's features, permissions, schemas, or data practices change. The repository version must be reviewed whenever Calendar scopes, Portable Profile categories, Scene storage, external providers, or Chrome Web Store disclosures change.
+This policy may be updated when Starlit's features, permissions, schemas, or data practices change. The repository version must be reviewed whenever Calendar host access, Portable Profile categories, Scene storage, external providers, or Chrome Web Store disclosures change.
 
 ## Contact
 

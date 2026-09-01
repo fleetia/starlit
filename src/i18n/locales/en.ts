@@ -192,7 +192,7 @@ const en: Translations = {
   'sidebar.general.resetAll': 'Reset all',
   'sidebar.general.resetAllConfirmTitle': 'Reset all Starlit data?',
   'sidebar.general.resetAllConfirmDescription':
-    'This permanently removes Starlit settings, Scenes, caches, custom favicons, tutorial and display state, and local media. Chrome bookmarks, Scene folders, Calendar authorization, and granted optional permissions remain.',
+    'This permanently removes Starlit settings, Scenes, caches, custom favicons, tutorial and display state, and local media. Chrome bookmarks, Scene folders, and granted optional permissions remain.',
   'sidebar.general.resetAllConfirmAction': 'Permanently reset',
   'sidebar.general.credits': 'Credits',
   'sidebar.general.credits.dev': 'Dev & Design',
@@ -210,24 +210,24 @@ const en: Translations = {
   'sidebar.confirm.yes': 'Yes',
   'sidebar.confirm.no': 'No',
 
-  // Overlay image layers
-  'layers.title': 'Images',
+  // Canvas layers
+  'layers.title': 'Canvas order',
   'layers.description':
-    'Place image widgets behind or in front of bookmarks. The top row is closest to you.',
+    'Arrange images, calendars, clocks, and bookmarks. The top row is closest to you.',
   'layers.add': 'Add images',
   'layers.processing': 'Processing image widgets',
-  'layers.empty': 'No image widgets have been added.',
+  'layers.empty': 'No widgets have been added.',
   'layers.bookmarks': 'Bookmarks',
   'layers.bookmarksDescription': 'The complete bookmark surface',
   'layers.front': 'Front',
   'layers.back': 'Back',
   'layers.frontToBackDescription':
-    'Image widgets are listed from front to back. Move Bookmarks between images to control which images cover it.',
-  'layers.layerList': 'Image widget order',
+    'Canvas items are listed from front to back. Move any item to control what appears above or below bookmarks.',
+  'layers.layerList': 'Canvas item order',
   'layers.moveForward': 'Move forward',
   'layers.moveBackward': 'Move backward',
   'layers.remove': 'Remove image',
-  'layers.dragToReorder': 'Drag to reorder image widgets',
+  'layers.dragToReorder': 'Drag to reorder canvas items',
   'layers.editPositions': 'Edit positions',
   'layers.fileDescription':
     'Static images become WebP, GIFs become WebM, and playable videos are accepted. Uploaded files stay on this device.',
@@ -282,25 +282,36 @@ const en: Translations = {
 
   // Widgets
   'widgets.sceneRequired':
-    'Save the current setup as a Scene to add Google Calendar or Clock.',
+    'Save the current setup as a Scene to add Calendar or Clock widgets.',
   'widgets.description':
-    'Add images, Google Calendar, or a clock to your new tab.',
+    'Add any number of images, calendars, or clocks to your new tab.',
   'widgets.image': 'Image',
-  'widgets.alreadyAdded': 'Already added',
   'widgets.chooseTitle': 'Choose a widget',
   'widgets.clock': 'Clock',
   'widgets.clockDescription':
-    'Shows locale-aware time without requesting permission.',
-  'widgets.calendar': 'Google Calendar',
+    'Display digital or analog time in an independent format and time zone.',
+  'widgets.calendar': 'Calendar',
   'widgets.calendarDescription':
-    'Shows the next seven days from selected calendars with read-only access.',
+    'Subscribe to an iCalendar URL and show events from the next seven days.',
   'widgets.add': 'Add widget',
   'widgets.remove': 'Remove widget',
-  'widgets.hourCycle': 'Time format',
-  'widgets.hourCycleLocale': 'Follow locale',
-  'widgets.hourCycle12': '12-hour',
-  'widgets.hourCycle24': '24-hour',
-  'widgets.showSeconds': 'Show seconds',
+  'widgets.configure': 'Configure widget',
+  'widgets.appearance': 'Clock style',
+  'widgets.digital': 'Digital',
+  'widgets.analog': 'Analog',
+  'widgets.format': 'Time format',
+  'widgets.formatDescription': 'Use HH, H, hh, h, mm, m, ss, s, and a tokens.',
+  'widgets.invalidFormat': 'Enter a valid time format.',
+  'widgets.timeZone': 'Time zone',
+  'widgets.timeZoneDescription':
+    'Leave blank for local time, or enter an IANA zone such as Asia/Seoul.',
+  'widgets.invalidTimeZone': 'Enter a valid IANA time zone.',
+  'widgets.showSecondHand': 'Show second hand',
+  'widgets.feedUrl': 'Calendar URL',
+  'widgets.feedUrlDescription':
+    'HTTPS and webcal iCalendar subscription URLs are supported. The URL stays on this device.',
+  'widgets.invalidFeedUrl': 'Enter a valid HTTPS or webcal URL.',
+  'widgets.subscribe': 'Allow and subscribe',
   'widgets.maxEvents': 'Maximum events',
   'widgets.showAllDay': 'Show all-day events',
   'widgets.offsetX': 'Horizontal offset',
@@ -308,18 +319,13 @@ const en: Translations = {
   'widgets.width': 'Width',
   'widgets.height': 'Height',
   'widgets.calendarConsent':
-    'Connect requests read-only Calendar access. Calendar data is never sent to a Starlit server.',
-  'widgets.connect': 'Connect Google Calendar',
+    'Starlit requests access only to the exact origin you entered. Calendar data is never sent to a Starlit server.',
   'widgets.configureInSettings':
-    'Connect Google Calendar and choose calendars in Settings > Widgets.',
-  'widgets.disconnect': 'Disconnect',
-  'widgets.loadCalendars': 'Load calendar list',
+    "Configure or subscribe to a Calendar URL in this widget's settings.",
   'widgets.refresh': 'Refresh',
   'widgets.empty': 'No events to show.',
   'widgets.loading': 'Loading events.',
   'widgets.error': 'Events could not be loaded.',
-  'widgets.partialFailure':
-    'Some calendars failed, so the available events are shown.',
 
   // Command palette
   'palette.title': 'Search Starlit',

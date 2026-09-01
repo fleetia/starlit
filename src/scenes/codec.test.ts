@@ -69,7 +69,7 @@ describe('scene codecs', () => {
     ).toThrow('Canvas layer ids must be unique');
   });
 
-  it('allows only one widget instance per built-in widget type', () => {
+  it('allows multiple widget instances and migrates the previous config', () => {
     const clock = {
       anchor: 'top-right',
       config: { hourCycle: 'locale', showSeconds: false },
@@ -81,7 +81,7 @@ describe('scene codecs', () => {
       widgetType: 'clock',
     };
 
-    expect(() =>
+    expect(
       parseCanvasSceneV2({
         layers: [
           { id: 'bookmarks', kind: 'bookmarks' },
@@ -89,8 +89,70 @@ describe('scene codecs', () => {
           { ...clock, id: 'clock-2' },
         ],
         version: 2,
+      }).layers,
+    ).toEqual([
+      { id: 'bookmarks', kind: 'bookmarks' },
+      {
+        ...clock,
+        config: {
+          appearance: 'digital',
+          format: 'HH:mm',
+          showSecondHand: true,
+          timeZone: null,
+        },
+      },
+      {
+        ...clock,
+        config: {
+          appearance: 'digital',
+          format: 'HH:mm',
+          showSecondHand: true,
+          timeZone: null,
+        },
+        id: 'clock-2',
+      },
+    ]);
+  });
+
+  it('normalizes secure Calendar feeds and rejects unsafe URLs', () => {
+    const calendar = {
+      anchor: 'top-right',
+      config: {
+        feedUrl: 'webcal://calendar.example.com/private.ics#section',
+        maxEvents: 8,
+        showAllDay: true,
+      },
+      frame: FRAME,
+      id: 'calendar-1',
+      isHidden: false,
+      isLocked: false,
+      kind: 'widget',
+      widgetType: 'calendar',
+    };
+
+    expect(
+      parseCanvasSceneV2({
+        layers: [{ id: 'bookmarks', kind: 'bookmarks' }, calendar],
+        version: 2,
+      }).layers[1],
+    ).toMatchObject({
+      config: { feedUrl: 'https://calendar.example.com/private.ics' },
+    });
+    expect(() =>
+      parseCanvasSceneV2({
+        layers: [
+          { id: 'bookmarks', kind: 'bookmarks' },
+          {
+            ...calendar,
+            config: {
+              ...calendar.config,
+              feedUrl: 'https://user:secret@calendar.example.com/feed.ics',
+            },
+          },
+        ],
+        version: 2,
       }),
-    ).toThrow('at most one widget of each type');
+    ).toThrow('config.feedUrl is invalid');
   });
 
   it('rejects a scene-owned bookmark collection without a folder reference', () => {

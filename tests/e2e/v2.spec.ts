@@ -400,25 +400,26 @@ test('exports independent Portable V4 categories and restores a full profile aft
     { locale: 'en' },
     { includeEmptyOverlayScene: false },
   );
-  await extension.seedProfile({
-    ...baseProfile,
-    local: {
-      ...baseProfile.local,
-      'googleCalendar.selectedCalendarIds': ['private-calendar@example.test'],
-      tutorialStatus: 'completed',
-    },
-  });
-  await extension.serviceWorker.evaluate(async () => {
-    await chrome.storage.session.set({
-      'googleCalendar.eventCache.v1': {
-        privateSummary: 'private-calendar-event',
-      },
-    });
-  });
+  await extension.seedProfile(baseProfile);
   const page = await extension.openNewTab();
   await waitForBookmarks(page);
   await expect(page.locator('[data-overlay-image-id]').first()).toBeVisible();
   await createScene(page, 'Round Trip');
+  await openSettingsTab(page, 'Widgets');
+  await page.getByRole('button', { name: 'Add widget' }).click();
+  await page.getByRole('menuitem', { name: 'Calendar' }).click();
+  const privateFeedUrl =
+    'https://calendar.example.test/private-token/calendar.ics';
+  const feedUrlInput = page.getByRole('textbox', { name: 'Calendar URL' });
+  await feedUrlInput.fill(privateFeedUrl);
+  await feedUrlInput.press('Tab');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(
+    page.locator('[data-starlit-part="settings-dialog"]'),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-starlit-part="widget-calendar"]'),
+  ).toBeVisible();
   await openSettingsTab(page, 'Portable profile');
 
   const scenes = page.getByRole('checkbox', {
@@ -453,6 +454,10 @@ test('exports independent Portable V4 categories and restores a full profile aft
   });
   expect(defaultExport.profile.assets).toBeUndefined();
   expect(defaultExport.profile.bookmarks).toBeUndefined();
+  const defaultExportJson = JSON.stringify(defaultExport.profile);
+  expect(defaultExportJson).toContain('"widgetType":"calendar"');
+  expect(defaultExportJson).toContain('"feedUrl":null');
+  expect(defaultExportJson).not.toContain(privateFeedUrl);
   expect(
     defaultExport.profile.scenes[0]?.bookmarkCollection,
   ).not.toHaveProperty('recoverySnapshotId');
@@ -498,8 +503,7 @@ test('exports independent Portable V4 categories and restores a full profile aft
     scenes: true,
   });
   const exportedJson = fullExport.buffer.toString('utf8');
-  expect(exportedJson).not.toContain('private-calendar@example.test');
-  expect(exportedJson).not.toContain('private-calendar-event');
+  expect(exportedJson).not.toContain(privateFeedUrl);
   expect(exportedJson).not.toContain('tutorialStatus');
 
   await openSettingsTab(page, 'General');

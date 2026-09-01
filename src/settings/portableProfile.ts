@@ -75,6 +75,16 @@ export type PlannedSceneImport = {
   sourceSceneId: string;
 };
 
+export function redactCalendarFeedUrls(scene: ScenePresetV1): ScenePresetV1 {
+  const redactedScene = structuredClone(scene);
+  redactedScene.canvas.layers = redactedScene.canvas.layers.map((layer) =>
+    layer.kind === 'widget' && layer.widgetType === 'calendar'
+      ? { ...layer, config: { ...layer.config, feedUrl: null } }
+      : layer,
+  );
+  return redactedScene;
+}
+
 function createCopiedSceneName(name: string, locale: Locale): string {
   switch (locale) {
     case 'ko':
@@ -336,7 +346,9 @@ export function parsePortableProfileV4(value: unknown): PortableProfileV4 {
   if (!Array.isArray(value.scenes)) {
     throw new Error('scenes must be an array.');
   }
-  const scenes = value.scenes.map(parseScenePresetV1);
+  const scenes = value.scenes.map((scene) =>
+    redactCalendarFeedUrls(parseScenePresetV1(scene)),
+  );
   const sceneIds = scenes.map((scene) => scene.id);
   if (new Set(sceneIds).size !== sceneIds.length) {
     throw new Error('Scene ids must be unique.');

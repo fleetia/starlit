@@ -39,11 +39,14 @@ export type CanvasDecorationLayerV2 = {
 };
 
 export type ClockWidgetConfig = {
-  hourCycle: 'locale' | 'h12' | 'h24';
-  showSeconds: boolean;
+  appearance: 'analog' | 'digital';
+  format: string;
+  showSecondHand: boolean;
+  timeZone: string | null;
 };
 
-export type GoogleCalendarWidgetConfig = {
+export type CalendarWidgetConfig = {
+  feedUrl: string | null;
   maxEvents: number;
   showAllDay: boolean;
 };
@@ -62,12 +65,12 @@ export type ClockWidgetInstance = WidgetInstanceBase & {
   widgetType: 'clock';
 };
 
-export type GoogleCalendarWidgetInstance = WidgetInstanceBase & {
-  config: GoogleCalendarWidgetConfig;
-  widgetType: 'google-calendar';
+export type CalendarWidgetInstance = WidgetInstanceBase & {
+  config: CalendarWidgetConfig;
+  widgetType: 'calendar';
 };
 
-export type WidgetInstance = ClockWidgetInstance | GoogleCalendarWidgetInstance;
+export type WidgetInstance = CalendarWidgetInstance | ClockWidgetInstance;
 
 export type CanvasLayerV2 =
   | CanvasBookmarkLayerV2

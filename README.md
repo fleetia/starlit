@@ -5,7 +5,7 @@
 
 # Starlit
 
-Starlit is a standalone Manifest V3 Chrome new-tab extension that keeps bookmark exploration as the primary task. Version 2 adds local Scenes, Image, Clock, and Google Calendar widgets, a command palette, and a portable profile format without introducing a Starlit-operated backend.
+Starlit is a standalone Manifest V3 Chrome new-tab extension that keeps bookmark exploration as the primary task. Version 2 adds local Scenes, Image, Clock, and URL-subscribed Calendar widgets, a command palette, and a portable profile format without introducing a Starlit-operated backend.
 
 Read this document to understand the product boundaries, storage model, development workflow, and release gates. User-data handling is documented in [PRIVACY.md](PRIVACY.md).
 
@@ -28,19 +28,19 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The development server provides deterministic mock bookmarks outside Chrome. Production storage, bookmarks, identity, optional permissions, and Google Calendar requests use Chrome extension APIs.
+The development server provides deterministic mock bookmarks outside Chrome. Production storage, bookmarks, optional permissions, and Calendar feed requests use Chrome extension APIs.
 
 ## Starlit v2 workspace model
 
 ### Bookmark-first new tab
 
-The new tab continues to center Chrome bookmarks. Scene and Settings controls stay in a quiet lower-right toolbar, while right-clicking empty canvas space opens the same Settings destinations as direct shortcuts. Image, Clock, and Google Calendar widgets participate in the canvas without replacing bookmark navigation as the primary interaction.
+The new tab continues to center Chrome bookmarks. Scene and Settings controls stay in a quiet lower-right toolbar, while right-clicking empty canvas space opens the same Settings destinations as direct shortcuts. Image, Clock, and Calendar widgets participate in the canvas without replacing bookmark navigation as the primary interaction. Right-clicking a Clock or Calendar opens that exact widget's settings.
 
 Settings preserves the original top-level order and appends the v2 sections:
 
 - `General`: locale, font, bookmark opening behavior, guide, and reset.
 - `Appearance`: theme, background, container, bookmark, and folder styles.
-- `Widgets`: add and arrange Image, Google Calendar, or Clock widgets; configure position, layer order, motion, and Calendar connection.
+- `Widgets`: add and arrange any number of Image, Calendar, or Clock widgets; configure each item from the layer-list gear action, including position, layer order, motion, and Calendar URL access.
 - `Layout`: pagination, expansion, columns, spacing, margins, and icon direction.
 - `CSS`: sanitized Custom CSS and its preview.
 - `Bookmark groups`: the Scene bookmark folder, group visibility and order, and tab-group import.
@@ -51,7 +51,7 @@ Support remains a global banner above the tabs, as in the original Settings layo
 
 ### Scenes
 
-A Scene stores one coordinated snapshot of appearance and layout, the canvas widget order, Image widget media references, Clock and Google Calendar configuration, and a Chrome bookmark-folder reference. Locale, bookmark opening behavior, tutorial completion, permissions, and Google account connection remain global preferences and do not change when a Scene is applied.
+A Scene stores one coordinated snapshot of appearance and layout, the canvas widget order, Image widget media references, Clock and Calendar configuration, and a Chrome bookmark-folder reference. Locale, bookmark opening behavior, tutorial completion, and permissions remain global preferences and do not change when a Scene is applied.
 
 Within Scene management, creation is the only flow that copies Chrome bookmarks. After showing URL and folder counts and receiving explicit confirmation, Starlit copies the selected folder under `Starlit Scenes/<Scene name>`. If `Other bookmarks` is unavailable, the caller must provide another writable parent. A failed copy compensates by removing only the nodes created by that attempt.
 
@@ -63,7 +63,7 @@ If a referenced bookmark folder or local asset is missing, the Scene is not appl
 
 ### Image widgets and motion
 
-The persisted compatibility type remains `OverlayScene`, but product copy calls uploaded canvas layers “Image widgets” and calls anchors “screen-relative positions.” The canvas contains exactly one bookmark layer; Image, Clock, and Google Calendar widgets can be ordered on either side of it.
+The persisted compatibility type remains `OverlayScene`, but product copy calls uploaded canvas layers “Image widgets” and calls anchors “screen-relative positions.” The canvas contains exactly one bookmark layer; any number of Image, Clock, and Calendar widgets can be ordered on either side of it.
 
 Choose `Add widget`, then `Image`, to select static images, GIFs, or browser-playable videos. Static images are converted to WebP and must fit within a 1920-pixel longest edge. GIFs are converted to WebM and are limited to 300 frames, 30 seconds, and the same dimension boundary. Playable videos keep their original Blob and must also fit that boundary. Every input and processed output is limited to 20 MiB; unsupported, invalid, oversized, decode-failed, or encode-failed media is rejected before save.
 
@@ -73,22 +73,17 @@ Motion Image widgets support `0.5×`, `1×`, `1.5×`, and `2×` playback. `activ
 
 Normal left clicks pass through Image widgets to bookmarks. A document-level rotated-polygon hit test still opens the Image widget action menu on right-click. The position editor supports lock/hide, grouping, multi-selection, marquee selection, and six-pixel snapping to the viewport and other image boundaries, with `Alt` temporarily disabling snap.
 
-### Clock and Google Calendar widgets
+### Clock and Calendar widgets
 
-Starlit owns a closed built-in registry with `clock` and `google-calendar`; there is no public plugin API or marketplace. Choose `Add widget`, then `Clock` or `Google Calendar`, to add one instance of each type to a Scene. These widgets participate in the canvas layer order and receive pointer events only inside their own frames.
+Starlit owns a closed built-in registry with `clock` and `calendar`; there is no public plugin API or marketplace. Choose `Add widget`, then `Clock` or `Calendar`, as many times as needed. Every instance has its own configuration, participates in the shared canvas layer order, and receives pointer events only inside its own frame. The gear beside a layer and the widget's right-click menu open the same instance editor.
 
-Clock requires no permission and supports locale, 12-hour, and 24-hour formats. Google Calendar is read-only and begins OAuth only after the user chooses Connect from the explanatory Settings UI. It never prompts on first run.
+Clock requires no permission. Digital clocks accept `HH`, `H`, `hh`, `h`, `mm`, `m`, `ss`, `s`, and `a` tokens plus an optional IANA time zone. Analog clocks use the same time-zone setting and can hide the second hand.
 
-Calendar access uses `chrome.identity`, optional host access to `https://www.googleapis.com/*`, and only these scopes:
+Calendar accepts an HTTPS or `webcal` iCalendar subscription URL. Starlit normalizes `webcal` to HTTPS and requests optional access only to the entered URL's origin after the user chooses `Allow and subscribe`; it never prompts on first run. The manifest declares `https://*/*` as the set of origins that may be requested at runtime, but a specific origin is not granted until that user action.
 
-- `https://www.googleapis.com/auth/calendar.calendarlist.readonly`
-- `https://www.googleapis.com/auth/calendar.events.readonly`
+The Settings page requests the exact origin permission directly from the `Allow and subscribe` button gesture. The background service worker then verifies that grant and handles `calendar.subscribe` and `calendar.listEvents`. It fetches with credentials omitted, a ten-second timeout, and a 2 MiB response limit, then parses RFC 5545 data with `ical.js`, expands bounded recurrences, reads the next seven days, and returns at most 50 events. It retains only summary, start/end, all-day status, calendar color, and an HTTPS event link; descriptions, attendees, and the raw feed body are discarded.
 
-The background service worker owns `calendar.connect`, `calendar.disconnect`, `calendar.listCalendars`, and `calendar.listEvents`; React code does not receive an access token. Starlit reads selected calendars in parallel with concurrency four, merges the next seven days by start time, and returns at most 50 events. It retains only summary, start/end, all-day status, calendar color, and `htmlLink`; descriptions and attendees are discarded during parsing.
-
-One calendar failure does not discard successful results from the others. A `401` removes the cached token and performs one non-interactive retry; it never turns a background refresh into an interactive authorization prompt.
-
-Selected calendar IDs and the most recently loaded calendar-list metadata are device-local in `chrome.storage.local`. The versioned `googleCalendar.calendarList.v1` record keeps only each calendar's ID, name, color, and primary status; it never contains tokens or events. Event results are cached in `chrome.storage.session` and reused for at most five minutes, while access tokens remain in Chrome Identity's cache. Disconnect and Reset all remove both local Calendar records. Calendar authorization, selected calendar IDs, calendar-list metadata, and cached events are excluded from Scene and portable-profile exports.
+Each Calendar widget stores its subscription URL in its device-local Scene. Parsed event results are cached in `chrome.storage.session` under an opaque URL-derived key and reused for at most five minutes. Reset all clears that session cache. Portable Profile V4 preserves the widget but replaces every Calendar feed URL with `null`, so subscription secrets are not exported.
 
 ### Command palette
 
@@ -106,7 +101,7 @@ The palette searches current-Scene bookmarks first, then all Chrome bookmarks, g
 
 When bookmark URLs are excluded, the profile also omits device-bound folder identities used by group visibility and sibling order. A new or copied Scene therefore requires `Relink`, and those content preferences cannot be restored. `Replace Scene` keeps the destination Scene's existing bookmark collection. Include bookmark URLs when the folder structure and its group presentation must round-trip. Custom favicon overrides are not part of Portable Profile V4.
 
-Locale and bookmark opening behavior are carried as global preferences. Tutorial state, permissions, Google authorization, selected calendar IDs, calendar-list metadata, and cached events are always excluded. Enabling bookmark URLs or media shows a sensitive-data warning because the JSON can contain private URLs or embedded file data.
+Locale and bookmark opening behavior are carried as global preferences. Tutorial state, permissions, Calendar feed URLs, and cached events are always excluded. Enabling bookmark URLs or media shows a sensitive-data warning because the JSON can contain private URLs or embedded file data.
 
 Global locale and bookmark-opening behavior remain in the export even when the Scene category is disabled; the export UI states this explicitly.
 
@@ -114,7 +109,7 @@ Import always shows aggregate counts and a per-Scene diff before applying. Every
 
 `Skip` applies only to that Scene. Skipped Scenes remain unchanged, while the profile's global locale and bookmark-opening preference are still imported.
 
-“Local” means Starlit has no developer-controlled backend. It does not mean the extension never uses the network: Google Calendar is requested directly from Google after explicit OAuth, favicon domains may be sent to Google's favicon service, fonts may load from Google Fonts, and user-provided URLs are requested from their providers.
+“Local” means Starlit has no developer-controlled backend. It does not mean the extension never uses the network: Calendar feeds are requested directly from their providers after explicit host permission, favicon domains may be sent to Google's favicon service, fonts may load from Google Fonts, and user-provided URLs are requested from their providers.
 
 Version 2 does not include Iserlohn or another Starlit cloud-sync service, Calendar write access, a public plugin marketplace, or analytics. Portable Profile V4 is the local transport and conflict contract; any later remote-sync work must reuse or deliberately version that contract.
 
@@ -126,7 +121,7 @@ Clicking the current bookmark-folder title opens that folder's direct bookmarks 
 
 The optional `tabGroups` permission is retained after the first grant so these actions remain available and can be disconnected from Settings. The optional `tabs` permission is requested only while an explicit import reads the open tabs' titles and URLs, then removed when the import finishes or is cancelled. Open-group snapshots stay in the current page's memory and are neither stored by Starlit nor sent to a developer-controlled server.
 
-The packaged `guide.html` page documents bookmarks, Scenes, tab groups, layout, appearance, Image, Clock, and Google Calendar widgets, the command palette, Portable Profile V4, permissions, and troubleshooting in English, Korean, and Japanese.
+The packaged `guide.html` page documents bookmarks, Scenes, tab groups, layout, appearance, Image, Clock, and Calendar widgets, the command palette, Portable Profile V4, permissions, and troubleshooting in English, Korean, and Japanese.
 
 ## Fonts and visual-test baseline
 
@@ -148,48 +143,35 @@ fc-cache -f
 fc-match "IBM Plex Sans"
 ```
 
-Wait for `document.fonts.ready` before taking each screenshot. Installing the same font file on macOS does not create a Linux pixel baseline because browser and operating-system text rasterization can still differ. The System option is therefore not used to generate reference screenshots. The distributed extension includes IBM's complete OFL 1.1 text at [`assets/licenses/IBM-Plex-OFL-1.1.txt`](assets/licenses/IBM-Plex-OFL-1.1.txt).
+Wait for `document.fonts.ready` before taking each screenshot. Installing the same font file on macOS does not create a Linux pixel baseline because browser and operating-system text rasterization can still differ. The System option is therefore not used to generate reference screenshots. The distributed extension includes IBM's complete OFL 1.1 text at [`assets/licenses/IBM-Plex-OFL-1.1.txt`](assets/licenses/IBM-Plex-OFL-1.1.txt) and the `ical.js` MPL 2.0 text at [`assets/licenses/ical.js-MPL-2.0.txt`](assets/licenses/ical.js-MPL-2.0.txt).
 
 ## Release gates
 
-Google OAuth verification and the matching Chrome Web Store privacy-practices update are release blockers for v2. They are not complete merely because the code, manifest scopes, or this privacy document exist. Do not publish `v2.0.0` until both external reviews are confirmed.
-
-Development and production OAuth clients must use their respective extension IDs. Configure a development build with:
-
-```bash
-STARLIT_GOOGLE_OAUTH_CLIENT_ID_DEVELOPMENT=... pnpm build
-```
-
-Without the development value, local builds use a non-production placeholder so build and E2E verification remain deterministic; Google Calendar connection is not expected to succeed with that placeholder.
-
-A release build requires all of the following:
+A matching Chrome Web Store privacy-practices update is a release blocker for v2. The broad optional-host declaration must be disclosed together with the runtime exact-origin consent flow. A release build requires:
 
 ```bash
 STARLIT_RELEASE_BUILD=true
-STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION=...
-STARLIT_GOOGLE_OAUTH_VERIFIED=true
 STARLIT_STORE_PRIVACY_UPDATED=true
 ```
 
-`scripts/prepare-extension.mjs` fails a release build when the production client, explicit OAuth verification confirmation, or Store privacy-practices confirmation is missing. The confirmation environment variables record already completed external work; they are not mechanisms for bypassing either review.
+`scripts/prepare-extension.mjs` fails a release build when the Store privacy-practices confirmation is missing. The confirmation variable records already completed external work; it is not a mechanism for bypassing review.
 
 ### Chrome Web Store release checklist
 
 The GitHub release workflow creates a reproducible archive and checksum. It does not publish the extension to the Chrome Web Store. Complete this checklist before manually publishing the single `v2.0.0` Store release:
 
-1. Confirm Google OAuth verification approval and retain the approval evidence.
-2. Update Chrome Web Store privacy practices, permission justifications, and listing copy to match `PRIVACY.md` and the packaged guide.
+1. Update Chrome Web Store privacy practices, optional-host permission justification, and listing copy to match `PRIVACY.md` and the packaged guide.
    Use the five 1280×800 v2 listing images in `assets/store/screenshot-*.png`; regenerate them from the corresponding Playwright goldens if the UI changes.
-   After approval, update the guide and privacy copy that currently identifies OAuth and Store review as pending; do not publish a build containing stale review-status text.
-3. Confirm that the production OAuth client is registered for the exact Chrome Web Store extension ID, then configure the three release secrets shown above.
-4. Run `pnpm check` with the release environment, push the final `main` commit, and confirm that local `HEAD` equals `origin/main` before creating the `v2.0.0` tag. The workflow rejects a tag that does not point to the current `origin/main` commit.
-5. Upload the generated archive to a tester or staged Store release. In Stable Chrome, use a clean profile with the extension installed under the production Store ID and verify:
-   - first run does not start OAuth or request Google API host access;
-   - OAuth allow, deny, disconnect, and reconnect paths;
-   - offline startup and Calendar cached, empty, partial-failure, and error states;
+   After approval, update any guide or privacy copy that identifies Store review as pending; do not publish a build containing stale review-status text.
+2. Configure `STARLIT_STORE_PRIVACY_UPDATED=true` for the release workflow.
+3. Run `pnpm check` with the release environment, push the final `main` commit, and confirm that local `HEAD` equals `origin/main` before creating the `v2.0.0` tag. The workflow rejects a tag that does not point to the current `origin/main` commit.
+4. Upload the generated archive to a tester or staged Store release. In Stable Chrome, use a clean profile with the extension installed under the production Store ID and verify:
+   - first run does not request Calendar host access;
+   - valid, denied, malformed, redirected, oversized, and offline feed paths;
+   - Calendar cached, empty, recurrence, all-day, and error states;
    - reduced-motion on and off for Image widget motion and background video;
-   - Scene switching and Portable Profile import do not change Calendar authorization.
-6. Publish publicly only after the Store-ID smoke test passes and the listing screenshots and privacy disclosure match the tested build.
+   - Portable Profile export redacts Calendar feed URLs.
+5. Publish publicly only after the Store-ID smoke test passes and the listing screenshots and privacy disclosure match the tested build.
 
 ## Verification
 
@@ -205,14 +187,14 @@ pnpm build
 pnpm test:extension
 ```
 
-`pnpm build` creates and validates `dist/`. Load that directory from `chrome://extensions` with Developer mode enabled. The post-build validator checks Manifest V3 entry points, required permissions, Calendar scopes and host access, packaged assets, and version consistency.
+`pnpm build` creates and validates `dist/`. Load that directory from `chrome://extensions` with Developer mode enabled. The post-build validator checks Manifest V3 entry points, required permissions, optional Calendar feed host access, packaged assets, and version consistency.
 
 ## Source ownership
 
 - `src/platform`: Chrome storage and bookmark adapters plus IndexedDB records and transaction coordination.
 - `src/scenes`: versioned Scene/canvas contracts, migration, conflict planning, readiness, bookmark copying, and runtime APIs.
 - `src/widgets`: the built-in widget registry, canvas renderer, Clock, and Calendar widget controller.
-- `src/calendar`: read-only Google Calendar gateway, message contracts, parsers, selection storage, and five-minute session cache.
+- `src/calendar`: HTTPS iCalendar URL validation, RFC 5545 parsing, read-only feed gateway, message contracts, and five-minute session cache.
 - `src/commandPalette`: palette result types, deterministic ranking, and the Lagrange dialog/combobox UI.
 - `src/guide`: the packaged localized user guide entry point and content.
 - `src/tutorial`: first-install tutorial state and modal.
@@ -250,4 +232,4 @@ Custom CSS is sanitized and applied after Lagrange styles and Starlit compositio
 }
 ```
 
-Public main-view parts include `root`, `main`, `background-media`, `overlay-images-below`, `overlay-images-above`, `overlay-image`, `overlay-motion`, `widget-clock`, `widget-google-calendar`, `command-palette`, `paged-groups`, `expanded-groups`, `group-rail`, `group-navigation`, `settings-trigger`, `bookmark-group`, `bookmark-group-header`, `bookmark-breadcrumb`, `bookmark-route`, `bookmark-grid`, `bookmark-tile`, the `bookmark-tile-*` subparts, `pagination`, `pagination-control`, and `pagination-status`. Use `data-kind`, `data-layout`, and `data-direction` to narrow state. Legacy `--c-*` and layout variables remain as compatibility aliases for existing profiles.
+Public main-view parts include `root`, `main`, `background-media`, `overlay-images-below`, `overlay-images-above`, `overlay-image`, `overlay-motion`, `widget-clock`, `widget-calendar`, `command-palette`, `paged-groups`, `expanded-groups`, `group-rail`, `group-navigation`, `settings-trigger`, `bookmark-group`, `bookmark-group-header`, `bookmark-breadcrumb`, `bookmark-route`, `bookmark-grid`, `bookmark-tile`, the `bookmark-tile-*` subparts, `pagination`, `pagination-control`, and `pagination-status`. Use `data-kind`, `data-layout`, and `data-direction` to narrow state. Legacy `--c-*` and layout variables remain as compatibility aliases for existing profiles.

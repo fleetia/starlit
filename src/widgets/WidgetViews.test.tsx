@@ -6,7 +6,12 @@ import { ClockWidgetView } from './WidgetViews';
 
 const CLOCK: ClockWidgetInstance = {
   anchor: 'top-left',
-  config: { hourCycle: 'h24', showSeconds: false },
+  config: {
+    appearance: 'digital',
+    format: 'HH:mm',
+    showSecondHand: true,
+    timeZone: 'UTC',
+  },
   frame: { height: 80, offsetX: 12, offsetY: 18, width: 120 },
   id: 'clock',
   isHidden: false,

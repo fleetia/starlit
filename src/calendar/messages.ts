@@ -1,54 +1,35 @@
+import { isCalendarEventsResult } from './eventCodec';
 import { isCalendarGatewayError } from './errors';
-import { isStoredCalendarEvent } from './parsers';
-import { isCalendarId, MAX_SELECTED_CALENDARS } from './selectionStorage';
+import { isCalendarFeedUrl } from './feedUrl';
 import type {
-  CalendarConnection,
   CalendarEventsResult,
   CalendarGateway,
   CalendarGatewayErrorCode,
-  CalendarInfo,
+  CalendarSubscription,
 } from './types';
 
-export type CalendarConnectMessage = {
-  type: 'calendar.connect';
-};
-
-export type CalendarDisconnectMessage = {
-  type: 'calendar.disconnect';
-};
-
-export type CalendarListCalendarsMessage = {
-  type: 'calendar.listCalendars';
+export type CalendarSubscribeMessage = {
+  feedUrl: string;
+  type: 'calendar.subscribe';
 };
 
 export type CalendarListEventsMessage = {
-  calendarIds: string[];
+  feedUrl: string;
+  forceRefresh?: boolean;
   type: 'calendar.listEvents';
 };
 
 export type CalendarMessage =
-  | CalendarConnectMessage
-  | CalendarDisconnectMessage
-  | CalendarListCalendarsMessage
-  | CalendarListEventsMessage;
+  | CalendarListEventsMessage
+  | CalendarSubscribeMessage;
 
 export type CalendarMessageType = CalendarMessage['type'];
 
 export type CalendarMessageResponse =
   | {
-      data: CalendarConnection;
+      data: CalendarSubscription;
       ok: true;
-      type: 'calendar.connect.result';
-    }
-  | {
-      data: { isConnected: false };
-      ok: true;
-      type: 'calendar.disconnect.result';
-    }
-  | {
-      data: CalendarInfo[];
-      ok: true;
-      type: 'calendar.listCalendars.result';
+      type: 'calendar.subscribe.result';
     }
   | {
       data: CalendarEventsResult;
@@ -88,98 +69,40 @@ function isCalendarGatewayErrorCode(
 ): value is CalendarGatewayErrorCode {
   return (
     value === 'api-error' ||
-    value === 'auth-required' ||
     value === 'invalid-request' ||
     value === 'invalid-response' ||
     value === 'network-error' ||
     value === 'permission-denied' ||
+    value === 'response-too-large' ||
     value === 'unavailable'
   );
 }
 
-function isCalendarInfo(value: unknown): value is CalendarInfo {
-  return (
-    isRecord(value) &&
-    hasExactKeys(value, ['color', 'id', 'isPrimary', 'name']) &&
-    (value.color === null ||
-      (typeof value.color === 'string' &&
-        /^#[0-9a-f]{6}$/iu.test(value.color))) &&
-    isCalendarId(value.id) &&
-    typeof value.isPrimary === 'boolean' &&
-    typeof value.name === 'string'
-  );
-}
-
-function isCalendarEventsResult(value: unknown): value is CalendarEventsResult {
-  return (
-    isRecord(value) &&
-    hasExactKeys(value, [
-      'events',
-      'expiresAt',
-      'failures',
-      'fetchedAt',
-      'isFromCache',
-    ]) &&
-    Array.isArray(value.events) &&
-    value.events.every(isStoredCalendarEvent) &&
-    Array.isArray(value.failures) &&
-    value.failures.every(
-      (failure) =>
-        isRecord(failure) &&
-        hasExactKeys(failure, ['calendarId', 'reason']) &&
-        isCalendarId(failure.calendarId) &&
-        (failure.reason === 'auth-required' ||
-          failure.reason === 'forbidden' ||
-          failure.reason === 'invalid-response' ||
-          failure.reason === 'network' ||
-          failure.reason === 'not-found' ||
-          failure.reason === 'unknown'),
-    ) &&
-    typeof value.expiresAt === 'number' &&
-    Number.isFinite(value.expiresAt) &&
-    typeof value.fetchedAt === 'number' &&
-    Number.isFinite(value.fetchedAt) &&
-    value.expiresAt >= value.fetchedAt &&
-    typeof value.isFromCache === 'boolean'
-  );
-}
-
 export function isCalendarMessage(value: unknown): value is CalendarMessage {
-  if (!isRecord(value)) {
-    return false;
-  }
+  if (!isRecord(value) || !isCalendarFeedUrl(value.feedUrl)) return false;
 
-  if (
-    value.type === 'calendar.connect' ||
-    value.type === 'calendar.disconnect' ||
-    value.type === 'calendar.listCalendars'
-  ) {
-    return hasExactKeys(value, ['type']);
+  if (value.type === 'calendar.subscribe') {
+    return hasExactKeys(value, ['feedUrl', 'type']);
   }
 
   return (
     value.type === 'calendar.listEvents' &&
-    hasExactKeys(value, ['calendarIds', 'type']) &&
-    Array.isArray(value.calendarIds) &&
-    value.calendarIds.length <= MAX_SELECTED_CALENDARS &&
-    value.calendarIds.every(isCalendarId)
+    (hasExactKeys(value, ['feedUrl', 'type']) ||
+      (hasExactKeys(value, ['feedUrl', 'forceRefresh', 'type']) &&
+        typeof value.forceRefresh === 'boolean'))
   );
 }
 
 export function isCalendarMessageResponse(
   value: unknown,
 ): value is CalendarMessageResponse {
-  if (!isRecord(value) || typeof value.ok !== 'boolean') {
-    return false;
-  }
+  if (!isRecord(value) || typeof value.ok !== 'boolean') return false;
 
   if (value.ok === false) {
     return (
       hasExactKeys(value, ['error', 'ok', 'requestType', 'type']) &&
       value.type === 'calendar.error' &&
-      (value.requestType === 'calendar.connect' ||
-        value.requestType === 'calendar.disconnect' ||
-        value.requestType === 'calendar.listCalendars' ||
+      (value.requestType === 'calendar.subscribe' ||
         value.requestType === 'calendar.listEvents') &&
       isRecord(value.error) &&
       hasExactKeys(value.error, ['code', 'message']) &&
@@ -188,72 +111,40 @@ export function isCalendarMessageResponse(
     );
   }
 
-  if (!('data' in value)) {
-    return false;
+  if (!('data' in value)) return false;
+  if (value.type === 'calendar.subscribe.result') {
+    return (
+      hasExactKeys(value, ['data', 'ok', 'type']) &&
+      isRecord(value.data) &&
+      hasExactKeys(value.data, ['isConnected']) &&
+      value.data.isConnected === true
+    );
   }
 
-  switch (value.type) {
-    case 'calendar.connect.result':
-      return (
-        hasExactKeys(value, ['data', 'ok', 'type']) &&
-        isRecord(value.data) &&
-        hasExactKeys(value.data, ['isConnected']) &&
-        value.data.isConnected === true
-      );
-    case 'calendar.disconnect.result':
-      return (
-        hasExactKeys(value, ['data', 'ok', 'type']) &&
-        isRecord(value.data) &&
-        hasExactKeys(value.data, ['isConnected']) &&
-        value.data.isConnected === false
-      );
-    case 'calendar.listCalendars.result':
-      return (
-        hasExactKeys(value, ['data', 'ok', 'type']) &&
-        Array.isArray(value.data) &&
-        value.data.every(isCalendarInfo)
-      );
-    case 'calendar.listEvents.result':
-      return (
-        hasExactKeys(value, ['data', 'ok', 'type']) &&
-        isCalendarEventsResult(value.data)
-      );
-    default:
-      return false;
-  }
+  return (
+    value.type === 'calendar.listEvents.result' &&
+    hasExactKeys(value, ['data', 'ok', 'type']) &&
+    isCalendarEventsResult(value.data)
+  );
 }
 
 async function handleCalendarMessage(
   message: CalendarMessage,
   gateway: CalendarGateway,
 ): Promise<CalendarMessageResponse> {
-  switch (message.type) {
-    case 'calendar.connect':
-      return {
-        data: await gateway.connect(),
-        ok: true,
-        type: 'calendar.connect.result',
-      };
-    case 'calendar.disconnect':
-      await gateway.disconnect();
-      return {
-        data: { isConnected: false },
-        ok: true,
-        type: 'calendar.disconnect.result',
-      };
-    case 'calendar.listCalendars':
-      return {
-        data: await gateway.listCalendars(),
-        ok: true,
-        type: 'calendar.listCalendars.result',
-      };
-    case 'calendar.listEvents':
-      return {
-        data: await gateway.listEvents(message.calendarIds),
-        ok: true,
-        type: 'calendar.listEvents.result',
-      };
+  if (message.type === 'calendar.subscribe') {
+    return {
+      data: await gateway.subscribe(message.feedUrl),
+      ok: true,
+      type: 'calendar.subscribe.result',
+    };
   }
+
+  return {
+    data: await gateway.listEvents(message.feedUrl, message.forceRefresh),
+    ok: true,
+    type: 'calendar.listEvents.result',
+  };
 }
 
 function createErrorResponse(
@@ -270,10 +161,7 @@ function createErrorResponse(
   }
 
   return {
-    error: {
-      code: 'api-error',
-      message: 'Google Calendar request failed.',
-    },
+    error: { code: 'api-error', message: 'The Calendar feed request failed.' },
     ok: false,
     requestType,
     type: 'calendar.error',
@@ -284,9 +172,7 @@ export function createCalendarMessageListener(
   gateway: CalendarGateway,
 ): CalendarMessageListener {
   return (message, _sender, sendResponse) => {
-    if (!isCalendarMessage(message)) {
-      return undefined;
-    }
+    if (!isCalendarMessage(message)) return undefined;
 
     void handleCalendarMessage(message, gateway)
       .catch((error: unknown) => createErrorResponse(message.type, error))

@@ -1,9 +1,4 @@
 import { DEFAULT_SYNC_STORAGE_VALUES } from '../platform/storage/defaults';
-import {
-  CALENDAR_EVENT_CACHE_STORAGE_KEY,
-  CALENDAR_LIST_STORAGE_KEY,
-  SELECTED_CALENDAR_IDS_STORAGE_KEY,
-} from '../calendar';
 import { replaceIndexedRecordSet } from '../platform/storage/indexedDbRecords';
 import {
   deleteLegacyMedia,
@@ -35,6 +30,9 @@ import {
 } from '../overlays/model';
 
 const BACKGROUND_MEDIA_KEY = 'backgroundMedia';
+const LEGACY_CALENDAR_LIST_STORAGE_KEY = 'googleCalendar.calendarList.v1';
+const LEGACY_SELECTED_CALENDAR_IDS_STORAGE_KEY =
+  'googleCalendar.selectedCalendarIds';
 const SYNC_KEYS_TO_REMOVE = [
   'backgroundImage',
   'backgroundMeta',
@@ -87,14 +85,14 @@ export async function resetAllSettings(): Promise<void> {
         'bookmarks',
         'expandedGroupsState',
         'favicons',
-        CALENDAR_LIST_STORAGE_KEY,
-        SELECTED_CALENDAR_IDS_STORAGE_KEY,
+        LEGACY_CALENDAR_LIST_STORAGE_KEY,
+        LEGACY_SELECTED_CALENDAR_IDS_STORAGE_KEY,
         SCENE_INDEX_STORAGE_KEY,
         'tutorialStatus',
         ...LOCAL_SCENE_KEYS_TO_REMOVE,
         ...overlayLeaseKeys,
       ]);
-      await storage.session.remove(CALENDAR_EVENT_CACHE_STORAGE_KEY);
+      await storage.session.clear();
       await Promise.all([
         deleteMedia(BACKGROUND_MEDIA_KEY),
         deleteLegacyMedia(BACKGROUND_MEDIA_KEY),

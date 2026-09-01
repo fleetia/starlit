@@ -5,8 +5,6 @@ import { assertReleaseBuildReady } from './release-guards.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DIST = resolve(ROOT, 'dist');
-const DEVELOPMENT_OAUTH_CLIENT_ID =
-  'starlit-development-client.apps.googleusercontent.com';
 const PACKAGED_ASSET_PATHS = [
   'assets/icons/icon-16.png',
   'assets/icons/icon-32.png',
@@ -20,6 +18,7 @@ const PACKAGED_ASSET_PATHS = [
   'assets/guide/settings-portable-profile.jpg',
   'assets/guide/settings-layout.jpg',
   'assets/licenses/IBM-Plex-OFL-1.1.txt',
+  'assets/licenses/ical.js-MPL-2.0.txt',
   'assets/overlays/getting.png',
 ];
 
@@ -39,17 +38,7 @@ async function prepareExtension() {
   const sourceManifest = JSON.parse(
     await readFile(resolve(ROOT, 'manifest.json'), 'utf8'),
   );
-  const isReleaseBuild = process.env.STARLIT_RELEASE_BUILD === 'true';
-  const productionClientId =
-    process.env.STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION?.trim();
-  const developmentClientId =
-    process.env.STARLIT_GOOGLE_OAUTH_CLIENT_ID_DEVELOPMENT?.trim();
-
   assertReleaseBuildReady(process.env);
-
-  sourceManifest.oauth2.client_id = isReleaseBuild
-    ? productionClientId
-    : developmentClientId || DEVELOPMENT_OAUTH_CLIENT_ID;
 
   await writeFile(
     resolve(DIST, 'manifest.json'),
@@ -93,36 +82,13 @@ async function prepareExtension() {
 
   if (
     !manifest.permissions?.includes('storage') ||
-    !manifest.permissions?.includes('bookmarks') ||
-    !manifest.permissions?.includes('identity')
+    !manifest.permissions?.includes('bookmarks')
   ) {
-    throw new Error(
-      'Extension must retain storage, bookmarks, and identity permissions',
-    );
+    throw new Error('Extension must retain storage and bookmarks permissions');
   }
 
-  if (
-    !manifest.optional_host_permissions?.includes(
-      'https://www.googleapis.com/*',
-    )
-  ) {
-    throw new Error('Extension must declare optional Google API host access');
-  }
-
-  const requiredCalendarScopes = [
-    'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
-    'https://www.googleapis.com/auth/calendar.events.readonly',
-  ];
-
-  if (
-    !manifest.oauth2?.client_id ||
-    requiredCalendarScopes.some(
-      (scope) => !manifest.oauth2?.scopes?.includes(scope),
-    )
-  ) {
-    throw new Error(
-      'Extension must declare the read-only Calendar OAuth client',
-    );
+  if (!manifest.optional_host_permissions?.includes('https://*/*')) {
+    throw new Error('Extension must declare optional HTTPS feed host access');
   }
 
   if (

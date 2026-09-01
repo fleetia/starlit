@@ -98,7 +98,12 @@ describe('PortableProfileV4', () => {
     });
     input.scenes[0]?.canvas.layers.push({
       anchor: 'top-right',
-      config: { hourCycle: 'locale', showSeconds: false },
+      config: {
+        appearance: 'digital',
+        format: 'HH:mm',
+        showSecondHand: true,
+        timeZone: null,
+      },
       frame: { height: 88, offsetX: 24, offsetY: 24, width: 240 },
       id: 'clock-widget',
       isHidden: false,
@@ -175,6 +180,30 @@ describe('PortableProfileV4', () => {
       ],
       rootId: 'root',
     });
+  });
+
+  it('redacts Calendar feed URLs from imported portable profiles', () => {
+    const profile = createProfile();
+    profile.scenes[0]?.canvas.layers.push({
+      anchor: 'top-right',
+      config: {
+        feedUrl: 'https://calendar.example.com/private-token.ics',
+        maxEvents: 8,
+        showAllDay: true,
+      },
+      frame: { height: 320, offsetX: 24, offsetY: 24, width: 360 },
+      id: 'calendar-widget',
+      isHidden: false,
+      isLocked: false,
+      kind: 'widget',
+      widgetType: 'calendar',
+    });
+
+    expect(
+      parsePortableProfileV4(profile).scenes[0]?.canvas.layers.find(
+        (layer) => layer.kind === 'widget' && layer.widgetType === 'calendar',
+      ),
+    ).toMatchObject({ config: { feedUrl: null } });
   });
 
   it('rejects an oversized portable asset before base64 decoding', () => {

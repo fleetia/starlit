@@ -198,9 +198,7 @@ test('renders overlay images around bookmarks and supports right-click actions',
     'true',
   );
   await expect(
-    page
-      .getByRole('list', { name: 'Image widget order' })
-      .getByRole('listitem'),
+    page.getByRole('list', { name: 'Canvas item order' }).getByRole('listitem'),
   ).toHaveText([/above\.svg/u, /Bookmarks/u, /below\.svg/u]);
 });
 

@@ -1,6 +1,9 @@
 import type { OverlayScene } from '../overlays/types';
 
-import { projectOverlaySceneToCanvasScene } from './runtime';
+import {
+  projectCanvasSceneToOverlayScene,
+  projectOverlaySceneToCanvasScene,
+} from './runtime';
 import type { CanvasSceneV2 } from './types';
 
 export function mergeCanvasWithOverlay(
@@ -17,4 +20,19 @@ export function mergeCanvasWithOverlay(
   });
 
   return { ...canvas, layers: [...layers, ...projectedLayers] };
+}
+
+export function projectCanvasSceneToStableOverlayScene(
+  canvas: CanvasSceneV2,
+  currentOverlayScene: OverlayScene,
+): OverlayScene {
+  const nextOverlayScene = projectCanvasSceneToOverlayScene(canvas);
+  const normalizedCurrentOverlayScene = projectCanvasSceneToOverlayScene(
+    projectOverlaySceneToCanvasScene(currentOverlayScene),
+  );
+
+  return JSON.stringify(nextOverlayScene) ===
+    JSON.stringify(normalizedCurrentOverlayScene)
+    ? currentOverlayScene
+    : nextOverlayScene;
 }

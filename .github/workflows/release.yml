@@ -83,8 +83,6 @@ jobs:
 
       - name: Verify release build
         env:
-          STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION: ${{ secrets.STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION }}
-          STARLIT_GOOGLE_OAUTH_VERIFIED: ${{ secrets.STARLIT_GOOGLE_OAUTH_VERIFIED }}
           STARLIT_RELEASE_BUILD: 'true'
           STARLIT_STORE_PRIVACY_UPDATED: ${{ secrets.STARLIT_STORE_PRIVACY_UPDATED }}
         run: pnpm check
