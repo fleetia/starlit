@@ -3,7 +3,7 @@ import { semanticVars } from '@fleetia/lagrange/theme';
 
 export const editor = style({
   position: 'fixed',
-  zIndex: 40,
+  zIndex: 'calc(var(--starlit-canvas-ui-z-index, 39) + 1)',
   inset: 0,
   color: semanticVars.color.content.primary,
   backgroundColor: 'color-mix(in srgb, black 5%, transparent)',
@@ -41,7 +41,54 @@ export const imageTarget = style({
       borderColor: semanticVars.color.selection.indicator,
       boxShadow: `0 0 0 ${semanticVars.border.width.hairline} ${semanticVars.color.selection.indicator}`,
     },
+    '&[data-hidden="true"]': {
+      opacity: 0.45,
+    },
+    '&[data-locked="true"]': {
+      cursor: 'not-allowed',
+    },
   },
+});
+
+export const marquee = style({
+  position: 'absolute',
+  zIndex: 1001,
+  boxSizing: 'border-box',
+  backgroundColor: `color-mix(in srgb, ${semanticVars.color.selection.indicator} 14%, transparent)`,
+  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.selection.indicator}`,
+  pointerEvents: 'none',
+});
+
+export const snapGuide = style({
+  position: 'absolute',
+  zIndex: 1000,
+  backgroundColor: semanticVars.color.selection.indicator,
+  pointerEvents: 'none',
+  selectors: {
+    '&[data-axis="x"]': {
+      top: 0,
+      bottom: 0,
+      width: semanticVars.border.width.hairline,
+    },
+    '&[data-axis="y"]': {
+      right: 0,
+      left: 0,
+      height: semanticVars.border.width.hairline,
+    },
+  },
+});
+
+export const anchorMarker = style({
+  position: 'absolute',
+  zIndex: 1002,
+  width: '0.75rem',
+  height: '0.75rem',
+  backgroundColor: semanticVars.color.surface.raised,
+  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.selection.indicator}`,
+  borderRadius: '50%',
+  boxShadow: `0 0 0 ${semanticVars.border.width.hairline} ${semanticVars.color.surface.raised}`,
+  pointerEvents: 'none',
+  transform: 'translate(-50%, -50%)',
 });
 
 export const toolbar = style({
@@ -114,6 +161,52 @@ export const field = style({
   border: 0,
 });
 
+export const viewportToggle = style({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: semanticVars.space.xs,
+});
+
+export const viewportPreview = style({
+  position: 'relative',
+  justifySelf: 'center',
+  width: '100%',
+  maxWidth: '15rem',
+  aspectRatio: '16 / 9',
+  overflow: 'hidden',
+  backgroundColor: semanticVars.color.surface.canvas,
+  backgroundImage: `linear-gradient(${semanticVars.color.border.subtle} 1px, transparent 1px), linear-gradient(90deg, ${semanticVars.color.border.subtle} 1px, transparent 1px)`,
+  backgroundPosition: 'center',
+  backgroundSize: '50% 50%',
+  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.border.strong}`,
+  pointerEvents: 'none',
+  selectors: {
+    '&[data-viewport="narrow"]': {
+      width: '42%',
+      aspectRatio: '9 / 16',
+    },
+  },
+});
+
+export const viewportAnchorMarker = style({
+  position: 'absolute',
+  width: '0.75rem',
+  height: '0.75rem',
+  backgroundColor: semanticVars.color.selection.indicator,
+  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.surface.raised}`,
+  borderRadius: '50%',
+  boxShadow: `0 0 0 ${semanticVars.border.width.hairline} ${semanticVars.color.selection.indicator}`,
+  transform: 'translate(-50%, -50%)',
+  selectors: {
+    '&[data-anchor^="top-"]': { top: '9%' },
+    '&[data-anchor^="center-"]': { top: '50%' },
+    '&[data-anchor^="bottom-"]': { top: '91%' },
+    '&[data-anchor$="-left"]': { left: '9%' },
+    '&[data-anchor$="-center"]': { left: '50%' },
+    '&[data-anchor$="-right"]': { left: '91%' },
+  },
+});
+
 export const label = style({
   color: semanticVars.color.content.secondary,
   fontFamily: semanticVars.typography.family.ui,
@@ -149,6 +242,12 @@ export const rangeValue = style({
 export const actions = style({
   display: 'flex',
   justifyContent: 'flex-end',
+});
+
+export const selectionActions = style({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: semanticVars.space.xs,
 });
 
 export const title = style({

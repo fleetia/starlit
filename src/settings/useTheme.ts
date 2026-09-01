@@ -26,6 +26,7 @@ export function useTheme(): UseThemeReturn {
     'colorTheme',
     DEFAULT_STARLIT_THEME,
     decodeTheme,
+    'local',
   );
 
   const updateTheme = async (

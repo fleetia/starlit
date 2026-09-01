@@ -85,6 +85,19 @@ async function getPlacementMetrics(
   });
 }
 
+test('fresh install keeps the bookmark canvas behind the tutorial', async ({
+  extension,
+}) => {
+  const page = await extension.openNewTab();
+  await expect(
+    page.getByRole('dialog', { name: 'Your bookmarks, already here' }),
+  ).toBeVisible();
+  await expect(page.locator('.starlit-scene-name')).toHaveCount(0);
+  await expect(page).toHaveScreenshot('fresh-install.png', {
+    fullPage: false,
+  });
+});
+
 test('paged Lagrange canvas', async ({ extension }) => {
   await extension.seedProfile(createProfileSeed({ locale: 'en' }));
   const page = await extension.openNewTab();
@@ -479,10 +492,47 @@ test('settings dialog', async ({ extension }) => {
   await waitForBookmarks(page);
 
   await page.locator('[data-starlit-part="settings-trigger"]').click();
-  await expect(
-    page.locator('[data-starlit-part="settings-dialog"]'),
-  ).toBeVisible();
+  const dialog = page.locator('[data-starlit-part="settings-dialog"]');
+  await expect(dialog).toBeVisible();
+  const tabs = dialog.getByRole('tab');
+  await expect(tabs).toHaveCount(8);
+  expect(await tabs.allTextContents()).toEqual([
+    'General',
+    'Appearance',
+    'Widgets',
+    'Layout',
+    'CSS',
+    'Bookmark groups',
+    'Scene',
+    'Portable profile',
+  ]);
   await expect(page).toHaveScreenshot('settings.png', { fullPage: false });
+  await expect(dialog).toHaveScreenshot('settings-dialog.png', {
+    maxDiffPixelRatio: 0.01,
+  });
+});
+
+test('grouped Settings shortcuts open the Portable profile tab', async ({
+  extension,
+}) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  await page.locator('[data-starlit-part="main"]').click({
+    button: 'right',
+    position: { x: 8, y: 8 },
+  });
+  const menu = page.getByRole('menu', { name: 'Options' });
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveScreenshot('settings-context-menu.png');
+
+  await menu.getByRole('menuitem', { name: 'Portable profile' }).click();
+  const dialog = page.locator('[data-starlit-part="settings-dialog"]');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveScreenshot('portable-profile-settings.png', {
+    maxDiffPixelRatio: 0.01,
+  });
 });
 
 test('background settings keep a fixed dialog theme', async ({ extension }) => {
@@ -533,6 +583,66 @@ test('bookmark group guidance', async ({ extension }) => {
     page.locator('[data-starlit-part="bookmark-connection-guide"]'),
   ).toHaveAttribute('open', '');
   await expect(page).toHaveScreenshot('bookmark-groups.png', {
+    fullPage: false,
+  });
+});
+
+test('layout settings guide surface', async ({ extension }) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  await page.locator('[data-starlit-part="settings-trigger"]').click();
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  const layoutHeading = page.getByRole('heading', {
+    name: 'Layout',
+    exact: true,
+  });
+  await layoutHeading.scrollIntoViewIfNeeded();
+  await expect(layoutHeading).toBeVisible();
+  await expect(page).toHaveScreenshot('settings-layout-guide.png', {
+    fullPage: false,
+  });
+});
+
+test('Custom CSS guide surface', async ({ extension }) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  await page.locator('[data-starlit-part="settings-trigger"]').click();
+  await page.getByRole('tab', { name: 'CSS', exact: true }).click();
+  const cssHeading = page.getByRole('heading', {
+    name: 'Custom CSS',
+    exact: true,
+  });
+  await cssHeading.scrollIntoViewIfNeeded();
+  await expect(cssHeading).toBeVisible();
+  await expect(page).toHaveScreenshot('settings-custom-css-guide.png', {
+    fullPage: false,
+  });
+});
+
+test('tab-group confirmation guide surface', async ({ extension }) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  await page
+    .getByRole('button', { name: 'Design systems', exact: true })
+    .click();
+  await page
+    .getByRole('button', {
+      name: 'Design systems: Open this folder as a tab group',
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole('alertdialog', {
+      name: 'Open bookmarks as a tab group?',
+    }),
+  ).toContainText('Design systems: 1 tab.');
+  await expect(page).toHaveScreenshot('open-tab-group-confirm-guide.png', {
     fullPage: false,
   });
 });

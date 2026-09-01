@@ -6,26 +6,47 @@ import { normalizeSettings } from './normalizeSettings';
 import type { PersistedSettings, Settings } from './types';
 import { useSettings } from './useSettings';
 
+type SyncedSettings = Pick<Settings, 'isOpenInNewTab'>;
+
 const storageState = vi.hoisted(() => ({
-  setSettings: vi.fn<(settings: Settings) => Promise<void>>(),
-  settings: null as unknown,
+  calls: [] as Array<{ area: 'local' | 'sync'; key: string }>,
+  localSettings: null as unknown,
+  setLocalSettings: vi.fn<(settings: Settings) => Promise<void>>(),
+  setSyncedSettings: vi.fn<(settings: SyncedSettings) => Promise<void>>(),
+  syncedSettings: null as unknown,
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
   useStorageState: (
-    _key: string,
-    fallback: Settings,
-    decode: (value: unknown, fallback: Settings) => Settings,
-  ) => ({
-    isLoaded: true,
-    setValue: storageState.setSettings,
-    value: decode(storageState.settings, fallback),
-  }),
+    key: string,
+    fallback: unknown,
+    decode: (value: unknown, fallback: unknown) => unknown,
+    area: 'local' | 'sync',
+  ) => {
+    storageState.calls.push({ area, key });
+    const isLocal = area === 'local';
+
+    return {
+      isLoaded: true,
+      setValue: isLocal
+        ? storageState.setLocalSettings
+        : storageState.setSyncedSettings,
+      value: decode(
+        isLocal ? storageState.localSettings : storageState.syncedSettings,
+        fallback,
+      ),
+    };
+  },
 }));
 
 beforeEach((): void => {
-  storageState.settings = structuredClone(DEFAULT_SETTINGS);
-  storageState.setSettings.mockResolvedValue(undefined);
+  storageState.calls = [];
+  storageState.localSettings = structuredClone(DEFAULT_SETTINGS);
+  storageState.syncedSettings = {
+    isOpenInNewTab: DEFAULT_SETTINGS.isOpenInNewTab,
+  };
+  storageState.setLocalSettings.mockReset().mockResolvedValue(undefined);
+  storageState.setSyncedSettings.mockReset().mockResolvedValue(undefined);
 });
 
 describe('useSettings', () => {
@@ -59,7 +80,7 @@ describe('useSettings', () => {
   it('defaults a legacy profile to IBM Plex Sans', () => {
     const legacySettings: PersistedSettings = structuredClone(DEFAULT_SETTINGS);
     delete legacySettings.fontFamily;
-    storageState.settings = legacySettings;
+    storageState.localSettings = legacySettings;
 
     const { result } = renderHook(() => useSettings());
 
@@ -77,11 +98,68 @@ describe('useSettings', () => {
 
     expect(result.current.settings).toEqual(DEFAULT_SETTINGS);
     expect(result.current.isLoaded).toBe(true);
+    expect(storageState.calls).toEqual([
+      { area: 'local', key: 'settings' },
+      { area: 'sync', key: 'settings' },
+    ]);
 
     await act(async (): Promise<void> => {
       await result.current.updateSettings(nextSettings);
     });
 
-    expect(storageState.setSettings).toHaveBeenCalledWith(nextSettings);
+    expect(storageState.setLocalSettings).toHaveBeenCalledWith(nextSettings);
+    expect(storageState.setSyncedSettings).toHaveBeenCalledWith({
+      isOpenInNewTab: true,
+    });
+  });
+
+  it('merges the synced open behavior into device-local Scene settings', () => {
+    storageState.localSettings = {
+      ...DEFAULT_SETTINGS,
+      fontFamily: 'system',
+      isExpandView: true,
+      isOpenInNewTab: false,
+    };
+    storageState.syncedSettings = { isOpenInNewTab: true };
+
+    const { result } = renderHook(() => useSettings());
+
+    expect(result.current.settings).toEqual({
+      ...DEFAULT_SETTINGS,
+      fontFamily: 'system',
+      isExpandView: true,
+      isOpenInNewTab: true,
+    });
+  });
+
+  it('restores local settings when the sanitized sync write fails', async () => {
+    const previousSettings = {
+      ...DEFAULT_SETTINGS,
+      fontFamily: 'system',
+    } satisfies Settings;
+    const nextSettings = {
+      ...previousSettings,
+      isExpandView: true,
+      isOpenInNewTab: true,
+    } satisfies Settings;
+    const syncError = new Error('sync failed');
+    storageState.localSettings = previousSettings;
+    storageState.setSyncedSettings.mockRejectedValueOnce(syncError);
+    const { result } = renderHook(() => useSettings());
+
+    await expect(
+      act(async (): Promise<void> => {
+        await result.current.updateSettings(nextSettings);
+      }),
+    ).rejects.toBe(syncError);
+
+    expect(storageState.setLocalSettings).toHaveBeenNthCalledWith(
+      1,
+      nextSettings,
+    );
+    expect(storageState.setLocalSettings).toHaveBeenNthCalledWith(
+      2,
+      previousSettings,
+    );
   });
 });

@@ -10,16 +10,25 @@ type PreferenceUpdate =
   | ((previous: GroupPreference[]) => GroupPreference[]);
 
 const storageState = vi.hoisted(() => ({
+  area: undefined as 'local' | 'sync' | undefined,
   preferences: [] as GroupPreference[],
   setPreferences: vi.fn<(next: PreferenceUpdate) => Promise<void>>(),
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
-  useStorageState: () => ({
-    isLoaded: true,
-    setValue: storageState.setPreferences,
-    value: storageState.preferences,
-  }),
+  useStorageState: (
+    _key: string,
+    _fallback: GroupPreference[],
+    _decode: (value: unknown, fallback: GroupPreference[]) => GroupPreference[],
+    area?: 'local' | 'sync',
+  ) => {
+    storageState.area = area;
+    return {
+      isLoaded: true,
+      setValue: storageState.setPreferences,
+      value: storageState.preferences,
+    };
+  },
 }));
 
 function makeBookmarks(...titles: string[]): Bookmark[] {
@@ -30,6 +39,7 @@ function makeBookmarks(...titles: string[]): Bookmark[] {
 }
 
 beforeEach((): void => {
+  storageState.area = undefined;
   storageState.preferences = [];
   storageState.setPreferences.mockImplementation(
     async (next): Promise<void> => {
@@ -61,6 +71,7 @@ describe('useGroupPreferences', () => {
       result.current.orderedBookmarks.map((bookmark) => bookmark.title),
     ).toEqual(['B', 'Nested']);
     expect(result.current.isLoaded).toBe(true);
+    expect(storageState.area).toBe('local');
   });
 
   it('persists a visibility toggle against the reconciled groups', async () => {

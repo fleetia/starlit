@@ -44,6 +44,7 @@ export type GuideCopy = {
   language: string;
   navigation: string;
   quickStart: { description: string; steps: GuideStepCopy[]; title: string };
+  releaseStatus: { body: string; title: string };
   sectionKicker: string;
   sections: Record<GuideSection, GuideSectionCopy>;
   screenshotNote?: string;
@@ -66,16 +67,18 @@ const COPY: Record<Locale, GuideCopy> = {
         'Bookmark folders, bookmark titles, URLs, and the changes you make to them',
         'Open Chrome tab groups and their tabs while you explicitly import them',
         'Live tab groups after Starlit opens them, including whether you save or close them in Chrome',
+        'Calendar lists and events remain in Google Calendar; Starlit reads selected data only after explicit connection',
       ],
-      title: 'Chrome remains the source of truth',
+      title: 'Chrome and Google remain the sources of truth',
     },
     dataOwnershipDescription:
-      'Starlit combines Chrome-owned content with its own display preferences. Knowing the boundary helps you predict what syncs, what a reset removes, and where to edit an item.',
-    dataOwnershipTitle: 'What belongs to Chrome and what belongs to Starlit?',
+      'Starlit combines Chrome-owned bookmarks, explicitly authorized Google Calendar data, and its own display preferences. Knowing the boundary helps you predict what syncs, what a reset removes, and where to edit an item.',
+    dataOwnershipTitle:
+      'What belongs to an external provider and what belongs to Starlit?',
     detailsTitle: 'Questions and answers',
     factsTitle: 'Good to know',
     intro:
-      'A practical reference for turning Chrome bookmarks into a focused new-tab workspace, moving between bookmark folders and live tab groups, and keeping your setup portable.',
+      'A practical reference for bookmark-first Scenes, Image, Clock, and Google Calendar widgets, Cmd/Ctrl+K search, and Portable Profile V4.',
     language: 'Guide language',
     navigation: 'Guide contents',
     quickStart: {
@@ -99,11 +102,149 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     sectionKicker: 'Guide chapter',
     screenshotNote:
-      'The reference screenshots use the Korean product UI. Control positions and section layouts are the same in every language.',
+      'The reference screenshots use the English product UI. Control positions and section layouts are the same in every language.',
+    releaseStatus: {
+      body: 'The v2 Calendar release remains blocked until Google OAuth verification is approved and the Chrome Web Store privacy disclosure matches this behavior. This guide does not claim either review is complete.',
+      title: 'Calendar release review is still pending',
+    },
     sections: {
+      scenes: {
+        callout: {
+          body: 'Creating a Scene copies bookmarks only after a count preview and explicit confirmation. Applying or switching a saved Scene changes its folder reference and never rewrites the Chrome bookmark tree.',
+          title: 'Creation copies; switching does not',
+          tone: 'warning',
+        },
+        description:
+          'Save appearance, layout, canvas widgets, and one bookmark-folder reference as a setup you can return to.',
+        details: [
+          {
+            body: 'A Scene includes theme, font, background, bookmark presentation, Custom CSS, Image widget media and order, Clock and Google Calendar configuration, and its Chrome bookmark folder. Language, bookmark opening behavior, tutorial state, permissions, and Google connection stay global.',
+            title: 'What does a Scene save?',
+          },
+          {
+            body: 'Starlit blocks Apply when the referenced folder or local media is missing. Relink points the Scene at an existing replacement. Restore appears only when a recovery snapshot can satisfy every missing resource.',
+            title: 'Why can a Scene require Relink or Restore?',
+          },
+        ],
+        facts: [
+          'An upgraded profile remains activeSceneId null and does not copy bookmarks until you save the current setup as a Scene.',
+          'A new Scene normally receives a dedicated folder under Starlit Scenes in Other bookmarks.',
+          'Save updates the active Scene; Save as new creates an independent Scene and bookmark folder.',
+          'Deleting a Scene keeps its Chrome bookmark folder by default. Local media used only by that Scene is removed, while media still used by another Scene is retained.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: 'Open Settings > Scene and choose to save the current setup. Existing profiles continue unchanged until you start this flow.',
+            title: 'Start from the current setup',
+          },
+          {
+            body: 'Review the folder and URL counts, Scene name, and destination parent. Continue only when the dedicated Chrome folder is correct.',
+            title: 'Review before copying',
+          },
+          {
+            body: 'Open Settings > Scene and choose a saved Scene. Review the preview, then apply it to change the active setup and bookmark root.',
+            title: 'Preview and switch',
+          },
+          {
+            body: 'If Apply reports missing resources, use Relink or an available recovery snapshot instead of applying a partial Scene.',
+            title: 'Recover missing resources',
+          },
+        ],
+        title: 'Save and switch Scenes safely',
+      },
+      'widgets-calendar': {
+        callout: {
+          body: 'Starlit never starts interactive Calendar authorization on first run. OAuth begins only when you choose Connect after reading the explanation in Settings.',
+          title: 'Calendar connection is always explicit',
+          tone: 'warning',
+        },
+        description:
+          'Add one Clock and one read-only Google Calendar widget to each Scene without turning the new tab into a general plugin dashboard.',
+        details: [
+          {
+            body: 'Starlit uses only calendar-list and event read-only scopes. It reads the next seven days from selected calendars, merges up to 50 events, and keeps summary, time, all-day status, calendar color, and the event link. Descriptions and attendees are discarded.',
+            title: 'What Calendar data is read?',
+          },
+          {
+            body: 'Chrome Identity caches the access token. Selected calendar IDs and the latest list metadata (ID, name, color, and primary status) stay in local storage. Event results are cached in session storage and reused for at most five minutes. Authorization, IDs, list metadata, and events are not included in a Scene or Portable Profile V4.',
+            title: 'Where is Calendar state stored?',
+          },
+        ],
+        facts: [
+          'Clock needs no permission and supports locale, 12-hour, and 24-hour formats.',
+          'Each Scene can contain at most one Clock and one Google Calendar widget.',
+          'Calendar requests go directly from the extension to Google; there is no Starlit backend in the middle.',
+          'If one calendar fails, events from other selected calendars can still appear with a partial-failure notice.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: 'Open Settings > Widgets, choose Add widget, then choose Clock and configure its hour cycle and whether to show seconds.',
+            title: 'Add a local Clock',
+          },
+          {
+            body: 'Choose Add widget, then Google Calendar. Read the consent explanation and choose Connect only if you want to grant read-only access.',
+            title: 'Start Calendar connection',
+          },
+          {
+            body: 'Complete Google authorization, load the calendar list, and select the calendars whose upcoming events should appear.',
+            title: 'Choose calendars',
+          },
+          {
+            body: 'Use Disconnect to clear the selected calendar IDs, saved calendar-list metadata, five-minute event cache, cached token when available, and optional Google API host access.',
+            title: 'Disconnect completely',
+          },
+        ],
+        title: 'Clock and read-only Google Calendar',
+      },
+      'command-palette': {
+        callout: {
+          body: 'The shortcut belongs to the focused Starlit new-tab page. It is not registered as a browser-wide Chrome command.',
+          title: 'The palette is page-scoped',
+          tone: 'info',
+        },
+        description:
+          'Search bookmarks, folders, Scenes, and Settings destinations from one keyboard-first dialog.',
+        details: [
+          {
+            body: 'Current-Scene results come first. Within that priority, ranking checks title prefixes, domain prefixes, path substrings, and then title substrings as a fallback, with deterministic tie breaking.',
+            title: 'How are results ordered?',
+          },
+          {
+            body: 'The palette can open a bookmark, move to a folder or group, preview and apply a Scene, or open an exact Settings section. Bookmark editing and moving are intentionally outside this flow.',
+            title: 'What can the palette change?',
+          },
+        ],
+        facts: [
+          'Use Cmd+K on macOS or Ctrl+K on other platforms while the new-tab page is focused.',
+          'Arrow keys move through results, Enter activates the selected result, and Escape closes the dialog.',
+          'Closing restores focus to the element that was focused before the palette opened.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: 'Press Cmd+K or Ctrl+K from the new-tab page.',
+            title: 'Open the palette',
+          },
+          {
+            body: 'Type a bookmark title, site domain, folder path, Scene name, or Settings destination.',
+            title: 'Search across destinations',
+          },
+          {
+            body: 'Use the arrow keys to inspect the categorized results, then press Enter to activate the selected item.',
+            title: 'Choose a result',
+          },
+          {
+            body: 'For a Scene result, review the preview before applying it. Press Escape when you want to leave the current setup unchanged.',
+            title: 'Confirm Scene changes',
+          },
+        ],
+        title: 'Find and act with Cmd/Ctrl+K',
+      },
       appearance: {
         callout: {
-          body: "A background URL is saved with your settings and can follow Chrome Sync, but the resource is still requested from its provider. An uploaded file stays only in this extension profile's IndexedDB on this device.",
+          body: "A background URL is saved with the Scene on this extension profile and is not sent through Chrome Sync. The resource is still requested from its provider. An uploaded file stays only in this device's IndexedDB unless you explicitly include it in a Portable Profile.",
           title: 'URL and file backgrounds travel differently',
           tone: 'warning',
         },
@@ -111,7 +252,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Adjust the background, surfaces, bookmark tiles, folders, colors, and Custom CSS while keeping Chrome bookmark content unchanged.',
         details: [
           {
-            body: 'Use a URL when you want the same address available through synced settings. Use File upload when the media should remain local. Export a backup if you need to move an uploaded file to another profile or extension ID.',
+            body: 'Use a URL when the provider should host the media, or File upload when it should stay in extension storage. To move either setup to another profile or extension ID, export a Portable Profile with Scene enabled; also enable uploaded media when the Scene uses a file.',
             title: 'Should I use a URL or upload a file?',
           },
           {
@@ -121,7 +262,8 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         facts: [
           'Image and video URLs are stored as background settings; Chrome loads the resource directly from the provider.',
-          'Uploaded images and videos are processed locally and stored in IndexedDB, not uploaded to a Starlit server.',
+          'Background file uploads use the Image widget media processor: static images become WebP, GIFs become WebM, and playable videos retain their original format. Every input and output is limited to 20 MiB and 1920 pixels; GIFs are limited to 300 frames and 30 seconds.',
+          'Uploaded media is processed locally and stored in IndexedDB, not uploaded to a Starlit server.',
           "Custom CSS is sanitized and applied after Starlit's base styles.",
         ],
         media: [
@@ -144,7 +286,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Open the visual controls',
           },
           {
-            body: 'Choose URL or File upload for the background, then select an image or video. You can also clear the current background.',
+            body: 'Choose URL or File upload for the background, then select a static image, GIF, or browser-playable video. You can also clear the current background.',
             title: 'Choose a background source',
           },
           {
@@ -160,105 +302,116 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       'overlay-images': {
         callout: {
-          body: 'Layer order, newly added images, and position edits remain in the Settings draft until you choose Save. Cancelling discards the complete overlay draft.',
-          title: 'Save the complete layer draft',
+          body: 'Order, newly added files, motion settings, and position edits remain in the Settings draft until you choose Save. Cancelling discards the complete Image widget draft.',
+          title: 'Save the complete canvas draft',
           tone: 'info',
         },
         description:
-          'Place local images in front of or behind the bookmark workspace, then adjust each image without blocking normal bookmark use.',
+          'Place Image widgets in front of or behind bookmarks and control stored motion without blocking normal bookmark use.',
         details: [
           {
             body: 'The Bookmarks row represents the complete bookmark workspace and cannot be removed. Images above it in the front-to-back list render over bookmarks; images below it render behind them.',
-            title: 'What does the Bookmarks layer mean?',
+            title: 'What does the Bookmarks row mean?',
           },
           {
-            body: 'Each image keeps a pixel offset from one of nine viewport anchor points. Choose the nearest corner, edge, or center so the image stays attached to that reference when the viewport changes size.',
-            title: 'Which anchor should I choose?',
+            body: 'Each image keeps a pixel offset from one of nine screen-relative positions. Choose the nearest corner, edge, or center so the image stays attached to that position when the viewport changes size.',
+            title: 'Which screen-relative position should I choose?',
+          },
+          {
+            body: 'Yes. Static images become WebP, GIFs become WebM, and browser-playable videos keep their original format. Invalid, unsupported, oversized, decode-failed, or encode-failed media is rejected before Save.',
+            title: 'Can I upload a GIF or video as an Image widget?',
           },
         ],
         facts: [
-          'Fresh installs and profiles after Reset all start with the bundled Getting image above bookmarks at the bottom-right anchor. You can move, reorder, or remove it.',
-          'Uploaded images are converted to WebP and stored in IndexedDB for the current extension profile. They are not sent to a Starlit server.',
-          'Position editing supports dragging, arrow-key movement, rotation from -180° to 180°, and zoom from 10% to 400%. Hold Shift with an arrow key to move 10 pixels at a time.',
-          'Images in front of bookmarks do not receive pointer events during normal use, so bookmark links remain clickable.',
+          'Fresh installs and profiles after Reset all start with the bundled Getting image above bookmarks at the bottom-right screen-relative position. You can move, reorder, or remove it.',
+          'Every input and processed output is limited to 20 MiB. Static images are resized within 1920 pixels; GIFs and videos above that boundary are rejected. GIFs are also limited to 300 frames and 30 seconds.',
+          'Stored motion Image widgets support 0.5×, 1×, 1.5×, and 2× playback. Every mode pauses in a hidden tab; reduced-motion begins paused and can be explicitly played for the current session.',
+          'Position editing supports multiple selection, dragging, arrow-key movement, rotation and scale for a single selection, grouping, and six-pixel snap guides. Hold Alt to disable snap temporarily.',
+          'Images in front of bookmarks do not receive pointer events during normal left-click use, so bookmark links remain clickable. Right-click still finds a rotated image; it opens the same hide, lock, motion play/pause, duplicate, replace, order, and delete actions as the row’s More menu.',
         ],
         media: [],
         steps: [
           {
-            body: 'Open Settings > Layers. The list is ordered from the front of the screen to the back.',
-            title: 'Open the layer list',
+            body: 'Open Settings > Widgets. The list is ordered from the front of the screen to the back.',
+            title: 'Open Image widgets',
           },
           {
-            body: 'Choose Add images and select one or more image files. Each file becomes a separate layer in the draft.',
-            title: 'Add overlay images',
+            body: 'Choose Add widget, then Image, and select static images, GIFs, or browser-playable videos. Each file becomes a separate Image widget in the draft.',
+            title: 'Add Image widgets',
           },
           {
-            body: 'Drag rows or use the arrow controls to move images around the fixed Bookmarks row. Remove only the image layers you no longer need.',
+            body: 'Drag rows or use the movement controls around the fixed Bookmarks row. In the position editor you can lock, hide, group, move, or remove the selected Image widgets.',
             title: 'Arrange front and back',
           },
           {
-            body: 'Choose Edit positions, select an image, then set its anchor, drag or nudge it into place, and adjust rotation and zoom. Return to Settings when finished.',
-            title: 'Place each image',
+            body: 'Choose Edit positions, select one or more images, and use the named screen-relative position, drag, nudge, and snap guides. Rotation, scale, and screen-relative position changes apply to one selected image at a time.',
+            title: 'Place selected images',
           },
           {
-            body: 'Choose Save in Settings to apply the layer order, image files, and positions together. Choose Cancel to discard the draft.',
-            title: 'Save all overlay changes',
+            body: 'For an existing motion item, choose its playback rate and active-tab-only or always mode. Reduced-motion starts paused; use the explicit play control to override it for the current session. Then choose Save to apply order, files, positions, and motion settings together.',
+            title: 'Review motion and save',
           },
         ],
-        title: 'Overlay image layers',
+        title: 'Image widgets and motion',
       },
       'backup-permissions': {
         callout: {
-          body: 'Export, import, reset, bookmark-manager, and tab-group actions run immediately; Cancel does not undo them. Regular form controls remain drafts until you choose Save.',
-          title: 'Some Settings actions are immediate',
+          body: 'Portable import, reset, bookmark-manager, and tab-group actions run immediately; Cancel does not undo them. Import can create dedicated Chrome bookmark folders, so review the preview and every Scene conflict before applying.',
+          title: 'Review immediate actions carefully',
           tone: 'warning',
         },
         description:
-          'Create a portable settings backup, understand Chrome permissions, and know exactly what each reset action can remove.',
+          'Move selected Scene data with Portable Profile V4, resolve conflicts before import, and understand permission and reset boundaries.',
         details: [
           {
-            body: 'The JSON includes saved layout and display settings, group preferences, language, Custom CSS, custom favicons, background metadata and media, plus overlay layer metadata and image data. It does not copy Chrome bookmarks, Chrome tab groups, permissions, unsaved drafts, tutorial completion, or expanded-group state. Keep the file private because it can embed local media.',
-            title: 'What is included in an export?',
+            body: 'Scene, appearance, layout, Image widget media references, and Clock and Google Calendar configuration are included by default. Chrome bookmark URLs and uploaded media are off by default and show a sensitive-data warning when enabled. Locale and bookmark opening behavior are global preferences and remain included even when Scene is off. Permissions, tutorial state, Google authorization, calendar IDs, calendar-list metadata, and cached events are always excluded.',
+            title: 'What does Portable Profile V4 include?',
           },
           {
-            body: 'Starlit always needs storage and bookmarks to render the workspace. tabGroups is optional and remains connected for repeat actions until you disconnect it. tabs is requested only while an explicit import reads open-tab titles and URLs, then removed when the flow finishes or is cancelled.',
+            body: 'Before apply, Starlit shows overall counts and each Scene’s changed sections, bookmark folders, URLs, and media. An ID collision requires Add as copy, Replace Scene, or Skip. Bookmark data is always prepared in a new dedicated folder, including a replacement.',
+            title: 'How are import conflicts handled?',
+          },
+          {
+            body: 'Storage and bookmarks are required. tabGroups remains optional until disconnected; tabs is requested only for an explicit open-group import and then removed. Calendar uses identity plus optional Google API host access and only read-only scopes after the Connect action.',
             title: 'Why does Starlit request these permissions?',
           },
         ],
         facts: [
           'A different Chrome profile or extension ID has a separate storage area, even on the same computer.',
-          'Export and import can carry Starlit settings, custom favicons, uploaded background media, and overlay images across that boundary.',
-          'Custom favicon overrides are merged during import. Destination overrides that are not present in the backup remain in place.',
-          'Reset theme restores only the color theme. Reset all also removes Starlit preferences, caches, custom favicons, local background media, and overlay images. The bundled Getting image returns on the next load.',
-          'Neither reset deletes Chrome bookmarks or imported bookmark folders. Reset all also leaves tutorial completion, expanded-group state, and the optional tabGroups connection in place.',
+          'When bookmark URLs or media are excluded, the Scene configuration still travels but the corresponding Chrome folder contents or media Blob does not. Without bookmark URLs, a new or copied Scene omits device-bound group visibility and order and requires Relink before Apply. Replace keeps the destination Scene’s bookmark collection. Custom favicon overrides are not included.',
+          'Bookmark URLs and media require the Scene category and can make the downloaded JSON sensitive.',
+          'Skipped Scenes stay unchanged, while the profile’s global language and bookmark-opening preference are still imported.',
+          'Replace Scene switches references only after new folders and assets are prepared; existing bookmark folders are not overwritten in place.',
+          'Reset theme restores only the color theme. Reset all removes Starlit settings, Scene records, caches, custom favicons, and local media according to the reset confirmation.',
+          'Reset does not delete Chrome bookmarks or Scene folders. Reset all clears selected calendar IDs and saved calendar-list metadata, while Calendar authorization and Chrome optional permissions remain managed through their own disconnect actions.',
         ],
         media: [
           {
-            alt: 'Starlit General settings showing language, font, guide, export, and import controls',
+            alt: 'Starlit Settings with Portable profile selected, showing Scene, bookmark URL, and uploaded media export choices',
             caption:
-              'Export, import, and reset live in General settings and take effect as immediate actions.',
-            src: '/assets/guide/settings-general.jpg',
+              'Portable Profile export and import have their own Settings tab. Reset remains in General, and all three actions take effect immediately.',
+            src: '/assets/guide/settings-portable-profile.jpg',
           },
         ],
         steps: [
           {
-            body: 'Open Settings > General and choose Export. Keep the downloaded JSON somewhere you control.',
-            title: 'Create a backup',
+            body: 'Open Settings > Portable profile. Keep Scene selected, then independently decide whether the JSON should include Chrome bookmark URLs or uploaded media.',
+            title: 'Choose export categories',
           },
           {
-            body: 'In the destination Chrome profile or Starlit installation, choose Import and select that JSON. The page reloads after a successful restore.',
-            title: 'Restore in the destination',
+            body: 'Read the sensitive-data warning when URLs or media are selected, export the V4 JSON, and keep it somewhere you control.',
+            title: 'Export and protect the file',
           },
           {
-            body: 'Use the Bookmark groups panel to check tab-group access. Disconnect it there when you no longer want Starlit to retain the optional tabGroups permission.',
-            title: 'Review optional access',
+            body: 'In the destination, choose Import and inspect the overall counts and each Scene diff. Resolve every ID collision with Add as copy, Replace Scene, or Skip before applying.',
+            title: 'Preview and resolve conflicts',
           },
           {
-            body: 'Export first, then choose Reset theme or Reset all only after checking the scope. Reset actions apply immediately and reload the page.',
-            title: 'Reset deliberately',
+            body: 'Review tab-group and Calendar connections separately. Export first, then use reset only after checking which local Starlit data the confirmation will remove.',
+            title: 'Review access and reset deliberately',
           },
         ],
-        title: 'Backup, restore, permissions, and reset',
+        title: 'Portable Profile V4, permissions, and reset',
       },
       'bookmarks-folders': {
         callout: {
@@ -352,7 +505,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Browse bookmarks and folders',
           },
           {
-            body: 'Use the settings button in the lower-right corner to open General, Appearance, Layout, CSS, and Bookmark groups.',
+            body: 'Use the settings button in the lower-right corner, or right-click an empty area of the new tab, to open General, Appearance, Widgets, Layout, CSS, Bookmark groups, Scene, and Portable profile.',
             title: 'Find Settings',
           },
           {
@@ -376,12 +529,12 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Paged or expanded view?',
           },
           {
-            body: 'Check that the folder sits below the selected root and is marked visible in Bookmark groups. Then open a fresh new tab if the Chrome bookmark tree changed recently.',
+            body: 'Check that the folder sits below the selected root and is marked visible in Settings > Bookmark groups. Then open a fresh new tab if the Chrome bookmark tree changed recently.',
             title: 'Why is a folder missing?',
           },
         ],
         facts: [
-          'The Bookmark groups panel controls the root, visibility, and sibling order used by Starlit.',
+          'The Bookmark groups section controls the root, visibility, and sibling order used by Starlit.',
           'The Layout preview uses the real bookmark renderer in a read-only scaled view.',
           'Column counts, gaps, margins, bookmark expansion, and icon direction are saved as Starlit preferences.',
         ],
@@ -403,7 +556,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Select and order groups',
           },
           {
-            body: 'Open Layout and choose a compact paged view or an expanded scrolling view, along with bookmark expansion and icon direction.',
+            body: 'Open Settings > Layout and choose a compact paged view or an expanded scrolling view, along with bookmark expansion and icon direction.',
             title: 'Choose the viewing mode',
           },
           {
@@ -467,39 +620,45 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       troubleshooting: {
         callout: {
-          body: 'Do not start with Reset all when data appears missing. Export from any installation that still has the expected setup, then check the Chrome profile, extension ID, permissions, and background source.',
+          body: 'Do not start with Reset all when data appears missing. Export a Portable Profile from any installation that still has the expected setup, include bookmark URLs or media only when they are needed for recovery, then check the Chrome profile, extension ID, permissions, and resource references.',
           title: 'Protect the recoverable copy first',
           tone: 'warning',
         },
         description:
-          'Diagnose missing bookmarks, tab groups, backgrounds, or settings by checking ownership and storage boundaries before resetting anything.',
+          'Diagnose a blocked Scene, missing bookmark or media, Calendar connection, or stale view by checking ownership and storage boundaries before resetting anything.',
         details: [
           {
             body: 'Normal updates to the same Store installation keep the same extension ID and preserve storage. A Store build, an unpacked build loaded from a different directory, or another Chrome profile can use separate storage. Export from the old installation and import into the new one.',
             title: 'Why did settings disappear after installing another build?',
           },
           {
-            body: 'Open the saved group in Chrome, restart the importer, and approve the optional access if prompted. The list never includes a closed Saved Tab Group.',
-            title: 'Why is a tab group still missing?',
+            body: 'Starlit blocks a Scene when its bookmark-folder reference or a required local asset is missing. Relink the folder or asset, or use Restore only when the recovery snapshot can satisfy every missing reference. Applying another Scene never repairs or overwrites the Chrome bookmark tree.',
+            title: 'Why will a Scene not apply?',
           },
           {
-            body: "Uploaded media belongs to one extension profile's IndexedDB. It does not arrive on another device through Chrome Sync unless you carry it in an export and import. A URL background can follow synced settings, but the provider must remain reachable.",
-            title: 'Why is my background missing on another device?',
+            body: "Calendar does not connect automatically. Start Connect from Settings, approve the read-only scopes and optional Google API host access, then select calendars. If authorization becomes stale, Disconnect clears Starlit's local selection and caches before you connect again.",
+            title:
+              'Why does Calendar show a connection or authorization error?',
+          },
+          {
+            body: 'Scene settings and uploaded media belong to one extension profile and do not arrive on another device through Chrome Sync. Export a Portable Profile with the Scene category, plus uploaded media when needed, then import it in the destination profile. A URL background still requires its provider to remain reachable.',
+            title: 'Why is my media missing on another device?',
           },
         ],
         facts: [
           'A fresh new tab rereads Chrome bookmarks and resolves many stale-view cases.',
           'Same-ID extension updates preserve Starlit storage; different IDs and Chrome profiles do not share it automatically.',
-          'Reset all clears Starlit-owned preferences and local media, not the Chrome bookmark tree.',
+          'Reset all clears Starlit-owned preferences and local media, not preserved Chrome bookmark folders.',
+          'Portable Profile excludes bookmark URLs and uploaded media unless you explicitly enable those categories.',
         ],
         media: [],
         steps: [
           {
-            body: 'Name the missing item first: Chrome bookmark content, an open tab group, a Starlit preference, or locally uploaded background media.',
+            body: 'Name the missing item first: a Scene bookmark folder, a local asset, an open tab group, a Calendar connection, or a display preference.',
             title: 'Identify who owns the data',
           },
           {
-            body: 'For bookmark changes, open a fresh new tab. For tab groups, open the group in Chrome and check the Bookmark groups connection state.',
+            body: 'For bookmark changes, open a fresh new tab. For tab groups, open the group in Chrome and check the Settings > Bookmark groups connection state.',
             title: 'Refresh the right source',
           },
           {
@@ -507,8 +666,8 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'Check the storage boundary',
           },
           {
-            body: 'Export any recoverable setup. Only then try a targeted theme reset or Reset all, and use the homepage or issue tracker below if the symptom remains.',
-            title: 'Back up before resetting',
+            body: 'Export the recoverable Scenes. Enable bookmark URLs or uploaded media only if the destination needs those private categories. Only then try Relink, Restore, Calendar Disconnect and reconnect, a targeted reset, or Reset all.',
+            title: 'Export before recovery or reset',
           },
         ],
         title: 'Troubleshooting',
@@ -516,11 +675,12 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     starlitData: {
       items: [
-        'Group visibility and order, bookmark root, layout, colors, typography, language, and Custom CSS',
-        'Custom favicon overrides, caches, and expanded or collapsed group state',
-        'Background and overlay metadata plus uploaded media stored locally in the extension profile',
+        'Scene records: appearance, layout, bookmark-folder references, canvas widget order, Image widget media references, and Clock and Google Calendar configuration',
+        'Global language, bookmark opening behavior, favicon overrides, and UI caches',
+        'Uploaded media and shared Scene assets stored locally in the extension profile',
+        'Selected Calendar IDs and list metadata (ID, name, color, and primary status) stored locally, with event results cached in the current session for five minutes',
       ],
-      title: 'Starlit stores display preferences and device-scoped data',
+      title: 'Starlit stores Scenes and device-scoped preferences',
     },
     stepsTitle: 'Workflow',
     support: {
@@ -539,16 +699,17 @@ const COPY: Record<Locale, GuideCopy> = {
         'ブックマークフォルダー、タイトル、URL、およびそれらに加えた変更',
         '明示的に取り込む間だけ参照する、現在開いている Chrome タブグループとタブ',
         'Starlit が開いた後のライブタブグループと、Chrome での保存・終了状態',
+        'Calendar 一覧と event は Google Calendar に残り、Starlit は明示的な接続後に選択した data だけを読みます',
       ],
-      title: '原本は Chrome にあります',
+      title: '原本は Chrome と Google にあります',
     },
     dataOwnershipDescription:
-      'Starlit は Chrome が所有する内容と、Starlit 独自の表示設定を組み合わせます。この境界を知ると、同期されるもの、リセットで消えるもの、編集すべき場所を判断できます。',
-    dataOwnershipTitle: 'Chrome のデータと Starlit のデータ',
+      'Starlit は Chrome が所有する bookmark、明示的に認証した Google Calendar data、Starlit 独自の表示設定を組み合わせます。この境界を知ると、同期されるもの、reset で消えるもの、編集すべき場所を判断できます。',
+    dataOwnershipTitle: '外部 provider の data と Starlit の data',
     detailsTitle: 'よくある質問',
     factsTitle: '知っておきたいこと',
     intro:
-      'Chrome ブックマークを使いやすい新しいタブのワークスペースに変え、ブックマークフォルダーとライブタブグループを行き来し、設定を安全に持ち運ぶための実用ガイドです。',
+      'Bookmark 中心の Scene、画像・時計・Google Calendar ウィジェット、Cmd/Ctrl+K 検索、Portable Profile V4 の実用ガイドです。',
     language: 'ガイドの言語',
     navigation: 'ガイドの目次',
     quickStart: {
@@ -572,11 +733,149 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     sectionKicker: 'ガイド',
     screenshotNote:
-      '参考スクリーンショットは韓国語版の画面です。操作位置と各セクションの配置は、どの言語でも共通です。',
+      '参考スクリーンショットは英語版の画面です。操作位置と各セクションの配置は、どの言語でも共通です。',
+    releaseStatus: {
+      body: 'v2 の Calendar を公開するには、Google OAuth verification の承認と、この動作に一致する Chrome Web Store のプライバシー申告が必要です。このガイドは、どちらの審査も完了したとは示していません。',
+      title: 'Calendar の公開審査はまだ完了していません',
+    },
     sections: {
+      scenes: {
+        callout: {
+          body: 'Scene を作成するときだけ、件数のプレビューと明示的な確認後にブックマークをコピーします。保存済み Scene の適用や切り替えではフォルダー参照だけが変わり、Chrome ブックマークツリーを書き換えません。',
+          title: '作成時はコピーし、切り替え時はコピーしません',
+          tone: 'warning',
+        },
+        description:
+          '外観、レイアウト、canvas のウィジェット、ブックマークフォルダーの参照を、あとで戻せる一つの設定として保存します。',
+        details: [
+          {
+            body: 'Scene には theme、font、背景、ブックマーク表示、Custom CSS、画像ウィジェットの media と順序、時計・Google Calendar ウィジェットの設定、Chrome ブックマークフォルダーが含まれます。言語、リンクを開く方法、tutorial、権限、Google 接続は全体設定のままです。',
+            title: 'Scene には何が保存されますか？',
+          },
+          {
+            body: '参照先のフォルダーや local media が見つからない場合、Starlit は適用を止めます。Relink で既存の代替先を指定できます。Restore は、recovery snapshot ですべての不足分を復元できる場合だけ表示されます。',
+            title: 'Relink または Restore が必要になる理由は？',
+          },
+        ],
+        facts: [
+          '更新された既存 profile は activeSceneId が null のままで、現在の設定を Scene として保存するまでブックマークをコピーしません。',
+          '新しい Scene には通常、Other bookmarks 内の Starlit Scenes 以下に専用フォルダーが作成されます。',
+          '［保存］は active Scene を更新し、［新しい Scene として保存］は独立した Scene とフォルダーを作ります。',
+          'Scene を削除しても、Chrome ブックマークフォルダーは初期状態では保持されます。その Scene だけで使う local media は削除し、別の Scene でも使う media は保持します。',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '設定の［Scene］を開き、現在の設定を保存します。既存 profile は、この操作を始めるまで変更されません。',
+            title: '現在の設定から始める',
+          },
+          {
+            body: 'フォルダー数、URL 数、Scene 名、保存先の親フォルダーを確認します。専用 Chrome フォルダーが正しい場合だけ続けます。',
+            title: 'コピー前に確認する',
+          },
+          {
+            body: '設定の［Scene］で保存済み Scene を選びます。preview を確認してから適用し、active setup と bookmark root を切り替えます。',
+            title: 'Preview して切り替える',
+          },
+          {
+            body: '不足している resource が表示されたら、不完全な Scene を適用せず、Relink または利用可能な recovery snapshot を使います。',
+            title: '不足している resource を復元する',
+          },
+        ],
+        title: 'Scene を安全に保存・切り替えする',
+      },
+      'widgets-calendar': {
+        callout: {
+          body: 'Starlit は初回起動時に Calendar の interactive authorization を開始しません。設定の説明を読んで［接続］を選んだ場合だけ OAuth が始まります。',
+          title: 'Calendar 接続は必ず明示的に行います',
+          tone: 'warning',
+        },
+        description:
+          '新しいタブを一般的な plugin dashboard に変えず、Scene ごとに Clock と read-only Google Calendar を一つずつ追加します。',
+        details: [
+          {
+            body: 'Starlit が使うのは calendar list と event の read-only scope だけです。選択した Calendar の今後 7 日分から最大 50 件をまとめ、件名、開始・終了、終日かどうか、Calendar 色、event link だけを残します。説明と参加者は破棄します。',
+            title: 'どの Calendar data を読みますか？',
+          },
+          {
+            body: 'Access token は Chrome Identity が cache します。選択した Calendar ID と最新の一覧 metadata（ID、名前、色、primary 状態）は local storage に保存し、event 結果は session storage で cache して最長 5 分間再利用します。認証、ID、一覧 metadata、event は Scene と Portable Profile V4 に含まれません。',
+            title: 'Calendar の状態はどこに保存されますか？',
+          },
+        ],
+        facts: [
+          'Clock に権限は不要で、locale、12 時間、24 時間表示を選べます。',
+          '一つの Scene に追加できるのは Clock と Google Calendar を各一つまでです。',
+          'Calendar request は拡張機能から Google へ直接送られ、Starlit backend を経由しません。',
+          '一つの Calendar が失敗しても、他の Calendar の event は partial-failure 表示とともに確認できます。',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '設定の［ウィジェット］を開き、［ウィジェットを追加］、［時計］の順に選んで、時間表示と秒の表示有無を設定します。',
+            title: 'Local Clock を追加する',
+          },
+          {
+            body: '［ウィジェットを追加］、［Google Calendar］の順に選びます。同意画面の説明を読み、read-only access を許可する場合だけ［接続］を選びます。',
+            title: 'Calendar 接続を始める',
+          },
+          {
+            body: 'Google の認証を完了し、Calendar 一覧を読み込んで、予定を表示する Calendar を選びます。',
+            title: 'Calendar を選ぶ',
+          },
+          {
+            body: '［接続解除］を選ぶと、Calendar ID、保存した一覧 metadata、5 分間の event cache、利用可能な cached token、任意の Google API host access を削除します。',
+            title: '接続を完全に解除する',
+          },
+        ],
+        title: 'Clock と read-only Google Calendar',
+      },
+      'command-palette': {
+        callout: {
+          body: 'Shortcut は focus 中の Starlit 新しいタブだけで動きます。Chrome 全体の browser command としては登録されません。',
+          title: 'Palette は page 内だけで開きます',
+          tone: 'info',
+        },
+        description:
+          'キーボード中心の dialog から、bookmark、folder、Scene、設定の移動先をまとめて検索します。',
+        details: [
+          {
+            body: '現在の Scene の結果を優先します。その中で title prefix、domain prefix、path substring の順に評価し、最後に title substring を fallback として使います。同点も常に同じ順になります。',
+            title: '検索結果はどの順番ですか？',
+          },
+          {
+            body: 'Bookmark を開く、folder または group へ移動する、Scene を preview して適用する、設定の正確な section を開く操作ができます。Bookmark の編集や移動は対象外です。',
+            title: 'Palette では何を変更できますか？',
+          },
+        ],
+        facts: [
+          'macOS は Cmd+K、それ以外は Ctrl+K を新しいタブに focus がある状態で押します。',
+          '方向キーで結果を移動し、Enter で選択、Escape で閉じます。',
+          '閉じると、palette を開く前に focus していた要素へ戻ります。',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '新しいタブで Cmd+K または Ctrl+K を押します。',
+            title: 'Palette を開く',
+          },
+          {
+            body: 'Bookmark title、site domain、folder path、Scene 名、設定の移動先を入力します。',
+            title: '移動先をまとめて検索する',
+          },
+          {
+            body: '方向キーで category 別の結果を確認し、Enter で選択した項目を開きます。',
+            title: '結果を選ぶ',
+          },
+          {
+            body: 'Scene の結果は preview を確認してから適用します。現在の設定を変えない場合は Escape を押します。',
+            title: 'Scene の変更を確認する',
+          },
+        ],
+        title: 'Cmd/Ctrl+K で検索・移動する',
+      },
       appearance: {
         callout: {
-          body: '背景 URL は設定とともに保存され、Chrome Sync の対象になり得ますが、素材は提供元から読み込まれます。アップロードしたファイルは、この端末上にある現在の拡張機能プロフィールの IndexedDB にだけ保存されます。',
+          body: '背景 URL はこの extension profile の Scene に保存され、Chrome Sync には送られません。素材は提供元から読み込まれます。アップロードしたファイルは、Portable Profile に明示的に含めない限り、この端末の IndexedDB にだけ保存されます。',
           title: 'URL とファイルでは引き継がれ方が異なります',
           tone: 'warning',
         },
@@ -584,7 +883,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Chrome ブックマークの内容を変えずに、背景、コンテナー、ブックマーク、フォルダー、色、Custom CSS を調整します。',
         details: [
           {
-            body: '同期設定から同じアドレスを利用したい場合は URL、メディアをローカルだけに置きたい場合はファイルを選びます。別のプロフィールや拡張機能 ID へアップロードファイルを移すときは、エクスポートを使ってください。',
+            body: '提供元で media を管理する場合は URL、extension storage 内に置く場合は file upload を選びます。別の profile や extension ID へ移すときは Scene を有効にした Portable Profile を export し、file を使う Scene では uploaded media も有効にしてください。',
             title: 'URL とファイルアップロードのどちらを使うべきですか？',
           },
           {
@@ -594,7 +893,8 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         facts: [
           '画像・動画 URL は背景設定として保存され、Chrome が提供元から直接読み込みます。',
-          'アップロードした画像・動画はローカルで処理され、IndexedDB に保存されます。Starlit のサーバーには送信されません。',
+          '背景 file upload は画像ウィジェット media と同じ processor を使います。静止画像は WebP、GIF は WebM になり、再生可能な動画は元の形式を保ちます。入力と出力は 20 MiB、1920 pixel までで、GIF は 300 frame、30 秒までです。',
+          'Uploaded media は local で処理され、IndexedDB に保存されます。Starlit の server には送信されません。',
           'Custom CSS は安全化された後、Starlit の基本スタイルより後に適用されます。',
         ],
         media: [
@@ -617,7 +917,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '外観設定を開く',
           },
           {
-            body: '背景に URL またはファイルアップロードを選び、画像・動画を指定します。現在の背景を削除することもできます。',
+            body: '背景に URL または file upload を選び、静止画像、GIF、または browser で再生できる動画を指定します。現在の背景を削除することもできます。',
             title: '背景の入力元を選ぶ',
           },
           {
@@ -633,105 +933,116 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       'overlay-images': {
         callout: {
-          body: 'レイヤー順、新しく追加した画像、位置の編集は、［保存］を選ぶまで設定の下書きです。［キャンセル］すると、オーバーレイの下書き全体が破棄されます。',
-          title: 'レイヤーの下書き全体を保存します',
+          body: '順序、新しく追加したファイル、motion 設定、位置の編集は、［保存］を選ぶまで設定の下書きです。［キャンセル］すると、画像ウィジェットの下書き全体が破棄されます。',
+          title: 'Canvas の下書き全体を保存します',
           tone: 'info',
         },
         description:
-          'ローカル画像をブックマーク画面の前後に配置し、通常のブックマーク操作を妨げずに画像ごとの位置を調整します。',
+          '画像ウィジェットをブックマークの前後に配置し、通常のブックマーク操作を妨げずに、保存済み motion を設定します。',
         details: [
           {
             body: '［ブックマーク］行はブックマーク画面全体を表し、削除できません。前から後ろへ並ぶ一覧で、その行より上の画像はブックマークの前、下の画像は後ろに表示されます。',
-            title: 'ブックマークレイヤーとは何ですか？',
+            title: 'ブックマーク行とは何ですか？',
           },
           {
-            body: '各画像は、画面上の 9 個の基準点のいずれかから pixel 単位の距離を保ちます。画面サイズが変わっても位置関係を保てるよう、最も近い角、辺、または中央を選びます。',
-            title: 'どの基準点を選べばよいですか？',
+            body: '各画像は、画面上の 9 個の基準位置のいずれかから pixel 単位の距離を保ちます。画面サイズが変わっても位置関係を保てるよう、最も近い角、辺、または中央を選びます。',
+            title: '画面基準位置はどれを選べばよいですか？',
+          },
+          {
+            body: '追加できます。静止画像は WebP、GIF は WebM に変換し、browser で再生できる動画は元の形式を保ちます。無効、未対応、上限超過、decode または encode に失敗した media は保存前に拒否します。',
+            title: 'GIF や動画を画像ウィジェットとして追加できますか？',
           },
         ],
         facts: [
           '新規インストールまたは［すべてリセット］後のプロフィールには、右下を基準にした同梱の Getting 画像がブックマークの前に表示されます。他の画像と同じように移動、並べ替え、削除できます。',
-          'アップロードした画像は WebP に変換され、現在の拡張機能プロフィールの IndexedDB に保存されます。Starlit のサーバーには送信されません。',
-          '位置編集では、ドラッグ、方向キーでの移動、-180°〜180°の回転、10%〜400%の拡大・縮小ができます。Shift と方向キーを同時に押すと 10 pixel ずつ移動します。',
-          'ブックマークの前にある画像は通常画面で pointer event を受け取らないため、ブックマークリンクをそのまま選べます。',
+          '入力と処理後の出力はすべて 20 MiB までです。静止画像は 1920 pixel 以内へ縮小し、GIF と動画が上限を超える場合は拒否します。GIF は 300 frame、30 秒までです。',
+          '保存済みの motion 画像ウィジェットは 0.5×、1×、1.5×、2× に対応します。どの mode も非表示 tab では停止します。reduced-motion では最初から停止し、現在の session だけ明示的に再生できます。',
+          '位置編集では複数選択、drag、方向キー移動、単一選択での回転・scale、group、6 pixel の snap guide を使用できます。Alt を押すと snap を一時的に解除します。',
+          'ブックマークの前にある画像は通常の left click で pointer event を受け取らないため、ブックマークリンクをそのまま選べます。Right click では回転した画像も検出し、行の More menu と同じ非表示、lock、motion の再生・停止、複製、置換、順序、削除 action を開きます。',
         ],
         media: [],
         steps: [
           {
-            body: '設定の［レイヤー］を開きます。一覧は画面の前から後ろの順に並びます。',
-            title: 'レイヤー一覧を開く',
+            body: '設定の［ウィジェット］を開きます。一覧は画面の前から後ろの順に並びます。',
+            title: '画像ウィジェットを開く',
           },
           {
-            body: '［画像を追加］を選び、1 個以上の画像ファイルを指定します。各ファイルは下書き内の個別レイヤーになります。',
-            title: 'オーバーレイ画像を追加する',
+            body: '［ウィジェットを追加］、［画像］の順に選び、静止画像、GIF、または browser で再生できる動画を指定します。各ファイルは下書き内の個別の画像ウィジェットになります。',
+            title: '画像ウィジェットを追加する',
           },
           {
-            body: '行をドラッグするか矢印ボタンを使い、固定された［ブックマーク］行を基準に画像を移動します。不要な画像レイヤーだけを削除できます。',
+            body: '行を drag するか移動 control を使い、固定された［ブックマーク］行を基準に画像を移動します。位置 editor では選択した画像を lock、非表示、group、移動、削除できます。',
             title: '前後の順序を整える',
           },
           {
-            body: '［位置を編集］を選び、画像を指定してから、基準点、位置、回転、拡大率を調整します。完了したら設定へ戻ります。',
-            title: '画像ごとの位置を決める',
+            body: '［位置を編集］で画像を選択し、名前付きの画面基準位置、drag、方向キー、snap guide を使います。回転、scale、画面基準位置の変更は 1 個だけ選択した場合に行います。',
+            title: '選択した画像を配置する',
           },
           {
-            body: '設定で［保存］を選ぶと、レイヤー順、画像ファイル、位置がまとめて反映されます。［キャンセル］では下書きを破棄します。',
-            title: 'オーバーレイ変更を保存する',
+            body: '既存の motion item では playback rate と active-tab-only または always を選べます。Reduced-motion では最初から停止するため、必要なら明示的な再生 control で現在の session だけ再生します。その後［保存］を選び、順序、ファイル、位置、motion 設定をまとめて反映します。',
+            title: 'Motion を確認して保存する',
           },
         ],
-        title: 'オーバーレイ画像レイヤー',
+        title: '画像ウィジェットと motion',
       },
       'backup-permissions': {
         callout: {
-          body: 'エクスポート、インポート、リセット、ブックマークマネージャー、タブグループの各操作はすぐに実行され、［キャンセル］では元に戻りません。通常のフォーム設定は［保存］するまで下書きです。',
-          title: '設定にはすぐ実行される操作があります',
+          body: 'Portable import、リセット、ブックマークマネージャー、タブグループの操作はすぐに実行され、［キャンセル］では元に戻りません。Import は専用 Chrome bookmark folder を作成できるため、適用前に preview とすべての Scene conflict を確認してください。',
+          title: 'すぐ実行される操作をよく確認します',
           tone: 'warning',
         },
         description:
-          '持ち運べる設定バックアップを作成し、Chrome 権限と各リセットが削除する範囲を確認します。',
+          'Portable Profile V4 で選択した Scene data を移し、import 前に conflict を解決し、権限とリセットの境界を確認します。',
         details: [
           {
-            body: 'JSON には保存済みのレイアウトと表示設定、グループ設定、言語、Custom CSS、カスタム favicon、背景情報とメディア、オーバーレイのレイヤー情報と画像データが含まれます。Chrome ブックマーク、Chrome タブグループ、権限、未保存の下書き、チュートリアル完了状態、グループの展開状態は含まれません。ローカルメディアを埋め込む場合があるため、ファイルは非公開で保管してください。',
-            title: 'エクスポートには何が含まれますか？',
+            body: 'Scene、外観、layout、画像ウィジェットの media 参照、時計・Google Calendar ウィジェットの設定は既定で含まれます。Chrome bookmark URL と uploaded media は既定で除外され、有効にすると sensitive-data 警告が表示されます。Locale とリンクを開く方法は global preference で、Scene を無効にしても含まれます。権限、tutorial、Google authorization、Calendar ID、Calendar 一覧 metadata、cached event は常に除外します。',
+            title: 'Portable Profile V4 には何が含まれますか？',
           },
           {
-            body: 'ワークスペースの表示には storage と bookmarks が常に必要です。任意の tabGroups は、解除するまで繰り返し使える状態で保持されます。tabs は、明示的な取り込みで開いているタブのタイトルと URL を読む間だけ要求され、完了またはキャンセル後に解除されます。',
+            body: '適用前に、全体件数と Scene ごとの変更 section、bookmark folder、URL、media 件数を表示します。ID conflict には［copy として追加］、［Scene を置換］、［skip］の選択が必要です。Bookmark data は replace の場合も新しい専用 folder に準備します。',
+            title: 'Import conflict はどのように処理しますか？',
+          },
+          {
+            body: 'Storage と bookmarks は必須です。tabGroups は接続解除まで任意で保持し、tabs は明示的な open group import の間だけ要求して解除します。Calendar は［接続］後に identity、任意の Google API host access、read-only scope だけを使います。',
             title: 'それぞれの権限はなぜ必要ですか？',
           },
         ],
         facts: [
           '同じ端末でも、別の Chrome プロフィールや別の拡張機能 ID には独立した保存領域があります。',
-          'エクスポートとインポートで、その境界を越えて Starlit 設定、カスタム favicon、アップロードした背景、オーバーレイ画像を移せます。',
-          'インポート時、カスタム favicon は移行先の設定へ merge されます。バックアップにない移行先の favicon 設定はそのまま残ります。',
-          '［テーマをリセット］は色テーマだけを戻します。［すべてリセット］は Starlit の設定、キャッシュ、カスタム favicon、ローカル背景、オーバーレイ画像も削除します。次の読み込み時には同梱の Getting 画像が復元されます。',
-          'どちらのリセットも Chrome ブックマークや取り込んだフォルダーを削除しません。［すべてリセット］でも、チュートリアル完了状態、グループの展開状態、任意の tabGroups 接続は残ります。',
+          'Bookmark URL または media を除外しても Scene 設定は移動しますが、対応する Chrome folder の内容や media Blob は移動しません。Bookmark URL を除外すると、新規またはコピーした Scene では端末固有のグループ表示と順序を省き、適用前に Relink が必要です。Replace は移行先 Scene の bookmark collection を保持します。Custom favicon 設定は含みません。',
+          'Bookmark URL と media は Scene category が必要で、download した JSON に sensitive data が入る可能性があります。',
+          'Skip した Scene は変更せず、profile の global language とブックマークを開く設定は取り込みます。',
+          'Replace Scene は新しい folder と asset の準備後に参照を切り替え、既存 bookmark folder を直接上書きしません。',
+          '［Theme をリセット］は色だけを戻します。［すべてリセット］は確認内容に従って Starlit 設定、Scene record、cache、custom favicon、local media を削除します。',
+          'Reset は Chrome bookmark や Scene folder を削除しません。［すべてリセット］は Calendar ID と保存した一覧 metadata を消去しますが、Calendar authorization と Chrome optional permission はそれぞれの接続解除で管理します。',
         ],
         media: [
           {
-            alt: '言語、フォント、ガイド、エクスポート、インポートが表示された Starlit の一般設定',
+            alt: 'Portable profile を選択し、Scene、bookmark URL、uploaded media の export 項目が表示された Starlit 設定',
             caption:
-              'エクスポート、インポート、リセットは一般設定にあり、選ぶとすぐに実行されます。',
-            src: '/assets/guide/settings-general.jpg',
+              'Portable Profile の export と import は専用の設定タブにあります。Reset は［一般］に残り、いずれも選ぶとすぐに実行されます。',
+            src: '/assets/guide/settings-portable-profile.jpg',
           },
         ],
         steps: [
           {
-            body: '設定の［一般］を開き、［エクスポート］を選びます。ダウンロードした JSON は自分で管理できる場所に保管してください。',
-            title: 'バックアップを作成する',
+            body: '設定の［Portable profile］を開きます。Scene を選択したまま、Chrome bookmark URL と uploaded media を JSON に含めるか個別に決めます。',
+            title: 'Export category を選ぶ',
           },
           {
-            body: '移行先の Chrome プロフィールまたは Starlit で［インポート］を選び、その JSON を指定します。復元に成功するとページが再読み込みされます。',
-            title: '移行先で復元する',
+            body: 'URL または media を選んだ場合は sensitive-data 警告を読み、V4 JSON を export して自分で管理できる場所に保管します。',
+            title: 'Export file を保護する',
           },
           {
-            body: '［ブックマークグループ］でタブグループへの接続状態を確認します。任意の tabGroups 権限を保持したくない場合は、そこで接続を解除します。',
-            title: '任意の権限を確認する',
+            body: '移行先で［Import］を選び、全体件数と Scene diff を確認します。すべての ID conflict で［copy として追加］、［Scene を置換］、［skip］のいずれかを選んでから適用します。',
+            title: 'Preview して conflict を解決する',
           },
           {
-            body: '先にエクスポートし、範囲を確認してから［テーマをリセット］または［すべてリセット］を選びます。リセットはすぐに適用され、ページが再読み込みされます。',
-            title: '意図してリセットする',
+            body: 'Tab group と Calendar の接続は別に確認します。先に export し、確認画面で削除される local Starlit data を確認してから reset を実行します。',
+            title: '接続と reset を意図して管理する',
           },
         ],
-        title: 'バックアップ・復元・権限・リセット',
+        title: 'Portable Profile V4・権限・リセット',
       },
       'bookmarks-folders': {
         callout: {
@@ -825,7 +1136,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'ブックマークとフォルダーを見る',
           },
           {
-            body: '右下の設定ボタンから［一般］［外観］［配置］［CSS］［ブックマークグループ］を開けます。',
+            body: '右下の設定ボタンを使うか、新しいタブの何もない場所を右クリックすると、［一般］［外観］［ウィジェット］［配置］［CSS］［ブックマークグループ］［Scene］［Portable profile］を開けます。',
             title: '設定を見つける',
           },
           {
@@ -849,7 +1160,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'ページ表示と展開表示の違いは？',
           },
           {
-            body: 'フォルダーが選択中のルート配下にあり、［ブックマークグループ］で表示対象になっているか確認します。Chrome のツリーを最近変えた場合は、新しいタブも開き直してください。',
+            body: 'フォルダーが選択中のルート配下にあり、設定の［ブックマークグループ］で表示対象になっているか確認します。Chrome のツリーを最近変えた場合は、新しいタブも開き直してください。',
             title: 'フォルダーが表示されないのはなぜですか？',
           },
         ],
@@ -876,7 +1187,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: 'グループを選んで並べる',
           },
           {
-            body: '［配置］を開き、コンパクトなページ表示またはスクロールする展開表示、ブックマーク展開、アイコンの向きを選びます。',
+            body: '設定の［配置］を開き、コンパクトなページ表示またはスクロールする展開表示、ブックマーク展開、アイコンの向きを選びます。',
             title: '表示方式を選ぶ',
           },
           {
@@ -940,12 +1251,12 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       troubleshooting: {
         callout: {
-          body: 'データが見えないとき、最初に［すべてリセット］を実行しないでください。期待する設定が残る環境から先にエクスポートし、Chrome プロフィール、拡張機能 ID、権限、背景の入力元を確認します。',
+          body: 'データが見えないとき、最初に［すべてリセット］を実行しないでください。期待する設定が残る環境から Portable Profile を先にエクスポートし、復旧に必要な場合だけ bookmark URL または media を含めます。その後、Chrome profile、extension ID、権限、resource 参照を確認します。',
           title: '復元できるコピーを先に守る',
           tone: 'warning',
         },
         description:
-          'ブックマーク、タブグループ、背景、設定が見えないとき、リセット前にデータの所有者と保存領域の境界を確認します。',
+          'Scene が適用できない、bookmark や media が見つからない、Calendar を接続できない、表示が古い場合に、リセット前に所有者と保存領域の境界を確認します。',
         details: [
           {
             body: '同じ Store 版の通常更新は拡張機能 ID を維持し、保存領域も保持します。Store 版、unpacked 版、別の Chrome プロフィール、別ディレクトリから読み直した unpacked 版は、別の保存領域を使う場合があります。古い環境からエクスポートし、新しい環境へインポートしてください。',
@@ -953,27 +1264,32 @@ const COPY: Record<Locale, GuideCopy> = {
               '別のビルドを入れたら設定が消えたように見えるのはなぜですか？',
           },
           {
-            body: '保存済みグループを Chrome で開き、取り込み画面を開き直し、求められた任意権限を許可します。閉じた Saved Tab Group は一覧に表示されません。',
-            title: 'タブグループがまだ見つからない場合は？',
+            body: 'Bookmark folder の参照または必要な local asset がない Scene は適用されません。Folder や asset を Relink するか、recovery snapshot が不足する参照をすべて満たす場合だけ Restore を使います。別の Scene を適用しても Chrome bookmark tree は修復も上書きもされません。',
+            title: 'Scene を適用できないのはなぜですか？',
           },
           {
-            body: 'アップロードしたメディアは一つの拡張機能プロフィールの IndexedDB にあります。エクスポートとインポートを使わない限り、Chrome Sync で別端末には届きません。URL 背景は設定として同期できますが、提供元へ接続できる必要があります。',
-            title: '別の端末で背景が表示されないのはなぜですか？',
+            body: 'Calendar は自動接続されません。設定から［接続］を開始し、read-only scope と任意の Google API host access を許可してから calendar を選びます。認証が古くなった場合、接続解除で Starlit の local 選択と cache を削除してから再接続します。',
+            title: 'Calendar に接続または認証のエラーが出るのはなぜですか？',
+          },
+          {
+            body: 'Scene 設定と uploaded media は一つの extension profile にあり、Chrome Sync では別端末に届きません。Scene category と、必要な場合は uploaded media を有効にして Portable Profile を export し、移動先 profile で import します。URL 背景では提供元へ接続できる必要があります。',
+            title: '別の端末で media が表示されないのはなぜですか？',
           },
         ],
         facts: [
           '新しいタブを開き直すと Chrome ブックマークを再読み込みし、古い表示が原因の問題を解消できます。',
           '同じ ID の拡張機能更新は Starlit の保存領域を維持しますが、別 ID と別 Chrome プロフィールは自動共有しません。',
-          '［すべてリセット］は Starlit の設定とローカルメディアを消しますが、Chrome ブックマークツリーは削除しません。',
+          '［すべてリセット］は Starlit の設定と local media を消しますが、保持した Chrome bookmark folder は削除しません。',
+          'Portable Profile は明示的に有効にしない限り bookmark URL と uploaded media を含みません。',
         ],
         media: [],
         steps: [
           {
-            body: '見えないものを特定します。Chrome ブックマークの内容、開いているタブグループ、Starlit の設定、ローカルでアップロードした背景のどれかを確認します。',
+            body: '見えないものを特定します。Scene の bookmark folder、local asset、開いている tab group、Calendar 接続、表示設定のどれかを確認します。',
             title: 'データの所有者を特定する',
           },
           {
-            body: 'ブックマーク変更なら新しいタブを開き直します。タブグループなら Chrome でグループを開き、ブックマークグループ設定の接続状態を確認します。',
+            body: 'ブックマーク変更なら新しいタブを開き直します。タブグループなら Chrome でグループを開き、設定の［ブックマークグループ］で接続状態を確認します。',
             title: '正しい情報源を更新する',
           },
           {
@@ -981,8 +1297,8 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '保存領域の境界を確認する',
           },
           {
-            body: '復元できる設定をエクスポートします。その後でテーマのみ、またはすべてをリセットし、解決しなければ下のホームページや issue tracker を利用してください。',
-            title: 'リセット前にバックアップする',
+            body: '復元できる Scene を export します。移動先で必要な場合だけ bookmark URL または uploaded media を有効にします。その後で Relink、Restore、Calendar の接続解除と再接続、対象だけの reset、または［すべてリセット］を試します。',
+            title: '復旧またはリセット前にエクスポートする',
           },
         ],
         title: 'トラブルシューティング',
@@ -990,11 +1306,12 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     starlitData: {
       items: [
-        'グループの表示と順序、ブックマークルート、レイアウト、色、フォント、言語、Custom CSS',
-        'カスタム favicon、キャッシュ、グループの展開・折りたたみ状態',
-        '背景とオーバーレイの情報、および拡張機能プロフィール内にローカル保存したメディア',
+        'Scene record：外観、layout、bookmark folder 参照、canvas の widget 順、画像ウィジェットの media 参照、時計・Google Calendar ウィジェットの設定',
+        'Global の言語、bookmark を開く方法、favicon override、UI cache',
+        '拡張機能 profile に local 保存した uploaded media と shared Scene asset',
+        'Local 保存した Calendar ID と一覧 metadata（ID、名前、色、primary 状態）、現在の session に 5 分間 cache する event 結果',
       ],
-      title: 'Starlit は表示設定と端末ごとのデータを保存します',
+      title: 'Starlit は Scene と端末ごとの設定を保存します',
     },
     stepsTitle: '手順',
     support: {
@@ -1013,16 +1330,17 @@ const COPY: Record<Locale, GuideCopy> = {
         '북마크 폴더, 북마크 제목과 URL, 그리고 이를 편집한 결과',
         '사용자가 명시적으로 가져오는 동안 읽는 현재 열린 Chrome 탭 그룹과 탭',
         'Starlit이 연 뒤 Chrome에서 저장하거나 닫는 live tab group',
+        'Calendar 목록과 event는 Google Calendar에 남으며 Starlit은 명시적으로 연결한 뒤 선택한 data만 읽습니다',
       ],
-      title: 'Chrome이 원본을 관리합니다',
+      title: 'Chrome과 Google이 원본을 관리합니다',
     },
     dataOwnershipDescription:
-      'Starlit은 Chrome이 관리하는 내용과 자체 화면 설정을 함께 사용합니다. 이 경계를 알면 무엇이 동기화되고, 초기화 때 무엇이 사라지며, 어디에서 항목을 편집해야 하는지 판단하기 쉽습니다.',
-    dataOwnershipTitle: 'Chrome 데이터와 Starlit 데이터',
+      'Starlit은 Chrome이 관리하는 북마크, 명시적으로 인증한 Google Calendar data, 자체 화면 설정을 함께 사용합니다. 이 경계를 알면 무엇이 동기화되고, 초기화 때 무엇이 사라지며, 어디에서 항목을 편집해야 하는지 판단하기 쉽습니다.',
+    dataOwnershipTitle: '외부 provider data와 Starlit data',
     detailsTitle: '자주 묻는 질문',
     factsTitle: '알아두면 좋은 점',
     intro:
-      'Chrome 북마크를 집중하기 좋은 새 탭 작업 공간으로 만들고, 북마크 폴더와 live tab group을 오가며, 설정을 안전하게 옮기기 위한 실용 가이드입니다.',
+      '북마크 중심 Scene, 이미지·시계·Google Calendar 위젯, Cmd/Ctrl+K 검색, Portable Profile V4를 설명하는 실용 가이드입니다.',
     language: '가이드 언어',
     navigation: '가이드 목차',
     quickStart: {
@@ -1045,10 +1363,148 @@ const COPY: Record<Locale, GuideCopy> = {
       title: '3분 만에 시작하기',
     },
     sectionKicker: '가이드',
+    releaseStatus: {
+      body: 'v2 Calendar를 출시하려면 Google OAuth verification 승인과 이 동작에 맞춘 Chrome Web Store privacy practices 갱신이 필요합니다. 이 가이드는 두 심사가 끝났다고 주장하지 않습니다.',
+      title: 'Calendar 출시 심사가 아직 남아 있습니다',
+    },
     sections: {
+      scenes: {
+        callout: {
+          body: 'Scene을 만들 때만 개수 미리보기와 명시적인 확인을 거쳐 북마크를 복사합니다. 저장된 Scene을 적용하거나 전환할 때는 폴더 참조만 바뀌며 Chrome 북마크 트리를 다시 쓰지 않습니다.',
+          title: '생성할 때는 복사하고 전환할 때는 복사하지 않습니다',
+          tone: 'warning',
+        },
+        description:
+          '화면 모양, 레이아웃, canvas 위젯, 북마크 폴더 참조를 나중에 돌아올 수 있는 하나의 설정으로 저장합니다.',
+        details: [
+          {
+            body: 'Scene에는 theme, font, 배경, 북마크 표시 방식, Custom CSS, 이미지 위젯의 media와 순서, 시계·Google Calendar 위젯 설정, Chrome 북마크 폴더가 들어갑니다. 언어, 링크 열기 방식, tutorial 상태, 권한, Google 연결은 전체 설정으로 남습니다.',
+            title: 'Scene에는 무엇이 저장되나요?',
+          },
+          {
+            body: '참조하는 폴더나 local media가 사라지면 Starlit은 적용을 막습니다. Relink로 이미 있는 대체 resource를 연결할 수 있습니다. Restore는 recovery snapshot이 빠진 resource를 모두 복구할 수 있을 때만 표시됩니다.',
+            title: 'Relink나 Restore가 필요한 이유는 무엇인가요?',
+          },
+        ],
+        facts: [
+          '업데이트한 기존 profile은 activeSceneId가 null인 상태를 유지하며 현재 설정을 Scene으로 저장하기 전에는 북마크를 복사하지 않습니다.',
+          '새 Scene은 기본적으로 Other bookmarks의 Starlit Scenes 아래에 전용 폴더를 가집니다.',
+          '저장은 active Scene을 갱신하고 새 Scene으로 저장은 독립적인 Scene과 북마크 폴더를 만듭니다.',
+          'Scene을 삭제해도 Chrome 북마크 폴더는 기본적으로 보존합니다. 해당 Scene에서만 쓰는 로컬 미디어는 삭제하고, 다른 Scene에서도 쓰는 미디어는 보존합니다.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '설정 > Scene을 열고 현재 설정 저장을 선택합니다. 기존 profile은 이 작업을 시작하기 전까지 그대로 유지됩니다.',
+            title: '현재 설정에서 시작하기',
+          },
+          {
+            body: '폴더 수, URL 수, Scene 이름, 저장할 상위 폴더를 확인합니다. 전용 Chrome 폴더가 맞을 때만 계속하세요.',
+            title: '복사 전에 확인하기',
+          },
+          {
+            body: '설정 > Scene에서 저장된 Scene을 고릅니다. 미리보기를 확인한 다음 적용해 active setup과 북마크 root를 바꿉니다.',
+            title: '미리보고 전환하기',
+          },
+          {
+            body: '빠진 resource가 표시되면 불완전한 Scene을 적용하지 말고 Relink 또는 사용 가능한 recovery snapshot을 선택하세요.',
+            title: '빠진 resource 복구하기',
+          },
+        ],
+        title: 'Scene을 안전하게 저장하고 전환하기',
+      },
+      'widgets-calendar': {
+        callout: {
+          body: 'Starlit은 첫 실행에서 Calendar 인증을 자동으로 시작하지 않습니다. 설정의 설명을 읽고 연결을 선택했을 때만 OAuth가 시작됩니다.',
+          title: 'Calendar 연결은 항상 명시적으로 시작합니다',
+          tone: 'warning',
+        },
+        description:
+          '새 탭을 범용 plugin dashboard로 만들지 않고 Scene마다 Clock과 읽기 전용 Google Calendar를 하나씩 추가합니다.',
+        details: [
+          {
+            body: 'Starlit은 calendar list와 event의 읽기 전용 scope만 사용합니다. 선택한 Calendar에서 앞으로 7일의 event를 읽어 최대 50개까지 합치며 제목, 시작·종료, 종일 여부, Calendar 색상, event link만 남깁니다. 설명과 참석자는 바로 버립니다.',
+            title: '어떤 Calendar data를 읽나요?',
+          },
+          {
+            body: 'Access token은 Chrome Identity가 cache합니다. 선택한 Calendar ID와 최신 목록 metadata(ID, 이름, 색상, primary 상태)는 local storage에 저장하고 event 결과는 session storage에서 최대 5분 동안 다시 사용합니다. 인증, ID, 목록 metadata, event는 Scene과 Portable Profile V4에 포함하지 않습니다.',
+            title: 'Calendar 상태는 어디에 저장되나요?',
+          },
+        ],
+        facts: [
+          'Clock은 권한이 필요 없고 locale, 12시간, 24시간 표시를 지원합니다.',
+          'Scene 하나에는 Clock과 Google Calendar를 각각 최대 하나만 둘 수 있습니다.',
+          'Calendar request는 extension에서 Google로 직접 보내며 중간에 Starlit backend가 없습니다.',
+          'Calendar 하나가 실패해도 다른 Calendar의 event는 일부 실패 안내와 함께 표시할 수 있습니다.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '설정 > 위젯에서 위젯 추가, 시계 순서로 선택하고 시간 표시 방식과 초 표시 여부를 고릅니다.',
+            title: 'Local Clock 추가하기',
+          },
+          {
+            body: '위젯 추가, Google Calendar 순서로 선택합니다. 동의 설명을 읽은 뒤 읽기 전용 접근을 허용하려는 경우에만 연결을 선택합니다.',
+            title: 'Calendar 연결 시작하기',
+          },
+          {
+            body: 'Google 인증을 마치고 Calendar 목록을 불러온 다음 새 탭에 event를 표시할 Calendar를 선택합니다.',
+            title: 'Calendar 고르기',
+          },
+          {
+            body: '연결 해제를 선택하면 Calendar ID, 저장된 목록 metadata, 5분 event cache, 사용할 수 있는 cached token, 선택 Google API host 접근을 정리합니다.',
+            title: '연결 완전히 해제하기',
+          },
+        ],
+        title: 'Clock과 읽기 전용 Google Calendar',
+      },
+      'command-palette': {
+        callout: {
+          body: 'Shortcut은 focus된 Starlit 새 탭 안에서만 동작합니다. Chrome 전체에서 쓰는 browser command로 등록하지 않습니다.',
+          title: 'Palette는 현재 page에서만 열립니다',
+          tone: 'info',
+        },
+        description:
+          '키보드 중심 dialog 하나에서 북마크, 폴더, Scene, 설정 목적지를 검색합니다.',
+        details: [
+          {
+            body: '현재 Scene의 결과를 먼저 보여줍니다. 그 안에서는 제목 prefix, domain prefix, path substring 순으로 점수를 매기고 마지막에는 제목 substring을 fallback으로 사용합니다. 동점도 항상 같은 순서로 정렬합니다.',
+            title: '검색 결과는 어떤 순서인가요?',
+          },
+          {
+            body: '북마크 열기, 폴더·그룹 이동, Scene 미리보기와 적용, 정확한 설정 section 열기를 할 수 있습니다. 북마크 편집과 이동은 이 palette의 범위가 아닙니다.',
+            title: 'Palette에서 무엇을 바꿀 수 있나요?',
+          },
+        ],
+        facts: [
+          'macOS에서는 Cmd+K, 다른 환경에서는 Ctrl+K를 새 탭에 focus가 있는 상태에서 누릅니다.',
+          '방향키로 결과를 이동하고 Enter로 선택하며 Escape로 dialog를 닫습니다.',
+          '닫으면 palette를 열기 전에 focus했던 요소로 돌아갑니다.',
+        ],
+        media: [],
+        steps: [
+          {
+            body: '새 탭에서 Cmd+K 또는 Ctrl+K를 누릅니다.',
+            title: 'Palette 열기',
+          },
+          {
+            body: '북마크 제목, site domain, 폴더 path, Scene 이름, 설정 목적지를 입력합니다.',
+            title: '목적지 한 번에 검색하기',
+          },
+          {
+            body: '방향키로 category별 결과를 살펴보고 Enter를 눌러 선택한 항목을 실행합니다.',
+            title: '결과 선택하기',
+          },
+          {
+            body: 'Scene 결과는 미리보기를 확인하고 적용합니다. 현재 설정을 바꾸지 않으려면 Escape를 누르세요.',
+            title: 'Scene 변경 확인하기',
+          },
+        ],
+        title: 'Cmd/Ctrl+K로 찾고 이동하기',
+      },
       appearance: {
         callout: {
-          body: '배경 URL은 설정과 함께 저장되어 Chrome Sync를 따라갈 수 있지만, 실제 파일은 제공처에서 불러옵니다. 업로드한 파일은 이 기기의 현재 확장 프로그램 profile에 있는 IndexedDB에만 저장됩니다.',
+          body: '배경 URL은 이 extension profile의 Scene에 저장되며 Chrome Sync로 전송되지 않습니다. 실제 파일은 제공처에서 불러옵니다. 업로드한 파일은 Portable Profile에 명시적으로 포함하지 않는 한 이 기기의 IndexedDB에만 저장됩니다.',
           title: 'URL과 업로드 파일은 이동 방식이 다릅니다',
           tone: 'warning',
         },
@@ -1056,7 +1512,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Chrome 북마크 내용은 바꾸지 않고 배경, 컨테이너, 북마크, 폴더, 색상, Custom CSS를 조정합니다.',
         details: [
           {
-            body: '동기화된 설정에서 같은 주소를 쓰려면 URL을, 미디어를 로컬에만 두려면 파일 업로드를 사용하세요. 업로드한 파일을 다른 profile이나 extension ID로 옮겨야 한다면 내보내기와 가져오기를 사용해야 합니다.',
+            body: '미디어를 제공처에서 관리하려면 URL을, extension storage에 보관하려면 file upload를 사용하세요. 다른 profile이나 extension ID로 옮길 때는 Scene을 켠 Portable Profile을 내보내고, 파일을 쓰는 Scene이면 uploaded media도 함께 켜세요.',
             title: 'URL과 파일 업로드 중 무엇을 선택할까요?',
           },
           {
@@ -1066,7 +1522,8 @@ const COPY: Record<Locale, GuideCopy> = {
         ],
         facts: [
           '이미지·동영상 URL은 배경 설정으로 저장되고 Chrome이 제공처에서 직접 불러옵니다.',
-          '업로드한 이미지·동영상은 로컬에서 처리해 IndexedDB에 저장하며 Starlit 서버로 전송하지 않습니다.',
+          '배경 file upload는 이미지 위젯 media와 같은 processor를 사용합니다. 정적 이미지는 WebP, GIF는 WebM이 되고 재생 가능한 동영상은 원본 형식을 유지합니다. 입력과 출력은 20 MiB·1920px까지, GIF는 300 frame·30초까지 허용합니다.',
+          'Uploaded media는 local에서 처리해 IndexedDB에 저장하며 Starlit server로 전송하지 않습니다.',
           'Custom CSS는 안전하게 정리된 뒤 Starlit 기본 스타일보다 나중에 적용됩니다.',
         ],
         media: [
@@ -1089,7 +1546,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '화면 설정 열기',
           },
           {
-            body: '배경 가져오기 방식으로 URL 또는 파일 업로드를 고른 뒤 이미지·동영상을 지정합니다. 현재 배경을 제거할 수도 있습니다.',
+            body: '배경 가져오기 방식으로 URL 또는 file upload를 고른 뒤 정적 이미지, GIF, browser가 재생할 수 있는 동영상을 지정합니다. 현재 배경을 제거할 수도 있습니다.',
             title: '배경 가져오기 방식 고르기',
           },
           {
@@ -1105,105 +1562,116 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       'overlay-images': {
         callout: {
-          body: '레이어 순서, 새로 추가한 이미지, 위치 편집은 저장을 선택하기 전까지 설정 draft입니다. 취소하면 오버레이 draft 전체를 버립니다.',
-          title: '레이어 draft 전체를 저장합니다',
+          body: '순서, 새로 추가한 파일, motion 설정, 위치 편집은 저장을 선택하기 전까지 설정 draft입니다. 취소하면 이미지 위젯 draft 전체를 버립니다.',
+          title: 'Canvas draft 전체를 저장합니다',
           tone: 'info',
         },
         description:
-          'Local 이미지를 북마크 화면 앞이나 뒤에 배치하고, 평소 북마크 사용을 막지 않으면서 이미지별 위치를 조정합니다.',
+          '이미지 위젯을 북마크 앞이나 뒤에 배치하고, 평소 북마크 사용을 막지 않으면서 저장된 motion을 설정합니다.',
         details: [
           {
             body: '북마크 행은 전체 북마크 화면을 뜻하며 삭제할 수 없습니다. 앞에서 뒤 순서인 목록에서 북마크보다 위에 둔 이미지는 북마크 앞에, 아래에 둔 이미지는 뒤에 표시됩니다.',
-            title: '북마크 레이어는 무엇인가요?',
+            title: '북마크 행은 무엇인가요?',
           },
           {
-            body: '각 이미지는 화면의 9개 기준점 중 하나에서 pixel 단위 거리를 유지합니다. 화면 크기가 달라져도 위치 관계를 유지하도록 가장 가까운 모서리, 변, 중앙을 고르세요.',
-            title: '어떤 기준점을 선택해야 하나요?',
+            body: '각 이미지는 화면의 9개 기준 위치 중 하나에서 pixel 단위 거리를 유지합니다. 화면 크기가 달라져도 위치 관계를 유지하도록 가장 가까운 모서리, 변, 중앙을 고르세요.',
+            title: '어떤 화면 기준 위치를 선택해야 하나요?',
+          },
+          {
+            body: '가능합니다. 정적 이미지는 WebP로, GIF는 WebM으로 변환하고 browser가 재생할 수 있는 동영상은 원본 형식을 유지합니다. 형식 오류, 미지원, 제한 초과, decode·encode 실패 media는 저장 전에 거절합니다.',
+            title: 'GIF나 동영상을 이미지 위젯으로 추가할 수 있나요?',
           },
         ],
         facts: [
           '새로 설치하거나 전체 초기화한 profile에는 오른쪽 아래를 기준으로 한 기본 Getting 이미지가 북마크 앞에 표시됩니다. 다른 이미지처럼 이동, 순서 변경, 삭제할 수 있습니다.',
-          '업로드한 이미지는 WebP로 변환해 현재 extension profile의 IndexedDB에 저장하며 Starlit 서버로 전송하지 않습니다.',
-          '위치 편집에서는 drag, 방향키 이동, -180°부터 180°까지 회전, 10%부터 400%까지 확대·축소를 지원합니다. Shift와 방향키를 함께 누르면 10px씩 이동합니다.',
-          '북마크 앞에 둔 이미지도 평소 화면에서는 pointer event를 받지 않아 북마크 link를 그대로 선택할 수 있습니다.',
+          '입력과 처리 결과는 모두 20 MiB까지 허용합니다. 정적 이미지는 1920px 안으로 줄이고 GIF와 동영상이 이 범위를 넘으면 거절합니다. GIF는 300 frame, 30초까지입니다.',
+          '저장된 motion 이미지 위젯은 0.5×, 1×, 1.5×, 2× 재생을 지원합니다. 모든 mode는 숨겨진 tab에서 멈춥니다. reduced-motion에서는 처음부터 멈추며 현재 session에서 명시적으로 재생할 수 있습니다.',
+          '위치 편집에서는 다중 선택, drag, 방향키 이동, 단일 선택의 회전·scale, group, 6px snap guide를 지원합니다. Alt를 누르면 snap을 잠시 끕니다.',
+          '북마크 앞에 둔 이미지도 일반 left click에서는 pointer event를 받지 않아 북마크 link를 그대로 선택할 수 있습니다. Right click은 회전한 이미지도 찾아 행의 더보기 menu와 같은 숨김, 잠금, motion 재생·멈춤, 복제, 교체, 순서, 삭제 action을 엽니다.',
         ],
         media: [],
         steps: [
           {
-            body: '설정 > 레이어를 엽니다. 목록은 화면의 앞에서 뒤 순서로 표시됩니다.',
-            title: '레이어 목록 열기',
+            body: '설정 > 위젯을 엽니다. 목록은 화면의 앞에서 뒤 순서로 표시됩니다.',
+            title: '이미지 위젯 열기',
           },
           {
-            body: '이미지 추가를 선택하고 이미지 파일을 하나 이상 고릅니다. 각 파일은 draft 안의 별도 레이어가 됩니다.',
-            title: '오버레이 이미지 추가하기',
+            body: '위젯 추가, 이미지 순서로 선택하고 정적 이미지, GIF, browser가 재생할 수 있는 동영상을 고릅니다. 각 파일은 draft 안의 별도 이미지 위젯이 됩니다.',
+            title: '이미지 위젯 추가하기',
           },
           {
-            body: '행을 drag하거나 화살표 control을 사용해 고정된 북마크 행을 기준으로 이미지를 옮깁니다. 필요 없는 이미지 레이어만 삭제할 수 있습니다.',
+            body: '행을 drag하거나 이동 control을 사용해 고정된 북마크 행을 기준으로 이미지를 옮깁니다. 위치 editor에서는 선택한 이미지를 잠그고, 숨기고, group으로 묶고, 이동하거나 삭제할 수 있습니다.',
             title: '앞뒤 순서 정하기',
           },
           {
-            body: '위치 편집을 선택하고 이미지를 고른 뒤 기준점, 위치, 회전, 확대 비율을 조정합니다. 마치면 설정으로 돌아갑니다.',
-            title: '이미지별 위치 정하기',
+            body: '위치 편집에서 이미지를 선택하고 이름이 붙은 화면 기준 위치, drag, 방향키, snap guide를 사용합니다. 회전, scale, 화면 기준 위치 변경은 하나만 선택했을 때 적용합니다.',
+            title: '선택한 이미지 배치하기',
           },
           {
-            body: '설정에서 저장을 선택하면 레이어 순서, 이미지 파일, 위치를 함께 반영합니다. 취소를 선택하면 draft를 버립니다.',
-            title: '오버레이 변경 저장하기',
+            body: '기존 motion item에서는 재생 속도와 active-tab-only 또는 always를 고를 수 있습니다. reduced-motion에서는 처음부터 멈추므로 필요하면 명시적인 재생 control로 현재 session에서만 재생하세요. 그다음 저장을 선택해 순서, 파일, 위치, motion 설정을 함께 반영합니다.',
+            title: 'Motion 확인하고 저장하기',
           },
         ],
-        title: '오버레이 이미지 레이어',
+        title: '이미지 위젯과 motion',
       },
       'backup-permissions': {
         callout: {
-          body: '내보내기, 가져오기, 초기화, 북마크 관리자 열기, 탭 그룹 작업은 즉시 실행되며 취소로 되돌릴 수 없습니다. 일반 form 설정은 저장을 누르기 전까지 draft로 남습니다.',
-          title: '설정 안에도 즉시 실행되는 작업이 있습니다',
+          body: 'Portable 가져오기, 초기화, 북마크 관리자, 탭 그룹 작업은 즉시 실행되며 취소로 되돌릴 수 없습니다. 가져오기는 전용 Chrome 북마크 폴더를 만들 수 있으므로 적용 전에 미리보기와 모든 Scene 충돌을 확인하세요.',
+          title: '즉시 실행되는 작업을 자세히 확인하세요',
           tone: 'warning',
         },
         description:
-          '옮길 수 있는 설정 backup을 만들고, Chrome 권한과 각 초기화 작업이 지우는 범위를 확인합니다.',
+          'Portable Profile V4로 선택한 Scene data를 옮기고 적용 전에 충돌을 해결하며 권한과 초기화 범위를 확인합니다.',
         details: [
           {
-            body: 'JSON에는 저장된 레이아웃과 화면 설정, 그룹 설정, 언어, Custom CSS, custom favicon, 배경 정보와 미디어, 오버레이 레이어 정보와 이미지 데이터가 포함됩니다. Chrome 북마크, Chrome 탭 그룹, 권한, 저장하지 않은 draft, tutorial 완료 상태, 그룹 펼침·접힘 상태는 포함되지 않습니다. Local media가 들어갈 수 있으므로 파일을 공개하지 마세요.',
-            title: '내보내기 파일에는 무엇이 들어 있나요?',
+            body: 'Scene, 화면 모양, layout, 이미지 위젯 media 참조, 시계·Google Calendar 위젯 설정은 기본으로 포함합니다. Chrome 북마크 URL과 uploaded media는 기본으로 제외하며 켜면 민감정보 안내를 표시합니다. Locale과 링크 열기 방식은 global preference이며 Scene을 꺼도 포함합니다. 권한, tutorial 상태, Google 인증, Calendar ID, Calendar 목록 metadata, cached event는 항상 제외합니다.',
+            title: 'Portable Profile V4에는 무엇이 들어가나요?',
           },
           {
-            body: '작업 공간을 표시하려면 storage와 bookmarks 권한이 항상 필요합니다. 선택 권한인 tabGroups는 연결을 해제할 때까지 반복 작업에 사용할 수 있게 유지됩니다. tabs는 명시적인 가져오기에서 열린 탭의 제목과 URL을 읽는 동안만 요청하며 완료하거나 취소하면 회수합니다.',
+            body: '적용 전에 전체 개수와 Scene별 변경 section, 북마크 폴더, URL, media 개수를 보여줍니다. ID가 겹치면 사본으로 추가, Scene 교체, 건너뛰기 중 하나를 골라야 합니다. 북마크 data는 교체할 때도 새 전용 폴더에 먼저 준비합니다.',
+            title: '가져오기 충돌은 어떻게 처리하나요?',
+          },
+          {
+            body: 'Storage와 bookmarks는 필수입니다. tabGroups는 연결을 해제할 때까지 선택 권한으로 유지하고 tabs는 명시적인 열린 그룹 가져오기 동안만 요청한 뒤 회수합니다. Calendar는 연결한 뒤 identity, 선택 Google API host 접근, 읽기 전용 scope만 사용합니다.',
             title: '각 Chrome 권한은 왜 필요한가요?',
           },
         ],
         facts: [
           '같은 컴퓨터에서도 Chrome profile이나 extension ID가 다르면 별도 저장 공간을 사용합니다.',
-          '내보내기와 가져오기를 사용하면 그 경계를 넘어 Starlit 설정, custom favicon, 업로드한 배경, 오버레이 이미지를 옮길 수 있습니다.',
-          '가져올 때 custom favicon 설정은 이동할 환경의 기존 설정과 merge됩니다. Backup에 없는 기존 favicon 설정은 그대로 남습니다.',
-          '테마 초기화는 색상 테마만 되돌립니다. 전체 초기화는 Starlit 설정, cache, custom favicon, local background media, 오버레이 이미지도 지웁니다. 다음에 불러올 때 기본 Getting 이미지가 다시 표시됩니다.',
-          '두 초기화 모두 Chrome 북마크와 가져온 폴더를 삭제하지 않습니다. 전체 초기화 후에도 tutorial 완료 상태, 그룹 펼침·접힘 상태, 선택 권한인 tabGroups 연결은 남습니다.',
+          '북마크 URL이나 media를 제외해도 Scene 설정은 이동하지만 해당 Chrome 폴더 내용이나 media Blob은 이동하지 않습니다. 북마크 URL을 제외하면 새 Scene이나 복사본에서 기기에 종속된 그룹 표시 여부와 순서를 빼고 적용 전에 Relink를 요구합니다. Scene 교체는 대상 Scene의 bookmark collection을 보존합니다. Custom favicon 설정은 포함하지 않습니다.',
+          '북마크 URL과 media를 포함하려면 Scene category를 켜야 하며 내려받은 JSON에 민감정보가 들어갈 수 있습니다.',
+          '건너뛴 Scene은 바꾸지 않고 profile의 global 언어와 북마크 열기 preference는 가져옵니다.',
+          'Scene 교체는 새 폴더와 asset을 준비한 뒤 참조를 바꾸며 기존 북마크 폴더를 직접 덮어쓰지 않습니다.',
+          '테마 초기화는 색상만 되돌립니다. 전체 초기화는 확인 내용에 따라 Starlit 설정, Scene record, cache, custom favicon, local media를 지웁니다.',
+          '초기화는 Chrome 북마크와 Scene 폴더를 삭제하지 않습니다. 전체 초기화는 Calendar ID와 저장된 목록 metadata를 지우지만 Calendar 인증과 Chrome 선택 권한은 각 연결 해제 작업으로 관리합니다.',
         ],
         media: [
           {
-            alt: '언어, 폰트, 사용 가이드, 내보내기와 가져오기가 보이는 Starlit 일반 설정',
+            alt: 'Portable profile을 선택하고 Scene, 북마크 URL, uploaded media 내보내기 항목이 보이는 Starlit 설정',
             caption:
-              '내보내기, 가져오기, 초기화는 일반 설정에 있으며 선택하면 즉시 실행됩니다.',
-            src: '/assets/guide/settings-general.jpg',
+              'Portable Profile 내보내기와 가져오기는 별도 설정 탭에 있습니다. 초기화는 일반에 남으며 세 작업 모두 선택하면 즉시 실행됩니다.',
+            src: '/assets/guide/settings-portable-profile.jpg',
           },
         ],
         steps: [
           {
-            body: '설정 > 일반에서 내보내기를 선택합니다. 내려받은 JSON 파일은 직접 관리할 수 있는 곳에 보관하세요.',
-            title: 'Backup 만들기',
+            body: '설정 > Portable profile을 엽니다. Scene은 선택한 채 Chrome 북마크 URL과 uploaded media를 JSON에 넣을지 각각 결정합니다.',
+            title: '내보내기 category 고르기',
           },
           {
-            body: '이동할 Chrome profile 또는 Starlit 설치에서 가져오기를 선택하고 해당 JSON 파일을 엽니다. 복원에 성공하면 페이지를 다시 불러옵니다.',
-            title: '이동할 환경에서 복원하기',
+            body: 'URL이나 media를 골랐다면 민감정보 안내를 읽고 V4 JSON을 내보낸 뒤 직접 관리할 수 있는 곳에 보관합니다.',
+            title: '내보내기 파일 보호하기',
           },
           {
-            body: '북마크 그룹 화면에서 탭 그룹 접근 연결 상태를 확인합니다. 선택 권한인 tabGroups를 더는 유지하지 않으려면 여기서 연결을 해제하세요.',
-            title: '선택 권한 확인하기',
+            body: '이동할 환경에서 가져오기를 선택하고 전체 개수와 Scene diff를 확인합니다. 모든 ID 충돌에서 사본으로 추가, Scene 교체, 건너뛰기 중 하나를 고른 뒤 적용합니다.',
+            title: '미리보고 충돌 해결하기',
           },
           {
-            body: '먼저 내보낸 뒤 범위를 확인하고 테마 초기화 또는 전체 초기화를 선택합니다. 초기화는 즉시 적용되고 페이지를 다시 불러옵니다.',
-            title: '의도적으로 초기화하기',
+            body: '탭 그룹과 Calendar 연결은 따로 확인합니다. 먼저 내보낸 뒤 확인창에서 어떤 local Starlit data를 지우는지 확인하고 초기화하세요.',
+            title: '연결과 초기화 의도적으로 관리하기',
           },
         ],
-        title: 'Backup·복원·권한·초기화',
+        title: 'Portable Profile V4·권한·초기화',
       },
       'bookmarks-folders': {
         callout: {
@@ -1297,11 +1765,11 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '북마크와 폴더 탐색하기',
           },
           {
-            body: '오른쪽 아래 설정 버튼에서 일반, 외형, 배치, CSS, 북마크 그룹 화면을 열 수 있습니다.',
+            body: '오른쪽 아래 설정 버튼을 누르거나 새 탭의 빈 공간을 우클릭하면 일반, 외형, 위젯, 배치, CSS, 북마크 그룹, Scene, Portable profile 화면을 열 수 있습니다.',
             title: '설정 찾기',
           },
           {
-            body: '일반 설정은 미리보기로 시도한 뒤 저장을 눌러 반영합니다. Draft를 버리려면 취소를 선택하세요.',
+            body: '설정 변경은 미리보기로 시도한 뒤 저장을 눌러 반영합니다. Draft를 버리려면 취소를 선택하세요.',
             title: '미리 본 뒤 저장하기',
           },
         ],
@@ -1321,7 +1789,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '페이지형과 펼치기형은 어떻게 다른가요?',
           },
           {
-            body: '해당 폴더가 선택한 루트 아래에 있는지, 북마크 그룹 화면에서 표시하도록 설정했는지 확인하세요. 최근 Chrome 북마크 트리를 바꿨다면 새 탭도 다시 열어야 합니다.',
+            body: '해당 폴더가 선택한 루트 아래에 있는지, 설정 > 북마크 그룹에서 표시하도록 설정했는지 확인하세요. 최근 Chrome 북마크 트리를 바꿨다면 새 탭도 다시 열어야 합니다.',
             title: '폴더가 그룹으로 보이지 않아요',
           },
         ],
@@ -1348,7 +1816,7 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '그룹 선택하고 정렬하기',
           },
           {
-            body: '배치 화면에서 간결한 페이지형 또는 스크롤하는 펼치기형을 고르고 북마크 펼치기와 icon 방향을 정합니다.',
+            body: '설정 > 배치를 열고 간결한 페이지형 또는 스크롤하는 펼치기형을 고르고 북마크 펼치기와 icon 방향을 정합니다.',
             title: '보기 방식 선택하기',
           },
           {
@@ -1412,39 +1880,44 @@ const COPY: Record<Locale, GuideCopy> = {
       },
       troubleshooting: {
         callout: {
-          body: '데이터가 사라진 것처럼 보일 때 전체 초기화부터 하지 마세요. 원하는 설정이 남아 있는 설치에서 먼저 내보낸 뒤 Chrome profile, extension ID, 권한, 배경 가져오기 방식을 확인하세요.',
+          body: '데이터가 사라진 것처럼 보일 때 전체 초기화부터 하지 마세요. 원하는 설정이 남아 있는 설치에서 Portable Profile을 먼저 내보내고, 복구에 필요한 경우에만 북마크 URL이나 미디어를 포함하세요. 그다음 Chrome profile, extension ID, 권한, resource 참조를 확인합니다.',
           title: '복구 가능한 사본부터 지키세요',
           tone: 'warning',
         },
         description:
-          '북마크, 탭 그룹, 배경, 설정이 보이지 않을 때 초기화보다 먼저 데이터 소유권과 저장 공간 경계를 확인합니다.',
+          'Scene이 적용되지 않거나 북마크·미디어가 사라졌거나 Calendar 연결과 화면 갱신에 문제가 있을 때, 초기화보다 먼저 데이터 소유권과 저장 공간 경계를 확인합니다.',
         details: [
           {
             body: '같은 Store 설치의 정상 업데이트는 같은 extension ID를 유지하므로 저장 공간도 보존합니다. Store build, unpacked build, 다른 Chrome profile, 다른 경로에서 다시 불러온 unpacked build는 별도 저장 공간을 사용할 수 있습니다. 이전 설치에서 내보내고 새 설치에서 가져오세요.',
             title: '다른 build를 설치한 뒤 설정이 사라진 것처럼 보여요',
           },
           {
-            body: '저장된 그룹을 Chrome에서 열고 가져오기 화면을 다시 시작한 뒤 요청되는 선택 권한을 허용하세요. 닫힌 Saved Tab Group은 목록에 표시되지 않습니다.',
-            title: '탭 그룹이 계속 보이지 않아요',
+            body: '북마크 폴더 참조나 필요한 local asset이 없으면 Scene을 적용하지 않습니다. 폴더나 asset을 Relink하거나, recovery snapshot이 빠진 참조를 모두 채울 수 있을 때만 Restore하세요. 다른 Scene을 적용해도 Chrome 북마크 트리를 복구하거나 덮어쓰지 않습니다.',
+            title: 'Scene이 적용되지 않아요',
           },
           {
-            body: '업로드한 미디어는 한 extension profile의 IndexedDB에 있습니다. 내보내기와 가져오기로 옮기지 않으면 Chrome Sync를 통해 다른 기기에 나타나지 않습니다. URL 배경은 설정이 동기화될 수 있지만 제공처에 접속할 수 있어야 합니다.',
-            title: '다른 기기에서 배경이 보이지 않아요',
+            body: 'Calendar는 자동으로 연결되지 않습니다. 설정에서 연결을 시작하고 read-only scope와 선택적 Google API host access를 허용한 뒤 calendar를 고르세요. 인증이 만료된 경우 연결 해제로 Starlit의 local 선택과 cache를 지운 다음 다시 연결합니다.',
+            title: 'Calendar 연결 또는 인증 오류가 보여요',
+          },
+          {
+            body: 'Scene 설정과 업로드한 미디어는 한 extension profile에 있으며 Chrome Sync로 다른 기기에 전달되지 않습니다. Scene category와 필요한 경우 uploaded media를 켜서 Portable Profile을 내보낸 뒤 대상 profile에서 가져오세요. URL 배경은 제공처에 계속 접속할 수 있어야 합니다.',
+            title: '다른 기기에서 미디어가 보이지 않아요',
           },
         ],
         facts: [
           '새 탭을 다시 열면 Chrome 북마크를 새로 읽으므로 오래된 화면 snapshot 문제를 해결할 수 있습니다.',
           '같은 ID의 extension update는 Starlit 저장 공간을 유지하지만 다른 ID와 Chrome profile은 자동으로 공유하지 않습니다.',
-          '전체 초기화는 Starlit 설정과 local media를 지우지만 Chrome 북마크 트리는 삭제하지 않습니다.',
+          '전체 초기화는 Starlit 설정과 local media를 지우지만 보존된 Chrome 북마크 폴더는 삭제하지 않습니다.',
+          'Portable Profile은 명시적으로 켜지 않으면 북마크 URL과 uploaded media를 포함하지 않습니다.',
         ],
         media: [],
         steps: [
           {
-            body: '무엇이 보이지 않는지 먼저 구분합니다. Chrome 북마크 내용, 열린 탭 그룹, Starlit 화면 설정, local background media 중 어디에 해당하는지 확인하세요.',
+            body: '무엇이 보이지 않는지 먼저 구분합니다. Scene 북마크 폴더, local asset, 열린 탭 그룹, Calendar 연결, 화면 설정 중 어디에 해당하는지 확인하세요.',
             title: '데이터 소유자 확인하기',
           },
           {
-            body: '북마크 변경은 새 탭을 다시 엽니다. 탭 그룹은 Chrome에서 해당 그룹을 열고 북마크 그룹 화면의 연결 상태를 확인합니다.',
+            body: '북마크 변경은 새 탭을 다시 엽니다. 탭 그룹은 Chrome에서 해당 그룹을 열고 설정 > 북마크 그룹의 연결 상태를 확인합니다.',
             title: '올바른 원본 새로 읽기',
           },
           {
@@ -1452,8 +1925,8 @@ const COPY: Record<Locale, GuideCopy> = {
             title: '저장 공간 경계 확인하기',
           },
           {
-            body: '복구 가능한 설정을 내보냅니다. 그다음 테마 또는 전체 초기화를 시도하고, 계속 문제가 있으면 아래 홈페이지나 issue tracker를 이용하세요.',
-            title: '초기화 전에 backup하기',
+            body: '복구 가능한 Scene을 내보냅니다. 대상 profile에 필요한 경우에만 북마크 URL이나 uploaded media를 켜세요. 그다음 Relink, Restore, Calendar 연결 해제·재연결, 선택 초기화 또는 전체 초기화를 시도합니다.',
+            title: '복구·초기화 전에 내보내기',
           },
         ],
         title: '문제 해결',
@@ -1461,11 +1934,12 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     starlitData: {
       items: [
-        '그룹 표시와 순서, 북마크 루트, 레이아웃, 색상, 글꼴, 언어, Custom CSS',
-        'Custom favicon, cache, 그룹의 펼침·접힘 상태',
-        '배경과 오버레이 정보, extension profile에 local로 저장한 media',
+        'Scene record: 화면 모양, layout, 북마크 폴더 참조, canvas 위젯 순서, 이미지 위젯 media 참조, 시계·Google Calendar 위젯 설정',
+        'Global 언어, 북마크 열기 방식, favicon override, UI cache',
+        'Extension profile에 local로 저장한 uploaded media와 shared Scene asset',
+        'Local에 저장한 Calendar ID와 목록 metadata(ID, 이름, 색상, primary 상태), 현재 session에 5분 동안 cache한 event 결과',
       ],
-      title: 'Starlit은 화면 설정과 기기별 데이터를 저장합니다',
+      title: 'Starlit은 Scene과 기기별 설정을 저장합니다',
     },
     stepsTitle: '작업 순서',
     support: {

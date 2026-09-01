@@ -1,11 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ParsedFrame, ParsedGif } from 'gifuct-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ProcessedOverlayMedia } from '../overlays/mediaProcessing';
 import type { BackgroundMedia } from './backgroundMedia';
 import { useBackgroundImage } from './useBackgroundImage';
 
 const storageState = vi.hoisted(() => ({
+  area: undefined as 'local' | 'sync' | undefined,
   meta: null as unknown,
   setMeta: vi.fn<(meta: BackgroundMedia | null) => Promise<void>>(),
 }));
@@ -17,10 +18,8 @@ const mediaMocks = vi.hoisted(() => ({
   saveMedia: vi.fn<(key: string, blob: Blob) => Promise<string>>(),
 }));
 
-const gifMocks = vi.hoisted(() => ({
-  decompressFrames:
-    vi.fn<(gif: ParsedGif, buildImagePatches: true) => ParsedFrame[]>(),
-  parseGIF: vi.fn<(arrayBuffer: ArrayBuffer) => ParsedGif>(),
+const processorMocks = vi.hoisted(() => ({
+  processOverlayMedia: vi.fn<(file: File) => Promise<ProcessedOverlayMedia>>(),
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
@@ -31,28 +30,38 @@ vi.mock('../hooks/useStorageState', () => ({
       value: unknown,
       fallback: BackgroundMedia | null,
     ) => BackgroundMedia | null,
-  ) => ({
-    isLoaded: true,
-    setValue: storageState.setMeta,
-    value: decode(storageState.meta, fallback),
-  }),
+    area?: 'local' | 'sync',
+  ) => {
+    storageState.area = area;
+    return {
+      isLoaded: true,
+      setValue: storageState.setMeta,
+      value: decode(storageState.meta, fallback),
+    };
+  },
 }));
 
 vi.mock('../platform/storage/mediaStorage', () => mediaMocks);
 
-vi.mock('gifuct-js', () => gifMocks);
+vi.mock('../overlays/processOverlayMedia', () => processorMocks);
 
 beforeEach((): void => {
+  storageState.area = undefined;
   storageState.meta = null;
   storageState.setMeta.mockResolvedValue(undefined);
   mediaMocks.deleteMedia.mockResolvedValue(undefined);
   mediaMocks.loadMedia.mockResolvedValue(null);
   mediaMocks.loadMediaBlob.mockResolvedValue(null);
   mediaMocks.saveMedia.mockResolvedValue('blob:background-media');
-  gifMocks.parseGIF.mockReturnValue({
-    lsd: { height: 80, width: 120 },
-  } as ParsedGif);
-  gifMocks.decompressFrames.mockReturnValue([]);
+  processorMocks.processOverlayMedia.mockImplementation(async (file: File) => ({
+    blob: file,
+    height: 80,
+    mediaKind:
+      file.type === 'image/gif' || file.type.startsWith('video/')
+        ? 'motion'
+        : 'static',
+    width: 120,
+  }));
 });
 
 describe('useBackgroundImage', () => {
@@ -62,6 +71,8 @@ describe('useBackgroundImage', () => {
     ['https://example.com/animated.gif', 'image'],
   ] as const)('classifies URL media %s as %s', async (url, type) => {
     const { result } = renderHook(() => useBackgroundImage());
+
+    expect(storageState.area).toBe('local');
 
     await act(async (): Promise<void> => {
       await result.current.updateFromUrl(url);
@@ -139,97 +150,33 @@ describe('useBackgroundImage', () => {
     expect(result.current.isProcessing).toBe(false);
   });
 
-  it('places GIF patches at their offsets and disposes them after display', async () => {
-    const clearRect = vi.fn();
-    const drawImage = vi.fn();
-    const restoreFrame = vi.fn();
-    const previousFrame = {} as ImageData;
-    const mainContext = {
-      clearRect,
-      drawImage,
-      getImageData: vi.fn(() => previousFrame),
-      putImageData: restoreFrame,
-    } as unknown as CanvasRenderingContext2D;
-    const putImageData = vi.fn();
-    const patchContext = {
-      putImageData,
-    } as unknown as CanvasRenderingContext2D;
-    const mainCanvas = document.createElement('canvas');
-    const patchCanvas = document.createElement('canvas');
-
-    vi.spyOn(mainCanvas, 'getContext').mockReturnValue(mainContext);
-    vi.spyOn(patchCanvas, 'getContext').mockReturnValue(patchContext);
-    Object.defineProperty(mainCanvas, 'captureStream', {
-      configurable: true,
-      value: vi.fn(() => ({}) as MediaStream),
+  it('uses the shared processor for animated background media', async () => {
+    const processedBlob = new Blob(['webm'], { type: 'video/webm' });
+    processorMocks.processOverlayMedia.mockResolvedValueOnce({
+      blob: processedBlob,
+      durationMs: 1_000,
+      frameCount: 12,
+      height: 80,
+      mediaKind: 'motion',
+      width: 120,
     });
-
-    class TestMediaRecorder {
-      ondataavailable: ((event: BlobEvent) => void) | null = null;
-      onstop: ((event: Event) => void) | null = null;
-
-      start(): void {}
-
-      stop(): void {
-        this.ondataavailable?.({
-          data: new Blob(['webm'], { type: 'video/webm' }),
-        } as BlobEvent);
-        this.onstop?.(new Event('stop'));
-      }
-    }
-
-    vi.stubGlobal('MediaRecorder', TestMediaRecorder);
-    gifMocks.decompressFrames.mockReturnValue([
-      {
-        delay: 0,
-        dims: { height: 4, left: 9, top: 7, width: 6 },
-        disposalType: 2,
-        patch: new Uint8ClampedArray(6 * 4 * 4),
-      } as ParsedFrame,
-      {
-        delay: 0,
-        dims: { height: 2, left: 4, top: 5, width: 3 },
-        disposalType: 3,
-        patch: new Uint8ClampedArray(3 * 2 * 4),
-      } as ParsedFrame,
-      {
-        delay: 0,
-        dims: { height: 1, left: 0, top: 0, width: 1 },
-        disposalType: 1,
-        patch: new Uint8ClampedArray(4),
-      } as ParsedFrame,
-    ]);
-
     const file = new File(['gif'], 'background.gif', { type: 'image/gif' });
     const { result } = renderHook(() => useBackgroundImage());
-
-    vi.spyOn(document, 'createElement')
-      .mockReturnValueOnce(mainCanvas)
-      .mockReturnValueOnce(patchCanvas);
 
     await act(async (): Promise<void> => {
       await result.current.updateFromFile(file);
     });
 
-    expect(mainCanvas.width).toBe(120);
-    expect(mainCanvas.height).toBe(80);
-    expect(putImageData).toHaveBeenCalledTimes(3);
-    expect(drawImage).toHaveBeenNthCalledWith(1, patchCanvas, 9, 7);
-    expect(clearRect).toHaveBeenCalledWith(9, 7, 6, 4);
-    expect(clearRect.mock.invocationCallOrder[0]).toBeGreaterThan(
-      drawImage.mock.invocationCallOrder[0] ?? 0,
-    );
-    expect(mainContext.getImageData).toHaveBeenCalledWith(4, 5, 3, 2);
-    expect(restoreFrame).toHaveBeenCalledWith(previousFrame, 4, 5);
-    expect(restoreFrame.mock.invocationCallOrder[0]).toBeGreaterThan(
-      drawImage.mock.invocationCallOrder[1] ?? 0,
-    );
+    expect(processorMocks.processOverlayMedia).toHaveBeenCalledWith(file);
     expect(mediaMocks.saveMedia).toHaveBeenCalledWith(
       'backgroundMedia',
-      expect.objectContaining({ type: 'video/webm' }),
+      processedBlob,
     );
-
-    vi.unstubAllGlobals();
+    expect(storageState.setMeta).toHaveBeenCalledWith({
+      source: 'file',
+      type: 'video',
+      url: '',
+    });
   });
 
   it('clears both persisted media and local state', async () => {
@@ -242,6 +189,31 @@ describe('useBackgroundImage', () => {
     expect(mediaMocks.deleteMedia).toHaveBeenCalledWith('backgroundMedia');
     expect(storageState.setMeta).toHaveBeenCalledWith(null);
     expect(result.current.blobUrl).toBe('');
+  });
+
+  it('captures and restores the media needed by a wider settings transaction', async () => {
+    const previousBlob = new Blob(['previous'], { type: 'image/webp' });
+    const previousMeta: BackgroundMedia = {
+      source: 'file',
+      type: 'image',
+      url: '',
+    };
+    storageState.meta = previousMeta;
+    mediaMocks.loadMediaBlob.mockResolvedValue(previousBlob);
+    const { result } = renderHook(() => useBackgroundImage());
+
+    let snapshot: Awaited<ReturnType<typeof result.current.createSnapshot>>;
+    await act(async (): Promise<void> => {
+      snapshot = await result.current.createSnapshot();
+      await result.current.restoreSnapshot(snapshot);
+    });
+
+    expect(snapshot!).toEqual({ media: previousBlob, meta: previousMeta });
+    expect(mediaMocks.saveMedia).toHaveBeenCalledWith(
+      'backgroundMedia',
+      previousBlob,
+    );
+    expect(storageState.setMeta).toHaveBeenLastCalledWith(previousMeta);
   });
 
   it('restores the previous file background when metadata persistence fails', async () => {

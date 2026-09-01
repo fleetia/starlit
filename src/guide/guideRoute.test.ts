@@ -12,7 +12,10 @@ describe('guideRoute', () => {
     expect(normalizeGuideLocale('en')).toBe('en');
     expect(normalizeGuideLocale('fr')).toBe('ko');
     expect(normalizeGuideSection('#tab-groups')).toBe('tab-groups');
+    expect(normalizeGuideSection('#scenes')).toBe('scenes');
     expect(normalizeGuideSection('#overlay-images')).toBe('overlay-images');
+    expect(normalizeGuideSection('#widgets-calendar')).toBe('widgets-calendar');
+    expect(normalizeGuideSection('#command-palette')).toBe('command-palette');
     expect(normalizeGuideSection('#troubleshooting')).toBe('troubleshooting');
     expect(normalizeGuideSection('#unknown')).toBeUndefined();
   });
@@ -38,6 +41,9 @@ describe('guideRoute', () => {
     );
     expect(createGuideHref('ja', 'overlay-images')).toBe(
       `${baseHref}?locale=ja#overlay-images`,
+    );
+    expect(createGuideHref('en', 'command-palette')).toBe(
+      `${baseHref}?locale=en#command-palette`,
     );
   });
 });

@@ -15,12 +15,18 @@ import { getOverlayImageLayers, parseOverlayScene } from '../overlays/model';
 import type { OverlayScene } from '../overlays/types';
 import { isStarlitTheme, normalizeTheme } from '../theme/normalizeTheme';
 import type { StarlitTheme } from '../theme/types';
+import {
+  parsePortableProfileV4,
+  type PortableProfileV4,
+} from './portableProfile';
 import { isBackgroundMedia, type BackgroundMedia } from './backgroundMedia';
 import { isFontFamily, normalizeSettings } from './normalizeSettings';
 import type { PersistedSettings, Settings } from './types';
 
-export const BACKUP_SCHEMA_VERSION = 3;
+export const BACKUP_SCHEMA_VERSION = 4;
+export const LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION = 3;
 const PREVIOUS_BACKUP_SCHEMA_VERSION = 2;
+const FIRST_BACKUP_SCHEMA_VERSION = 1;
 
 export type BookmarkTreePreferences = BookmarkTreePrefs;
 
@@ -49,6 +55,11 @@ export type LegacyExportData = BackupCoreData &
     schemaVersion?: undefined;
   };
 
+export type V1ExportData = BackupCoreData &
+  OptionalBackupData & {
+    schemaVersion: typeof FIRST_BACKUP_SCHEMA_VERSION;
+  };
+
 type VersionedExportData = BackupCoreData &
   OptionalBackupData & {
     backgroundMeta: BackgroundMedia | null;
@@ -63,12 +74,19 @@ export type V2ExportData = VersionedExportData & {
   schemaVersion: typeof PREVIOUS_BACKUP_SCHEMA_VERSION;
 };
 
-export type ExportData = VersionedExportData &
+export type V3ExportData = VersionedExportData &
   OverlayBackupData & {
-    schemaVersion: typeof BACKUP_SCHEMA_VERSION;
+    schemaVersion: typeof LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION;
   };
 
-export type ImportData = ExportData | LegacyExportData | V2ExportData;
+export type ExportData = PortableProfileV4;
+
+export type ImportData =
+  | ExportData
+  | LegacyExportData
+  | V1ExportData
+  | V2ExportData
+  | V3ExportData;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -240,10 +258,15 @@ export function parseExportData(value: unknown): ImportData {
     throw new Error('잘못된 형식: 객체가 아닙니다.');
   }
 
+  if (value.schemaVersion === BACKUP_SCHEMA_VERSION) {
+    return parsePortableProfileV4(value);
+  }
+
   if (
     value.schemaVersion !== undefined &&
+    value.schemaVersion !== FIRST_BACKUP_SCHEMA_VERSION &&
     value.schemaVersion !== PREVIOUS_BACKUP_SCHEMA_VERSION &&
-    value.schemaVersion !== BACKUP_SCHEMA_VERSION
+    value.schemaVersion !== LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION
   ) {
     throw new Error(
       `지원하지 않는 schemaVersion: ${String(value.schemaVersion)}`,
@@ -259,12 +282,18 @@ export function parseExportData(value: unknown): ImportData {
   };
   const optionalData = getOptionalBackupData(value);
 
-  if (value.schemaVersion === undefined) {
+  if (
+    value.schemaVersion === undefined ||
+    value.schemaVersion === FIRST_BACKUP_SCHEMA_VERSION
+  ) {
     return {
       ...coreData,
       ...optionalData,
       colorTheme: normalizeTheme(coreData.colorTheme),
       gridSettings: normalizeGridSettings(coreData.gridSettings),
+      ...(value.schemaVersion === FIRST_BACKUP_SCHEMA_VERSION
+        ? { schemaVersion: FIRST_BACKUP_SCHEMA_VERSION }
+        : {}),
     };
   }
 
@@ -318,7 +347,7 @@ export function parseExportData(value: unknown): ImportData {
   return {
     ...versionedData,
     ...parseOverlayBackup(value),
-    schemaVersion: BACKUP_SCHEMA_VERSION,
+    schemaVersion: LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
   };
 }
 
@@ -360,7 +389,7 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   });
 }
 
-export async function validateOverlayMedia(data: ExportData): Promise<void> {
+export async function validateOverlayMedia(data: V3ExportData): Promise<void> {
   for (const image of getOverlayImageLayers(data.overlayScene)) {
     const mediaData = data.overlayMedia[image.id];
     if (!mediaData) {

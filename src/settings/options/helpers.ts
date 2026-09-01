@@ -5,14 +5,14 @@ import type { StarlitTheme } from '../../theme/types';
 import type { Locale } from '../../i18n';
 import type { FolderSettings, HeadingSettings, PrimaryTab } from './types';
 
-const PRIMARY_TABS: readonly PrimaryTab[] = [
-  'general',
-  'appearance',
-  'layers',
-  'layout',
-  'css',
-  'groups',
-];
+export const PRIMARY_TAB_GROUPS = [
+  ['general'],
+  ['appearance', 'widgets', 'layout', 'css'],
+  ['groups', 'scene'],
+  ['portable'],
+] as const satisfies readonly (readonly PrimaryTab[])[];
+
+export const PRIMARY_TABS: readonly PrimaryTab[] = PRIMARY_TAB_GROUPS.flat();
 const CSS_WIDE_KEYWORD_PATTERN =
   /^(initial|inherit|unset|revert|revert-layer)$/;
 
@@ -88,24 +88,6 @@ export function createBookmarkTreePreferences(
   return rootId
     ? { rootId, rootPath, siblingOrder }
     : { rootPath, siblingOrder };
-}
-
-export async function rollbackSettingsSave(
-  operations: readonly (() => Promise<void>)[],
-): Promise<void> {
-  const failures: unknown[] = [];
-
-  for (const operation of [...operations].reverse()) {
-    try {
-      await operation();
-    } catch (error) {
-      failures.push(error);
-    }
-  }
-
-  if (failures.length > 0) {
-    throw new AggregateError(failures, 'Settings rollback failed');
-  }
 }
 
 export function isLocale(value: string): value is Locale {

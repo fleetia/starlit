@@ -82,7 +82,7 @@ test('seeds the bundled default overlay at the bottom right', async ({
   ).not.toBeNull();
 });
 
-test('renders overlay images around bookmarks and keeps anchor offsets on resize', async ({
+test('renders overlay images around bookmarks and supports right-click actions', async ({
   extension,
 }) => {
   const profile = createProfileSeed({ locale: 'en' });
@@ -148,7 +148,7 @@ test('renders overlay images around bookmarks and keeps anchor offsets on resize
   await expect(above).toHaveCSS('pointer-events', 'none');
   await expect(page.locator('[data-starlit-part="paged-groups"]')).toHaveCSS(
     'z-index',
-    '1',
+    '2',
   );
 
   await page.setViewportSize({ height: 720, width: 1000 });
@@ -161,11 +161,87 @@ test('renders overlay images around bookmarks and keeps anchor offsets on resize
     Math.round(720 - (resizedBox?.y ?? 0) - (resizedBox?.height ?? 0)),
   ).toBe(40);
 
-  await page.locator('[data-starlit-part="settings-trigger"]').click();
-  await page.getByRole('tab', { name: 'Layers', exact: true }).click();
+  await page.mouse.click(
+    (resizedBox?.x ?? 0) + (resizedBox?.width ?? 0) / 2,
+    (resizedBox?.y ?? 0) + (resizedBox?.height ?? 0) / 2,
+    { button: 'right' },
+  );
   await expect(
-    page.locator('[data-starlit-part="settings-layers"] li'),
+    page.getByRole('menu', { name: 'Image widget actions' }),
+  ).toBeVisible();
+  await expect(page.getByRole('menu', { name: 'Options' })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Lock' }).click();
+  await expect
+    .poll(async () => {
+      const scene = (await extension.readStorage('local')).overlayScene as {
+        layers?: Array<{ id?: string; locked?: boolean }>;
+      };
+      return scene.layers?.find((layer) => layer.id === 'above')?.locked;
+    })
+    .toBe(true);
+
+  await page.mouse.click(
+    (resizedBox?.x ?? 0) + (resizedBox?.width ?? 0) / 2,
+    (resizedBox?.y ?? 0) + (resizedBox?.height ?? 0) / 2,
+    { button: 'right' },
+  );
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Edit image widget positions' }),
+  ).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Image' })).toHaveValue(
+    'above',
+  );
+  await page.getByRole('button', { name: 'Back to settings' }).click();
+  await expect(page.getByRole('tab', { name: 'Widgets' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(
+    page
+      .getByRole('list', { name: 'Image widget order' })
+      .getByRole('listitem'),
   ).toHaveText([/above\.svg/u, /Bookmarks/u, /below\.svg/u]);
+});
+
+test('opens every Settings section from the empty-canvas context menu', async ({
+  extension,
+}) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+
+  await page.locator('[data-starlit-part="main"]').click({
+    button: 'right',
+    position: { x: 8, y: 8 },
+  });
+
+  const menu = page.getByRole('menu', { name: 'Options' });
+  await expect(menu).toBeVisible();
+  expect(await menu.getByRole('menuitem').allTextContents()).toEqual([
+    'General',
+    'Appearance',
+    'Widgets',
+    'Layout',
+    'CSS',
+    'Bookmark groups',
+    'Scene',
+    'Portable profile',
+  ]);
+  await expect(menu.getByRole('separator')).toHaveCount(3);
+
+  await page.keyboard.press('Control+K');
+  await expect(
+    page.getByRole('dialog', { name: 'Search Starlit' }),
+  ).toHaveCount(0);
+
+  await menu.getByRole('menuitem', { name: 'Portable profile' }).click();
+  await expect(
+    page.locator('[data-starlit-part="settings-dialog"]'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('tab', { name: 'Portable profile' }),
+  ).toHaveAttribute('aria-selected', 'true');
 });
 
 test('shows the first-install tutorial once and persists completion', async ({
@@ -178,9 +254,19 @@ test('shows the first-install tutorial once and persists completion', async ({
   const expectedLocale =
     language === 'ko' || language === 'ja' ? language : 'en';
   const copy = getTutorialCopy(expectedLocale);
-  expect((await extension.readStorage('sync')).locale).toBe(expectedLocale);
+  const bookmarksBefore = await extension.serviceWorker.evaluate(() =>
+    chrome.bookmarks.getTree(),
+  );
   const page = await extension.openNewTab();
 
+  const [freshLocal, freshSync] = await Promise.all([
+    extension.readStorage('local'),
+    extension.readStorage('sync'),
+  ]);
+  expect(freshLocal).not.toHaveProperty('activeSceneId');
+  expect(freshLocal).not.toHaveProperty('sceneIndex');
+  expect(freshSync.storageSchemaVersion).toBe(3);
+  expect(freshSync.locale).toBe(expectedLocale);
   await expect(page.locator('html')).toHaveAttribute('lang', expectedLocale);
   await expect(
     page.getByRole('dialog', { name: copy.steps[0].title }),
@@ -212,6 +298,9 @@ test('shows the first-install tutorial once and persists completion', async ({
   await expect
     .poll(async () => (await extension.readStorage('local')).tutorialStatus)
     .toBe('completed');
+  expect(
+    await extension.serviceWorker.evaluate(() => chrome.bookmarks.getTree()),
+  ).toEqual(bookmarksBefore);
 
   const nextPage = await extension.openNewTab();
   await expect(nextPage.getByRole('dialog')).toHaveCount(0);
@@ -460,24 +549,28 @@ test('loads the built MV3 artifact with fresh Lagrange defaults', async ({
   const manifest = await extension.serviceWorker.evaluate(() =>
     chrome.runtime.getManifest(),
   );
+  const localStorage = await extension.readStorage('local');
   const syncStorage = await extension.readStorage('sync');
 
   expect(manifest.manifest_version).toBe(3);
   expect(manifest.permissions).toEqual(
     expect.arrayContaining(['bookmarks', 'storage']),
   );
-  expect(syncStorage.storageSchemaVersion).toBe(2);
-  expect(syncStorage.size).toBe(16);
-  expect(syncStorage.iconSize).toBe(28);
-  expect(syncStorage.gridSettings).toMatchObject({
+  expect(syncStorage.storageSchemaVersion).toBe(3);
+  expect(syncStorage).not.toHaveProperty('settings');
+  expect(syncStorage).not.toHaveProperty('size');
+  expect(syncStorage).not.toHaveProperty('gridSettings');
+  expect(localStorage.size).toBe(16);
+  expect(localStorage.iconSize).toBe(28);
+  expect(localStorage.gridSettings).toMatchObject({
     gap: '0.5rem',
     icon: { borderRadius: 1, iconRadius: 1 },
   });
-  expect(syncStorage.colorTheme).toMatchObject({
+  expect(localStorage.colorTheme).toMatchObject({
     accent: '#4d2d57',
     surface: '#faf6e9',
   });
-  expect(syncStorage.settings).toMatchObject({
+  expect(localStorage.settings).toMatchObject({
     fontFamily: 'ibm-plex-sans',
   });
   await expect(page.locator('[data-starlit-part="root"]')).toHaveCSS(
@@ -537,6 +630,9 @@ test('upgrades a V1 profile while preserving behavior and custom leaves', async 
       },
     ],
   });
+  const bookmarksBeforeUpgrade = await extension.serviceWorker.evaluate(() =>
+    chrome.bookmarks.getTree(),
+  );
   const page = await extension.openNewTab();
   await waitForBookmarks(page);
 
@@ -545,32 +641,57 @@ test('upgrades a V1 profile while preserving behavior and custom leaves', async 
       const storage = await extension.readStorage('sync');
       return storage.storageSchemaVersion;
     })
-    .toBe(2);
+    .toBe(3);
 
-  const syncStorage = await extension.readStorage('sync');
-  expect(syncStorage.size).toBe(31);
-  expect(syncStorage.iconSize).toBe(26);
+  const [localStorage, syncStorage] = await Promise.all([
+    extension.readStorage('local'),
+    extension.readStorage('sync'),
+  ]);
+  expect(localStorage.size).toBe(31);
+  expect(localStorage.iconSize).toBe(26);
+  expect(localStorage).not.toHaveProperty('activeSceneId');
+  expect(localStorage).not.toHaveProperty('sceneIndex');
   expect(syncStorage.locale).toBe('ja');
-  expect(syncStorage.settings).toMatchObject({
+  expect(syncStorage.settings).toEqual({ isOpenInNewTab: true });
+  expect(syncStorage.bookmarkTreePrefs).toEqual({
+    rootPath: [],
+    siblingOrder: { '': ['Bookmarks bar', 'Other bookmarks'] },
+  });
+  expect(syncStorage.gridSettings).toEqual(LEGACY_GRID_SETTINGS);
+  expect(syncStorage.legacySceneSettingsV1).toEqual({
+    fontFamily: 'system',
+    iconLayout: 'horizontal',
+    isExpandView: false,
+    isFolderEnabled: false,
+    isOpenInNewTab: true,
+    isVisibleOnce: true,
+  });
+  expect(localStorage.settings).toMatchObject({
     fontFamily: 'system',
     iconLayout: 'horizontal',
     isOpenInNewTab: true,
   });
-  expect(syncStorage.gridSettings).toMatchObject({
+  expect(localStorage.gridSettings).toMatchObject({
     gap: '2rem',
     icon: { borderRadius: 1, iconRadius: 1 },
   });
-  expect(syncStorage.colorTheme).toMatchObject({
+  expect(localStorage.colorTheme).toMatchObject({
     accent: '#1456a0',
     surface: '#faf6e9',
   });
-  expect(syncStorage.bookmarkTreePrefs).toEqual({
+  expect(localStorage.bookmarkTreePrefs).toEqual({
     rootPath: [],
     siblingOrder: { '': ['Bookmarks bar', 'Other bookmarks'] },
   });
   await expect(
     page.locator('[data-layout="horizontal"]').first(),
   ).toBeVisible();
+  await expect(
+    page.locator('[data-starlit-part="bookmark-tile"]').first(),
+  ).toHaveCSS('outline-color', 'rgb(1, 2, 3)');
+  expect(
+    await extension.serviceWorker.evaluate(() => chrome.bookmarks.getTree()),
+  ).toEqual(bookmarksBeforeUpgrade);
   await expect(page.locator('[data-starlit-part="root"]')).toHaveCSS(
     'font-family',
     'system-ui, sans-serif',
@@ -580,9 +701,8 @@ test('upgrades a V1 profile while preserving behavior and custom leaves', async 
   );
   expect(extension.getFontStylesheetRequestCount()).toBe(0);
   await page.locator('[data-starlit-part="settings-trigger"]').click();
-  const fontSelect = page.locator(
-    '[data-starlit-part="settings-general"] select',
-  );
+  await page.getByRole('tab', { name: '一般', exact: true }).click();
+  const fontSelect = page.getByRole('combobox', { name: 'フォント' });
   await fontSelect.selectOption('ibm-plex-sans');
   await expect
     .poll(() =>
@@ -689,7 +809,7 @@ for (const backgroundCase of BACKGROUND_URL_CASES) {
 
     await expect
       .poll(async () => {
-        const storage = await extension.readStorage('sync');
+        const storage = await extension.readStorage('local');
         return storage.backgroundMeta;
       })
       .toEqual({
@@ -769,20 +889,56 @@ test('imports an unversioned V1 backup with file media through settings', async 
   };
 
   await page.locator('[data-starlit-part="settings-trigger"]').click();
+  await page.getByRole('tab', { name: 'Portable profile' }).click();
   const fileChooserPromise = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import', exact: true }).click();
   const fileChooser = await fileChooserPromise;
-  const reloadPromise = page.waitForEvent('load');
   await fileChooser.setFiles({
     buffer: Buffer.from(JSON.stringify(legacyBackup)),
     mimeType: 'application/json',
     name: 'starlit-v1-backup.json',
   });
-  await reloadPromise;
+  const importPreview = page.getByRole('dialog', { name: 'Import preview' });
+  await expect(importPreview).toContainText('Imported v1 setup');
+  await expect(importPreview).toContainText('Uploaded media: 1');
+  await importPreview.getByRole('button', { name: 'Import' }).click();
+  await expect(importPreview).toHaveCount(0);
+  await waitForBookmarks(page);
+
+  if (
+    !(await page.locator('[data-starlit-part="settings-dialog"]').isVisible())
+  ) {
+    await page.locator('[data-starlit-part="settings-trigger"]').click();
+  }
+  await page.getByRole('tab', { name: 'Scene', exact: true }).click();
+  const importedScene = page
+    .locator('[data-starlit-part="settings-scene"] li')
+    .filter({ hasText: 'Imported v1 setup' });
+  const replacementFolder = importedScene.getByRole('combobox', {
+    name: /^(?:Replacement bookmark folder|대체 북마크 폴더)$/u,
+  });
+  await replacementFolder.selectOption({ index: 1 });
+  const replacementFolderId = await replacementFolder.inputValue();
+  const replacementFolderLabel = await replacementFolder
+    .locator('option:checked')
+    .textContent();
+  if (!replacementFolderLabel) {
+    throw new Error('Expected a replacement bookmark folder label.');
+  }
+  await importedScene
+    .getByRole('button', { name: /^(?:Relink|다시 연결)$/u })
+    .click();
+  await expect(replacementFolder).toHaveCount(0);
+  await importedScene
+    .getByRole('button', { name: /^(?:Apply Scene|Scene 적용)$/u })
+    .click();
+  await expect(
+    page.locator('[data-starlit-part="settings-dialog"]'),
+  ).toHaveCount(0);
 
   await expect
     .poll(async () => {
-      const storage = await extension.readStorage('sync');
+      const storage = await extension.readStorage('local');
       return {
         backgroundMeta: storage.backgroundMeta,
         colorTheme: storage.colorTheme,
@@ -801,12 +957,22 @@ test('imports an unversioned V1 backup with file media through settings', async 
       },
     });
 
-  const syncStorage = await extension.readStorage('sync');
-  expect(syncStorage.size).toBe(23);
-  expect(syncStorage.iconSize).toBe(29);
-  expect(syncStorage.locale).toBe('en');
-  expect(syncStorage.groupPreferences).toEqual(preservedGroups);
+  const [localStorage, syncStorage] = await Promise.all([
+    extension.readStorage('local'),
+    extension.readStorage('sync'),
+  ]);
+  expect(localStorage.size).toBe(16);
+  expect(localStorage.iconSize).toBe(28);
+  expect(syncStorage.locale).toBe('ko');
+  expect(syncStorage.settings).toEqual({ isOpenInNewTab: true });
+  expect(syncStorage).not.toHaveProperty('backgroundMeta');
   expect(syncStorage.bookmarkTreePrefs).toEqual(preservedTree);
+  expect(localStorage.groupPreferences).toEqual([]);
+  expect(localStorage.bookmarkTreePrefs).toEqual({
+    rootId: replacementFolderId,
+    rootPath: replacementFolderLabel.split(' / '),
+    siblingOrder: preservedTree.siblingOrder,
+  });
   await expect
     .poll(() =>
       extension.readIndexedDbBlobBase64('starlit', 'media', 'backgroundMedia'),
@@ -827,6 +993,10 @@ test('saves settings and background drafts only after confirmation', async ({
   );
   const page = await extension.openNewTab();
   await waitForBookmarks(page);
+  const [initialLocalStorage, initialSyncStorage] = await Promise.all([
+    extension.readStorage('local'),
+    extension.readStorage('sync'),
+  ]);
 
   async function stageDraft(): Promise<void> {
     await page.locator('[data-starlit-part="settings-trigger"]').click();
@@ -844,9 +1014,13 @@ test('saves settings and background drafts only after confirmation', async ({
   }
 
   await stageDraft();
+  let localStorage = await extension.readStorage('local');
   let syncStorage = await extension.readStorage('sync');
-  expect(syncStorage.backgroundMeta).toBeUndefined();
-  expect(syncStorage.settings).toBeUndefined();
+  expect(localStorage.backgroundMeta).toEqual(
+    initialLocalStorage.backgroundMeta,
+  );
+  expect(localStorage.settings).toEqual(initialLocalStorage.settings);
+  expect(syncStorage.settings).toEqual(initialSyncStorage.settings);
 
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(
@@ -862,15 +1036,21 @@ test('saves settings and background drafts only after confirmation', async ({
     page.locator('[data-starlit-part="settings-dialog"]'),
   ).toHaveCount(0);
 
-  syncStorage = await extension.readStorage('sync');
-  expect(syncStorage.backgroundMeta).toBeUndefined();
-  expect(syncStorage.settings).toBeUndefined();
+  [localStorage, syncStorage] = await Promise.all([
+    extension.readStorage('local'),
+    extension.readStorage('sync'),
+  ]);
+  expect(localStorage.backgroundMeta).toEqual(
+    initialLocalStorage.backgroundMeta,
+  );
+  expect(localStorage.settings).toEqual(initialLocalStorage.settings);
+  expect(syncStorage.settings).toEqual(initialSyncStorage.settings);
 
   await stageDraft();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect
     .poll(async () => {
-      const storage = await extension.readStorage('sync');
+      const storage = await extension.readStorage('local');
       return {
         backgroundMeta: storage.backgroundMeta,
         settings: storage.settings,
@@ -884,6 +1064,9 @@ test('saves settings and background drafts only after confirmation', async ({
       },
       settings: { fontFamily: 'system', isOpenInNewTab: true },
     });
+  expect((await extension.readStorage('sync')).settings).toEqual({
+    isOpenInNewTab: true,
+  });
   await expect(page.locator('[data-starlit-part="root"]')).toHaveCSS(
     'font-family',
     'system-ui, sans-serif',
@@ -899,6 +1082,10 @@ test('deletes a Chrome bookmark only after explicit confirmation', async ({
   const bookmark = page.getByRole('button', { name: 'Atlas 01' });
 
   await bookmark.click({ button: 'right' });
+  await expect(
+    page.getByRole('menu', { name: 'Bookmark actions' }),
+  ).toBeVisible();
+  await expect(page.getByRole('menu', { name: 'Options' })).toHaveCount(0);
   await page.getByRole('menuitem', { name: 'Delete bookmark' }).click();
   await expect(
     page.getByRole('alertdialog', { name: 'Delete from Chrome bookmarks?' }),

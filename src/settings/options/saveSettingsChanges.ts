@@ -1,9 +1,10 @@
 import { getOverlayImageLayers } from '../../overlays/model';
 import {
-  createBookmarkTreePreferences,
-  isEqual,
-  rollbackSettingsSave,
-} from './helpers';
+  createSelfRestoringTransactionStep,
+  runStorageTransaction,
+  type TransactionStep,
+} from '../../platform/storage/transactionCoordinator';
+import { createBookmarkTreePreferences, isEqual } from './helpers';
 import type {
   BackgroundDraft,
   OptionsSidebarProps,
@@ -14,6 +15,8 @@ type SettingsSaveCallbacks = Pick<
   OptionsSidebarProps,
   | 'onBackgroundClear'
   | 'onBackgroundFile'
+  | 'onBackgroundRestore'
+  | 'onBackgroundSnapshot'
   | 'onBackgroundUrl'
   | 'onBookmarkTreePreferencesUpdate'
   | 'onCustomCSSChange'
@@ -32,6 +35,7 @@ type SettingsSaveDraft = SettingsSnapshot & {
 };
 
 type SaveSettingsChangesOptions = {
+  afterSave?: () => Promise<void>;
   callbacks: SettingsSaveCallbacks;
   draft: SettingsSaveDraft;
   preparedOverlayImageIds: readonly string[];
@@ -47,24 +51,42 @@ function getOverlayImageIds(scene: SettingsSnapshot['overlayScene']): string[] {
   return getOverlayImageLayers(scene).map((layer) => layer.id);
 }
 
-function createSaveAndRollbackError(
-  saveError: unknown,
-  rollbackError: unknown,
-): AggregateError {
-  return new AggregateError(
-    [saveError, rollbackError],
-    'Settings save and rollback both failed',
-    { cause: rollbackError },
-  );
+function addChangedStep(
+  steps: TransactionStep[],
+  isChanged: boolean,
+  name: string,
+  apply: () => Promise<void>,
+  rollback: () => Promise<void>,
+): void {
+  if (!isChanged) return;
+  steps.push(createSelfRestoringTransactionStep(name, apply, rollback));
+}
+
+async function applyBackgroundDraft(
+  callbacks: SettingsSaveCallbacks,
+  background: BackgroundDraft,
+): Promise<void> {
+  switch (background.kind) {
+    case 'clear':
+      await callbacks.onBackgroundClear();
+      break;
+    case 'file':
+      await callbacks.onBackgroundFile(background.file);
+      break;
+    case 'url':
+      await callbacks.onBackgroundUrl(background.url);
+      break;
+  }
 }
 
 export async function saveSettingsChanges({
+  afterSave,
   callbacks,
   draft,
   preparedOverlayImageIds,
   snapshot,
 }: SaveSettingsChangesOptions): Promise<SaveSettingsChangesResult> {
-  const rollbackOperations: Array<() => Promise<void>> = [];
+  const steps: TransactionStep[] = [];
   const nextImageIds = new Set(getOverlayImageIds(draft.overlayScene));
   const mediaIdsToDelete = [
     ...getOverlayImageIds(snapshot.overlayScene),
@@ -73,110 +95,108 @@ export async function saveSettingsChanges({
   const mediaIdsToFinalize = preparedOverlayImageIds.filter((id) =>
     nextImageIds.has(id),
   );
+  const previousBookmarkTreePreferences = createBookmarkTreePreferences(
+    snapshot.rootPath,
+    snapshot.siblingOrder,
+    snapshot.rootId,
+  );
+  const nextBookmarkTreePreferences = createBookmarkTreePreferences(
+    draft.rootPath,
+    draft.siblingOrder,
+    draft.rootId,
+  );
 
-  try {
-    if (!isEqual(draft.gridSettings, snapshot.gridSettings)) {
-      rollbackOperations.push(() =>
-        callbacks.onGridSettingsUpdate(snapshot.gridSettings),
-      );
-      await callbacks.onGridSettingsUpdate(draft.gridSettings);
-    }
+  addChangedStep(
+    steps,
+    !isEqual(draft.gridSettings, snapshot.gridSettings),
+    'Grid settings write',
+    () => callbacks.onGridSettingsUpdate(draft.gridSettings),
+    () => callbacks.onGridSettingsUpdate(snapshot.gridSettings),
+  );
+  addChangedStep(
+    steps,
+    !isEqual(draft.settings, snapshot.settings),
+    'Settings write',
+    () => callbacks.onSettingsUpdate(draft.settings),
+    () => callbacks.onSettingsUpdate(snapshot.settings),
+  );
+  addChangedStep(
+    steps,
+    !isEqual(draft.theme, snapshot.theme),
+    'Theme write',
+    () => callbacks.onThemePreset(draft.theme),
+    () => callbacks.onThemePreset(snapshot.theme),
+  );
+  addChangedStep(
+    steps,
+    draft.size !== snapshot.size,
+    'Bookmark size write',
+    () => callbacks.onSizeChange(draft.size),
+    () => callbacks.onSizeChange(snapshot.size),
+  );
+  addChangedStep(
+    steps,
+    draft.iconSize !== snapshot.iconSize,
+    'Bookmark icon size write',
+    () => callbacks.onIconSizeChange(draft.iconSize),
+    () => callbacks.onIconSizeChange(snapshot.iconSize),
+  );
+  addChangedStep(
+    steps,
+    draft.customCSS !== snapshot.customCSS,
+    'Custom CSS write',
+    () => callbacks.onCustomCSSChange(draft.customCSS),
+    () => callbacks.onCustomCSSChange(snapshot.customCSS),
+  );
+  addChangedStep(
+    steps,
+    draft.locale !== snapshot.locale,
+    'Locale write',
+    () => callbacks.onLocaleChange(draft.locale),
+    () => callbacks.onLocaleChange(snapshot.locale),
+  );
+  addChangedStep(
+    steps,
+    !isEqual(draft.groupPreferences, snapshot.groupPreferences),
+    'Bookmark group preferences write',
+    () => callbacks.onGroupPreferencesUpdate(draft.groupPreferences),
+    () => callbacks.onGroupPreferencesUpdate(snapshot.groupPreferences),
+  );
+  addChangedStep(
+    steps,
+    !isEqual(nextBookmarkTreePreferences, previousBookmarkTreePreferences),
+    'Bookmark tree preferences write',
+    () =>
+      callbacks.onBookmarkTreePreferencesUpdate(nextBookmarkTreePreferences),
+    () =>
+      callbacks.onBookmarkTreePreferencesUpdate(
+        previousBookmarkTreePreferences,
+      ),
+  );
+  addChangedStep(
+    steps,
+    !isEqual(draft.overlayScene, snapshot.overlayScene),
+    'Decorative image scene write',
+    () => callbacks.onOverlaySceneUpdate(draft.overlayScene),
+    () => callbacks.onOverlaySceneUpdate(snapshot.overlayScene),
+  );
 
-    if (!isEqual(draft.settings, snapshot.settings)) {
-      rollbackOperations.push(() =>
-        callbacks.onSettingsUpdate(snapshot.settings),
-      );
-      await callbacks.onSettingsUpdate(draft.settings);
-    }
-
-    if (!isEqual(draft.theme, snapshot.theme)) {
-      rollbackOperations.push(() => callbacks.onThemePreset(snapshot.theme));
-      await callbacks.onThemePreset(draft.theme);
-    }
-
-    if (draft.size !== snapshot.size) {
-      rollbackOperations.push(() => callbacks.onSizeChange(snapshot.size));
-      await callbacks.onSizeChange(draft.size);
-    }
-
-    if (draft.iconSize !== snapshot.iconSize) {
-      rollbackOperations.push(() =>
-        callbacks.onIconSizeChange(snapshot.iconSize),
-      );
-      await callbacks.onIconSizeChange(draft.iconSize);
-    }
-
-    if (draft.customCSS !== snapshot.customCSS) {
-      rollbackOperations.push(() =>
-        callbacks.onCustomCSSChange(snapshot.customCSS),
-      );
-      await callbacks.onCustomCSSChange(draft.customCSS);
-    }
-
-    if (draft.locale !== snapshot.locale) {
-      rollbackOperations.push(() => callbacks.onLocaleChange(snapshot.locale));
-      await callbacks.onLocaleChange(draft.locale);
-    }
-
-    if (!isEqual(draft.groupPreferences, snapshot.groupPreferences)) {
-      rollbackOperations.push(() =>
-        callbacks.onGroupPreferencesUpdate(snapshot.groupPreferences),
-      );
-      await callbacks.onGroupPreferencesUpdate(draft.groupPreferences);
-    }
-
-    if (
-      draft.rootId !== snapshot.rootId ||
-      !isEqual(draft.rootPath, snapshot.rootPath) ||
-      !isEqual(draft.siblingOrder, snapshot.siblingOrder)
-    ) {
-      rollbackOperations.push(() =>
-        callbacks.onBookmarkTreePreferencesUpdate(
-          createBookmarkTreePreferences(
-            snapshot.rootPath,
-            snapshot.siblingOrder,
-            snapshot.rootId,
-          ),
-        ),
-      );
-      await callbacks.onBookmarkTreePreferencesUpdate(
-        createBookmarkTreePreferences(
-          draft.rootPath,
-          draft.siblingOrder,
-          draft.rootId,
-        ),
-      );
-    }
-
-    if (!isEqual(draft.overlayScene, snapshot.overlayScene)) {
-      await callbacks.onOverlaySceneUpdate(draft.overlayScene);
-      rollbackOperations.push(() =>
-        callbacks.onOverlaySceneUpdate(snapshot.overlayScene),
-      );
-    }
-
-    if (draft.background) {
-      switch (draft.background.kind) {
-        case 'clear':
-          await callbacks.onBackgroundClear();
-          break;
-        case 'file':
-          await callbacks.onBackgroundFile(draft.background.file);
-          break;
-        case 'url':
-          await callbacks.onBackgroundUrl(draft.background.url);
-          break;
-      }
-    }
-  } catch (error) {
-    try {
-      await rollbackSettingsSave(rollbackOperations);
-    } catch (rollbackError) {
-      throw createSaveAndRollbackError(error, rollbackError);
-    }
-
-    throw error;
+  const background = draft.background;
+  if (background) {
+    const backgroundSnapshot = await callbacks.onBackgroundSnapshot();
+    steps.push(
+      createSelfRestoringTransactionStep(
+        'Background write',
+        () => applyBackgroundDraft(callbacks, background),
+        () => callbacks.onBackgroundRestore(backgroundSnapshot),
+      ),
+    );
   }
+
+  await runStorageTransaction({
+    commit: afterSave ?? (() => Promise.resolve()),
+    steps,
+  });
 
   return { mediaIdsToDelete, mediaIdsToFinalize };
 }

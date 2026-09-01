@@ -2,11 +2,14 @@ import type { Locale } from '../i18n';
 
 export const GUIDE_SECTIONS = [
   'getting-started',
+  'scenes',
   'bookmarks-folders',
   'tab-groups',
   'group-layout',
   'appearance',
   'overlay-images',
+  'widgets-calendar',
+  'command-palette',
   'backup-permissions',
   'troubleshooting',
 ] as const;

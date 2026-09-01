@@ -64,8 +64,11 @@ jobs:
             exit 1
           fi
 
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::Release tag must point to a commit on main"
+          TAG_SHA="$(git rev-list -n 1 "$GITHUB_REF_NAME")"
+          MAIN_SHA="$(git rev-parse origin/main)"
+
+          if [[ "$TAG_SHA" != "$MAIN_SHA" ]]; then
+            echo "::error::Release tag must point to the current origin/main commit (${MAIN_SHA}), received ${TAG_SHA}"
             exit 1
           fi
 
@@ -79,6 +82,11 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Verify release build
+        env:
+          STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION: ${{ secrets.STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION }}
+          STARLIT_GOOGLE_OAUTH_VERIFIED: ${{ secrets.STARLIT_GOOGLE_OAUTH_VERIFIED }}
+          STARLIT_RELEASE_BUILD: 'true'
+          STARLIT_STORE_PRIVACY_UPDATED: ${{ secrets.STARLIT_STORE_PRIVACY_UPDATED }}
         run: pnpm check
 
       - name: Package extension

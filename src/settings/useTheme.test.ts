@@ -8,6 +8,7 @@ import { themePresets, useTheme } from './useTheme';
 type ThemeUpdate = StarlitTheme | ((previous: StarlitTheme) => StarlitTheme);
 
 const storageState = vi.hoisted(() => ({
+  area: undefined as 'local' | 'sync' | undefined,
   colorTheme: null as unknown,
   setColorTheme: vi.fn<(theme: ThemeUpdate) => Promise<void>>(),
 }));
@@ -17,14 +18,19 @@ vi.mock('../hooks/useStorageState', () => ({
     _key: string,
     fallback: StarlitTheme,
     decode: (value: unknown, fallback: StarlitTheme) => StarlitTheme,
-  ) => ({
-    isLoaded: true,
-    setValue: storageState.setColorTheme,
-    value: decode(storageState.colorTheme, fallback),
-  }),
+    area?: 'local' | 'sync',
+  ) => {
+    storageState.area = area;
+    return {
+      isLoaded: true,
+      setValue: storageState.setColorTheme,
+      value: decode(storageState.colorTheme, fallback),
+    };
+  },
 }));
 
 beforeEach((): void => {
+  storageState.area = undefined;
   storageState.colorTheme = structuredClone(DEFAULT_STARLIT_THEME);
   storageState.setColorTheme.mockResolvedValue(undefined);
 });
@@ -39,6 +45,7 @@ describe('useTheme', () => {
     const { result } = renderHook(() => useTheme());
 
     expect(result.current.colorTheme.accent).toBe('#000000');
+    expect(storageState.area).toBe('local');
   });
 
   it('updates one slot without dropping the remaining persisted theme', async () => {

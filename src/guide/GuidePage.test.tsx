@@ -22,10 +22,44 @@ describe('GuidePage', () => {
       screen.getByRole('navigation', { name: 'Guide contents' }),
     ).toBeTruthy();
     expect(
-      screen.getByRole('heading', { level: 2, name: 'Overlay image layers' }),
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Save and switch Scenes safely',
+      }),
     ).toBeTruthy();
     expect(
-      screen.getByText(/reference screenshots use the Korean product UI/i),
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Image widgets and motion',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Clock and read-only Google Calendar',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Find and act with Cmd/Ctrl+K',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Calendar release review is still pending',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/does not claim either review is complete/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Google OAuth verification.*Chrome Web Store privacy disclosure/i,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/reference screenshots use the English product UI/i),
     ).toBeTruthy();
     expect(container.querySelectorAll('[data-guide-section]')).toHaveLength(
       GUIDE_SECTIONS.length,
@@ -47,13 +81,41 @@ describe('GuidePage', () => {
   });
 
   it('scrolls to and focuses the requested section heading after mount', async () => {
-    render(<GuidePage locale="ja" section="tab-groups" />);
+    render(<GuidePage locale="ja" section="widgets-calendar" />);
 
-    const heading = document.getElementById('tab-groups');
+    const heading = document.getElementById('widgets-calendar');
 
     expect(heading).not.toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(heading?.scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(heading?.textContent).toBe('Clock と read-only Google Calendar');
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Calendar の公開審査はまだ完了していません',
+      }),
+    ).toBeTruthy();
     expect(document.documentElement.lang).toBe('ja');
+  });
+
+  it('renders the Korean v2 chapters and unfinished release review notice', () => {
+    render(<GuidePage locale="ko" />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Scene을 안전하게 저장하고 전환하기',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: '이미지 위젯과 motion',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Calendar 출시 심사가 아직 남아 있습니다',
+      }),
+    ).toBeTruthy();
   });
 });

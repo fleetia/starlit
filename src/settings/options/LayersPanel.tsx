@@ -1,12 +1,18 @@
-import type { ChangeEvent, DragEvent, ReactElement } from 'react';
-import { useRef, useState } from 'react';
+import type { ChangeEvent, DragEvent, MouseEvent, ReactElement } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, IconButton, Inline, Stack, Text } from '@fleetia/lagrange';
 
+import { OverlayImageActionMenu } from '../../overlays/OverlayImageActionMenu';
+import type { OverlayMotionPlaybackOverride } from '../../overlays/OverlayImageStacks';
 import type {
   OverlayImageLayer,
   OverlayLayer,
   OverlayScene,
 } from '../../overlays/types';
+import {
+  useOverlayImageActions,
+  type OverlayImageMutation,
+} from '../../overlays/useOverlayImageActions';
 import { SettingsSection } from './controls';
 import * as styles from './LayersPanel.css';
 
@@ -25,6 +31,7 @@ export type LayersPanelCopy = {
   layerList: string;
   moveTowardBack: (name: string) => string;
   moveTowardFront: (name: string) => string;
+  moreActions: (name: string) => string;
   processing: string;
   removeImage: (name: string) => string;
   title: string;
@@ -33,10 +40,20 @@ export type LayersPanelCopy = {
 export type LayersPanelProps = {
   copy: LayersPanelCopy;
   isProcessing: boolean;
-  onEditPositions: () => void;
+  onEditPositions: (imageId?: string) => void;
   onFilesSelected: (files: File[]) => void;
+  onImageAction: (mutation: OverlayImageMutation) => Promise<void> | void;
+  onImageActionError: (error: Error | null) => void;
+  onImageActionProcessingChange: (isProcessing: boolean) => void;
+  onImageFilesPrepare: (files: readonly File[]) => Promise<OverlayImageLayer[]>;
+  onImagePreparationRollback: (ids: readonly string[]) => Promise<void>;
+  onMotionPlaybackOverrideChange: (
+    imageId: string,
+    override: OverlayMotionPlaybackOverride,
+  ) => void;
   onSceneChange: (scene: OverlayScene) => void;
   scene: OverlayScene;
+  showAddAction?: boolean;
 };
 
 function moveLayer(
@@ -78,14 +95,37 @@ export function LayersPanel({
   isProcessing,
   onEditPositions,
   onFilesSelected,
+  onImageAction,
+  onImageActionError,
+  onImageActionProcessingChange,
+  onImageFilesPrepare,
+  onImagePreparationRollback,
+  onMotionPlaybackOverrideChange,
   onSceneChange,
   scene,
+  showAddAction = true,
 }: LayersPanelProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const frontToBackLayers = toFrontToBack(scene.layers);
   const hasImages = scene.layers.some((layer) => layer.kind === 'image');
+  const imageActions = useOverlayImageActions({
+    isDisabled: isProcessing,
+    onEditImage: onEditPositions,
+    onError: onImageActionError,
+    onMotionPlaybackOverrideChange,
+    onMutation: onImageAction,
+    onPreparationRollback: onImagePreparationRollback,
+    prepareFiles: onImageFilesPrepare,
+    scene,
+  });
+  const isMutating = isProcessing || imageActions.isProcessing;
+
+  useEffect(() => {
+    onImageActionProcessingChange(imageActions.isProcessing);
+    return () => onImageActionProcessingChange(false);
+  }, [imageActions.isProcessing, onImageActionProcessingChange]);
 
   function clearDragState(): void {
     setDragIndex(null);
@@ -118,7 +158,7 @@ export function LayersPanel({
     event: DragEvent<HTMLLIElement>,
     index: number,
   ): void {
-    if (isProcessing) {
+    if (isMutating) {
       return;
     }
 
@@ -127,7 +167,7 @@ export function LayersPanel({
   }
 
   function handleDrop(toIndex: number): void {
-    if (isProcessing) {
+    if (isMutating) {
       clearDragState();
       return;
     }
@@ -151,27 +191,40 @@ export function LayersPanel({
     });
   }
 
+  function handleOpenImageActions(
+    event: MouseEvent<HTMLButtonElement>,
+    imageId: string,
+  ): void {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    imageActions.openMenu({
+      imageId,
+      point: { x: bounds.right, y: bounds.bottom },
+    });
+  }
+
   return (
     <SettingsSection description={copy.description} title={copy.title}>
       <Stack gap="md">
         <Inline align="center" gap="sm" wrap>
+          {showAddAction ? (
+            <Button
+              disabled={isMutating}
+              isPending={isMutating}
+              onClick={() => inputRef.current?.click()}
+              size="compact"
+              variant="secondary"
+            >
+              {copy.addImages}
+            </Button>
+          ) : null}
           <Button
-            disabled={isProcessing}
-            isPending={isProcessing}
-            onClick={() => inputRef.current?.click()}
-            size="compact"
-            variant="secondary"
-          >
-            {copy.addImages}
-          </Button>
-          <Button
-            disabled={isProcessing || !hasImages}
-            onClick={onEditPositions}
+            disabled={isMutating || !hasImages}
+            onClick={() => onEditPositions()}
             size="compact"
           >
             {copy.editPositions}
           </Button>
-          {isProcessing ? (
+          {isMutating ? (
             <Text
               aria-live="polite"
               className={styles.status}
@@ -183,16 +236,18 @@ export function LayersPanel({
             </Text>
           ) : null}
         </Inline>
-        <input
-          ref={inputRef}
-          accept="image/*"
-          aria-label={copy.addImages}
-          className={styles.hiddenInput}
-          disabled={isProcessing}
-          multiple
-          onChange={handleFilesSelected}
-          type="file"
-        />
+        {showAddAction ? (
+          <input
+            ref={inputRef}
+            accept="image/*,video/*,.gif"
+            aria-label={copy.addImages}
+            className={styles.hiddenInput}
+            disabled={isMutating}
+            multiple
+            onChange={handleFilesSelected}
+            type="file"
+          />
+        ) : null}
         <Text as="p" tone="muted" variant="caption">
           {copy.fileDescription}
         </Text>
@@ -223,7 +278,7 @@ export function LayersPanel({
                 className={styles.layerRow}
                 data-drag-over={dragOverIndex === index || undefined}
                 data-kind={layer.kind}
-                draggable={!isProcessing}
+                draggable={!isMutating}
                 onDragEnd={clearDragState}
                 onDragLeave={() => setDragOverIndex(null)}
                 onDragOver={(event) => handleDragOver(event, index)}
@@ -242,7 +297,7 @@ export function LayersPanel({
                 </div>
                 <div className={styles.rowActions}>
                   <IconButton
-                    disabled={isProcessing || index === 0}
+                    disabled={isMutating || index === 0}
                     label={copy.moveTowardFront(name)}
                     onClick={() => handleMove(index, -1)}
                     size="compact"
@@ -252,7 +307,7 @@ export function LayersPanel({
                   </IconButton>
                   <IconButton
                     disabled={
-                      isProcessing || index === frontToBackLayers.length - 1
+                      isMutating || index === frontToBackLayers.length - 1
                     }
                     label={copy.moveTowardBack(name)}
                     onClick={() => handleMove(index, 1)}
@@ -262,15 +317,28 @@ export function LayersPanel({
                     <span aria-hidden="true">↓</span>
                   </IconButton>
                   {layer.kind === 'image' ? (
-                    <IconButton
-                      disabled={isProcessing}
-                      label={copy.removeImage(name)}
-                      onClick={() => handleRemove(layer)}
-                      size="compact"
-                      variant="critical"
-                    >
-                      <span aria-hidden="true">×</span>
-                    </IconButton>
+                    <>
+                      <IconButton
+                        disabled={isMutating}
+                        label={copy.moreActions(name)}
+                        onClick={(event) =>
+                          handleOpenImageActions(event, layer.id)
+                        }
+                        size="compact"
+                        variant="quiet"
+                      >
+                        <span aria-hidden="true">…</span>
+                      </IconButton>
+                      <IconButton
+                        disabled={isMutating}
+                        label={copy.removeImage(name)}
+                        onClick={() => handleRemove(layer)}
+                        size="compact"
+                        variant="critical"
+                      >
+                        <span aria-hidden="true">×</span>
+                      </IconButton>
+                    </>
                   ) : null}
                   <span
                     aria-hidden="true"
@@ -284,6 +352,7 @@ export function LayersPanel({
             );
           })}
         </ol>
+        <OverlayImageActionMenu controller={imageActions} />
       </Stack>
     </SettingsSection>
   );

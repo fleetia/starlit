@@ -1,7 +1,8 @@
 import { render, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OverlayImageStacks } from './OverlayImageStacks';
+import type { CanvasSceneV2 } from '../scenes';
 import type { OverlayImageLayer, OverlayScene } from './types';
 
 const mediaMocks = vi.hoisted(() => ({
@@ -30,6 +31,11 @@ function createImage(
 describe('OverlayImageStacks', () => {
   beforeEach(() => {
     mediaMocks.loadMedia.mockImplementation(async (key) => `blob:${key}`);
+  });
+
+  afterEach((): void => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('renders image layers on either side of the bookmark sentinel', async () => {
@@ -61,8 +67,8 @@ describe('OverlayImageStacks', () => {
 
     expect(below?.getAttribute('aria-hidden')).toBe('true');
     expect(above?.getAttribute('aria-hidden')).toBe('true');
-    expect(below?.style.zIndex).toBe('0');
-    expect(above?.style.zIndex).toBe('2');
+    expect(below?.style.zIndex).toBe('1');
+    expect(above?.style.zIndex).toBe('3');
     expect(behind?.alt).toBe('');
     expect(behind?.getAttribute('draggable')).toBe('false');
     expect(behind?.style.left).toBe('12px');
@@ -87,6 +93,21 @@ describe('OverlayImageStacks', () => {
     });
 
     expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('does not load or render hidden image layers', () => {
+    const hiddenImage = {
+      ...createImage('hidden', 'top-left'),
+      hidden: true,
+    };
+    const { container } = render(
+      <OverlayImageStacks
+        scene={{ layers: [{ kind: 'bookmarks' }, hiddenImage] }}
+      />,
+    );
+
+    expect(container.querySelector('img')).toBeNull();
+    expect(mediaMocks.loadMedia).not.toHaveBeenCalled();
   });
 
   it('loads prepared images from their draft media key', async () => {
@@ -158,5 +179,135 @@ describe('OverlayImageStacks', () => {
         )?.src,
       ).toContain('blob:overlayImage:moving');
     });
+  });
+
+  it('renders motion media as policy-controlled video at its playback rate', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        addEventListener: vi.fn(),
+        matches: false,
+        media: '(prefers-reduced-motion: reduce)',
+        onchange: null,
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, 'play')
+      .mockResolvedValue(undefined);
+    const pause = vi
+      .spyOn(HTMLMediaElement.prototype, 'pause')
+      .mockImplementation(() => undefined);
+    const motionImage = {
+      ...createImage('motion', 'top-left'),
+      mediaKind: 'motion' as const,
+      playbackRate: 1.5 as const,
+    };
+    const { container, rerender } = render(
+      <OverlayImageStacks
+        motionPlaybackOverrides={{ motion: 'pause' }}
+        scene={{ layers: [{ kind: 'bookmarks' }, motionImage] }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('video')).not.toBeNull();
+    });
+    const video = container.querySelector<HTMLVideoElement>('video');
+    expect(video?.dataset.motionPaused).toBe('true');
+    expect(video?.dataset.motionPauseReason).toBe('manual');
+    expect(video?.playbackRate).toBe(1.5);
+    expect(pause).toHaveBeenCalled();
+    expect(container.querySelector('img')).toBeNull();
+
+    rerender(
+      <OverlayImageStacks
+        motionPlaybackOverrides={{ motion: 'play' }}
+        scene={{ layers: [{ kind: 'bookmarks' }, motionImage] }}
+      />,
+    );
+    await waitFor(() => {
+      expect(video?.dataset.motionPaused).toBe('false');
+      expect(play).toHaveBeenCalled();
+    });
+  });
+
+  it('uses full Canvas indexes so decorations can interleave with widgets', async () => {
+    const behind = createImage('behind', 'top-left');
+    const front = createImage('front', 'bottom-right');
+    const canvas: CanvasSceneV2 = {
+      layers: [
+        {
+          anchor: behind.anchor,
+          assetId: 'asset-behind',
+          frame: {
+            height: behind.height,
+            offsetX: behind.offsetX,
+            offsetY: behind.offsetY,
+            width: behind.width,
+          },
+          id: behind.id,
+          isHidden: false,
+          isLocked: false,
+          kind: 'decoration',
+          mediaType: 'image',
+          name: behind.name,
+          playbackMode: 'active-tab-only',
+          playbackRate: 1,
+          rotationDeg: behind.rotationDeg,
+          scale: 1,
+        },
+        {
+          anchor: 'top-left',
+          config: { hourCycle: 'locale', showSeconds: false },
+          frame: { height: 80, offsetX: 10, offsetY: 10, width: 120 },
+          id: 'clock',
+          isHidden: false,
+          isLocked: false,
+          kind: 'widget',
+          widgetType: 'clock',
+        },
+        { id: 'bookmarks', kind: 'bookmarks' },
+        {
+          anchor: front.anchor,
+          assetId: 'asset-front',
+          frame: {
+            height: front.height,
+            offsetX: front.offsetX,
+            offsetY: front.offsetY,
+            width: front.width,
+          },
+          id: front.id,
+          isHidden: false,
+          isLocked: false,
+          kind: 'decoration',
+          mediaType: 'image',
+          name: front.name,
+          playbackMode: 'active-tab-only',
+          playbackRate: 1,
+          rotationDeg: front.rotationDeg,
+          scale: 1,
+        },
+      ],
+      version: 2,
+    };
+    const { container } = render(
+      <OverlayImageStacks
+        canvas={canvas}
+        scene={{ layers: [behind, { kind: 'bookmarks' }, front] }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('img')).toHaveLength(2);
+    });
+    expect(
+      container.querySelector('[data-overlay-image-id="behind"]')?.parentElement
+        ?.style.zIndex,
+    ).toBe('1');
+    expect(
+      container.querySelector('[data-overlay-image-id="front"]')?.parentElement
+        ?.style.zIndex,
+    ).toBe('4');
   });
 });

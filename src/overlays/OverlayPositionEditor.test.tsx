@@ -32,12 +32,14 @@ const SCENE: OverlayScene = {
 };
 
 type EditorHarnessProps = {
+  initialSelectedImageId?: string;
   initialScene?: OverlayScene;
   onChange?: (scene: OverlayScene) => void;
   onClose: () => void;
 };
 
 function EditorHarness({
+  initialSelectedImageId,
   initialScene = SCENE,
   onChange,
   onClose,
@@ -47,6 +49,7 @@ function EditorHarness({
   return (
     <I18nProvider locale="en">
       <OverlayPositionEditor
+        {...(initialSelectedImageId ? { initialSelectedImageId } : {})}
         onChange={(nextScene) => {
           setScene(nextScene);
           onChange?.(nextScene);
@@ -106,13 +109,33 @@ function getImage(scene: OverlayScene, id: string): OverlayImageLayer {
 }
 
 describe('OverlayPositionEditor', () => {
+  it('starts with the requested contextual image selected', () => {
+    render(
+      <EditorHarness
+        initialSelectedImageId="second"
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(screen.getByLabelText<HTMLSelectElement>('Image').value).toBe(
+      'second',
+    );
+    expect(
+      screen
+        .getByRole('button', { name: 'Image: second.png' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+  });
+
   it('selects and edits images with accessible controls', async () => {
     const onChange = vi.fn<(scene: OverlayScene) => void>();
     const onClose = vi.fn();
     render(<EditorHarness onChange={onChange} onClose={onClose} />);
 
     expect(
-      screen.getByRole('dialog', { name: 'Edit overlay positions' }),
+      screen.getByRole('dialog', {
+        name: 'Edit image widget positions',
+      }),
     ).toBeDefined();
     await waitFor(() => {
       expect(document.activeElement).toBe(
@@ -170,10 +193,35 @@ describe('OverlayPositionEditor', () => {
     });
   });
 
+  it('previews the selected anchor in wide and narrow viewports', () => {
+    render(<EditorHarness onClose={() => undefined} />);
+
+    const preview = screen.getByRole('img', {
+      name: 'Screen position preview: Top left',
+    });
+    expect(preview.getAttribute('data-viewport')).toBe('wide');
+    expect(preview.querySelector('[data-anchor="top-left"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Narrow' }));
+    expect(preview.getAttribute('data-viewport')).toBe('narrow');
+    expect(
+      screen
+        .getByRole('button', { name: 'Narrow' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Bottom right' }));
+    expect(
+      screen.getByRole('img', {
+        name: 'Screen position preview: Bottom right',
+      }),
+    ).not.toBeNull();
+  });
+
   it('cycles focus within the modal and skips disabled or hidden controls', async () => {
     render(<EditorHarness onClose={() => undefined} />);
     const dialog = screen.getByRole('dialog', {
-      name: 'Edit overlay positions',
+      name: 'Edit image widget positions',
     });
     const firstControl = screen.getByRole('button', {
       name: 'Image: first.png',
@@ -230,6 +278,52 @@ describe('OverlayPositionEditor', () => {
       offsetX: 32,
       offsetY: 21,
     });
+  });
+
+  it('moves every member when pointer-selecting an unselected group', () => {
+    const onChange = vi.fn<(scene: OverlayScene) => void>();
+    const groupedSecond = { ...SECOND_IMAGE, groupId: 'group-1' };
+    const groupedThird = {
+      ...SECOND_IMAGE,
+      groupId: 'group-1',
+      id: 'third',
+      name: 'third.png',
+      offsetX: 200,
+    };
+    render(
+      <EditorHarness
+        initialScene={{
+          layers: [
+            FIRST_IMAGE,
+            { kind: 'bookmarks' },
+            groupedSecond,
+            groupedThird,
+          ],
+        }}
+        onChange={onChange}
+        onClose={() => undefined}
+      />,
+    );
+    const target = screen.getByRole('button', { name: 'Image: second.png' });
+
+    fireEvent.pointerDown(target, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 17,
+    });
+    fireEvent.pointerMove(target, {
+      altKey: true,
+      clientX: 110,
+      clientY: 100,
+      pointerId: 17,
+    });
+    fireEvent.pointerUp(target, { pointerId: 17 });
+
+    const changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene && getImage(changedScene, 'first').offsetX).toBe(20);
+    expect(changedScene && getImage(changedScene, 'second').offsetX).toBe(50);
+    expect(changedScene && getImage(changedScene, 'third').offsetX).toBe(210);
   });
 
   it('restores an active drag preview before Escape closes the editor', () => {
@@ -334,6 +428,224 @@ describe('OverlayPositionEditor', () => {
 
     expect(Number(secondTarget.style.zIndex)).toBeGreaterThan(
       Number(firstTarget.style.zIndex),
+    );
+  });
+
+  it('shift-selects images and moves the selection with one keyboard action', () => {
+    const onChange = vi.fn<(scene: OverlayScene) => void>();
+    const { container } = render(
+      <EditorHarness onChange={onChange} onClose={() => undefined} />,
+    );
+    const firstTarget = screen.getByRole('button', {
+      name: 'Image: first.png',
+    });
+    const secondTarget = screen.getByRole('button', {
+      name: 'Image: second.png',
+    });
+
+    fireEvent.pointerDown(secondTarget, {
+      button: 0,
+      pointerId: 11,
+      shiftKey: true,
+    });
+
+    expect(firstTarget.getAttribute('aria-pressed')).toBe('true');
+    expect(secondTarget.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('2 selected')).toBeDefined();
+    expect(screen.queryByLabelText('Rotation')).toBeNull();
+    expect(screen.queryByLabelText('Zoom')).toBeNull();
+    expect(container.querySelectorAll('[data-overlay-anchor-id]')).toHaveLength(
+      2,
+    );
+
+    fireEvent.keyDown(firstTarget, { key: 'ArrowRight' });
+
+    const changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene && getImage(changedScene, 'first').offsetX).toBe(21);
+    expect(changedScene && getImage(changedScene, 'second').offsetX).toBe(41);
+  });
+
+  it('selects intersecting images with a marquee', () => {
+    const { container } = render(<EditorHarness onClose={() => undefined} />);
+    const canvas = container.querySelector<HTMLDivElement>(
+      '[data-starlit-part="overlay-editor-canvas"]',
+    );
+    if (!canvas) {
+      throw new Error('Expected the overlay editor canvas.');
+    }
+
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      clientX: 10,
+      clientY: 20,
+      pointerId: 12,
+    });
+    fireEvent.pointerMove(canvas, {
+      clientX: 180,
+      clientY: 150,
+      pointerId: 12,
+    });
+    expect(
+      container.querySelector(
+        '[data-starlit-part="overlay-selection-marquee"]',
+      ),
+    ).not.toBeNull();
+
+    fireEvent.pointerUp(canvas, {
+      clientX: 180,
+      clientY: 150,
+      pointerId: 12,
+    });
+
+    expect(
+      screen
+        .getByRole('button', { name: 'Image: first.png' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(
+      screen
+        .getByRole('button', { name: 'Image: second.png' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(
+      container.querySelector(
+        '[data-starlit-part="overlay-selection-marquee"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('shows snap guides during drag and bypasses snapping with Alt', () => {
+    const { container } = render(<EditorHarness onClose={() => undefined} />);
+    const target = screen.getByRole('button', { name: 'Image: first.png' });
+
+    fireEvent.pointerDown(target, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 13,
+    });
+    fireEvent.pointerMove(target, {
+      clientX: 115,
+      clientY: 100,
+      pointerId: 13,
+    });
+    expect(target.style.left).toBe('40px');
+    expect(
+      container.querySelector('[data-snap-source="image"]'),
+    ).not.toBeNull();
+    fireEvent.pointerCancel(target, { pointerId: 13 });
+
+    fireEvent.pointerDown(target, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 14,
+    });
+    fireEvent.pointerMove(target, {
+      altKey: true,
+      clientX: 115,
+      clientY: 100,
+      pointerId: 14,
+    });
+    expect(target.style.left).toBe('35px');
+    expect(container.querySelector('[data-snap-source]')).toBeNull();
+    fireEvent.pointerCancel(target, { pointerId: 14 });
+  });
+
+  it('applies multi-image visibility, lock, group, ungroup, and delete actions', () => {
+    const onChange = vi.fn<(scene: OverlayScene) => void>();
+    render(<EditorHarness onChange={onChange} onClose={() => undefined} />);
+    const firstTarget = screen.getByRole('button', {
+      name: 'Image: first.png',
+    });
+    const secondTarget = screen.getByRole('button', {
+      name: 'Image: second.png',
+    });
+    fireEvent.pointerDown(secondTarget, {
+      button: 0,
+      pointerId: 15,
+      shiftKey: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
+    let changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene && getImage(changedScene, 'first').hidden).toBe(true);
+    expect(changedScene && getImage(changedScene, 'second').hidden).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lock' }));
+    changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene && getImage(changedScene, 'first').locked).toBe(true);
+    expect(changedScene && getImage(changedScene, 'second').locked).toBe(true);
+    onChange.mockClear();
+    fireEvent.pointerDown(firstTarget, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 16,
+    });
+    fireEvent.pointerMove(firstTarget, {
+      clientX: 120,
+      clientY: 120,
+      pointerId: 16,
+    });
+    fireEvent.pointerUp(firstTarget, { pointerId: 16 });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Unlock' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+    changedScene = onChange.mock.calls.at(-1)?.[0];
+    const firstGroupId =
+      changedScene && getImage(changedScene, 'first').groupId;
+    expect(firstGroupId).toBeDefined();
+    expect(changedScene && getImage(changedScene, 'second').groupId).toBe(
+      firstGroupId,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Ungroup' }));
+    changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(
+      changedScene && getImage(changedScene, 'first').groupId,
+    ).toBeUndefined();
+    expect(
+      changedScene && getImage(changedScene, 'second').groupId,
+    ).toBeUndefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove image' }));
+    changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene?.layers).toEqual([{ kind: 'bookmarks' }]);
+    expect(
+      screen.getByText('Add an image before editing positions.'),
+    ).toBeDefined();
+  });
+
+  it('edits playback settings only for a single motion layer', () => {
+    const onChange = vi.fn<(scene: OverlayScene) => void>();
+    const motionImage: OverlayImageLayer = {
+      ...FIRST_IMAGE,
+      mediaKind: 'motion',
+    };
+    render(
+      <EditorHarness
+        initialScene={{ layers: [{ kind: 'bookmarks' }, motionImage] }}
+        onChange={onChange}
+        onClose={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Playback rate'), {
+      target: { value: '1.5' },
+    });
+    let changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene && getImage(changedScene, 'first').playbackRate).toBe(
+      1.5,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Play in active tab only' }),
+    );
+    changedScene = onChange.mock.calls.at(-1)?.[0];
+    expect(changedScene && getImage(changedScene, 'first').playbackMode).toBe(
+      'always',
     );
   });
 

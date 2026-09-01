@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Starlit",
-  "version": "1.6.1",
+  "version": "2.0.0",
   "description": "Customizable New Tab Bookmark Grid",
   "icons": {
     "16": "assets/icons/icon-16.png",
@@ -9,8 +9,16 @@
     "48": "assets/icons/icon-48.png",
     "128": "assets/icons/icon-128.png"
   },
-  "permissions": ["storage", "bookmarks"],
+  "permissions": ["storage", "bookmarks", "identity"],
   "optional_permissions": ["tabs", "tabGroups"],
+  "optional_host_permissions": ["https://www.googleapis.com/*"],
+  "oauth2": {
+    "client_id": "__STARLIT_GOOGLE_OAUTH_CLIENT_ID__",
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+      "https://www.googleapis.com/auth/calendar.events.readonly"
+    ]
+  },
   "background": {
     "service_worker": "background/index.js",
     "type": "module"

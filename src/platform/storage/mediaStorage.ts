@@ -1,7 +1,9 @@
-const DB_NAME = 'starlit';
+export const STARLIT_DB_NAME = 'starlit';
 const LEGACY_DB_NAME = 'lotuspad';
-const STORE_NAME = 'media';
-const DB_VERSION = 1;
+export const MEDIA_STORE_NAME = 'media';
+export const SCENE_STORE_NAME = 'scenes';
+export const SHARED_ASSET_STORE_NAME = 'assets';
+export const STARLIT_DB_VERSION = 2;
 
 let cachedDB: IDBDatabase | null = null;
 const activeBlobUrls = new Map<string, string>();
@@ -34,12 +36,20 @@ function replaceActiveBlobUrl(key: string, blob: Blob): string {
   return url;
 }
 
-function openDB(): Promise<IDBDatabase> {
+function ensureObjectStore(database: IDBDatabase, name: string): void {
+  if (!database.objectStoreNames?.contains(name)) {
+    database.createObjectStore(name);
+  }
+}
+
+export function openStarlitDatabase(): Promise<IDBDatabase> {
   if (cachedDB) return Promise.resolve(cachedDB);
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(STARLIT_DB_NAME, STARLIT_DB_VERSION);
     request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME);
+      ensureObjectStore(request.result, MEDIA_STORE_NAME);
+      ensureObjectStore(request.result, SCENE_STORE_NAME);
+      ensureObjectStore(request.result, SHARED_ASSET_STORE_NAME);
     };
     request.onsuccess = () => {
       const database = request.result;
@@ -61,17 +71,37 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveMedia(key: string, blob: Blob): Promise<string> {
-  const db = await openDB();
+async function writeMedia<Result>(
+  key: string,
+  blob: Blob,
+  finalize: () => Result,
+): Promise<Result> {
+  const db = await openStarlitDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(blob, key);
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+    tx.objectStore(MEDIA_STORE_NAME).put(blob, key);
     tx.oncomplete = () => {
       advanceMediaVersion(key);
-      resolve(replaceActiveBlobUrl(key, blob));
+      try {
+        resolve(finalize());
+      } catch (error) {
+        reject(error);
+      }
     };
+    tx.onabort = () =>
+      reject(
+        tx.error ?? new DOMException('Media write aborted.', 'AbortError'),
+      );
     tx.onerror = () => reject(tx.error);
   });
+}
+
+export function saveMedia(key: string, blob: Blob): Promise<string> {
+  return writeMedia(key, blob, () => replaceActiveBlobUrl(key, blob));
+}
+
+export function saveMediaBlob(key: string, blob: Blob): Promise<void> {
+  return writeMedia(key, blob, () => releaseActiveBlobUrl(key));
 }
 
 export function loadMedia(key: string): Promise<string | null> {
@@ -86,11 +116,11 @@ export function loadMedia(key: string): Promise<string | null> {
   }
 
   const version = getMediaVersion(key);
-  const request = openDB().then(
+  const request = openStarlitDatabase().then(
     (db) =>
       new Promise<string | null>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const mediaRequest = tx.objectStore(STORE_NAME).get(key);
+        const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
+        const mediaRequest = tx.objectStore(MEDIA_STORE_NAME).get(key);
         mediaRequest.onsuccess = () => {
           if (getMediaVersion(key) !== version) {
             resolve(activeBlobUrls.get(key) ?? null);
@@ -124,10 +154,10 @@ export function loadMedia(key: string): Promise<string | null> {
 }
 
 export async function loadMediaBlob(key: string): Promise<Blob | null> {
-  const db = await openDB();
+  const db = await openStarlitDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const request = tx.objectStore(STORE_NAME).get(key);
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
+    const request = tx.objectStore(MEDIA_STORE_NAME).get(key);
     request.onsuccess = () => {
       const blob = request.result as Blob | undefined;
       resolve(blob ?? null);
@@ -137,10 +167,10 @@ export async function loadMediaBlob(key: string): Promise<Blob | null> {
 }
 
 export async function listMediaKeys(prefix = ''): Promise<string[]> {
-  const db = await openDB();
+  const db = await openStarlitDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const request = tx.objectStore(STORE_NAME).getAllKeys();
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
+    const request = tx.objectStore(MEDIA_STORE_NAME).getAllKeys();
     request.onsuccess = () => {
       resolve(
         request.result.filter(
@@ -184,14 +214,14 @@ async function openExistingDatabase(name: string): Promise<IDBDatabase | null> {
 
 export async function loadLegacyMediaBlob(key: string): Promise<Blob | null> {
   const database = await openExistingDatabase(LEGACY_DB_NAME);
-  if (!database || !database.objectStoreNames.contains(STORE_NAME)) {
+  if (!database || !database.objectStoreNames.contains(MEDIA_STORE_NAME)) {
     database?.close();
     return null;
   }
 
   return new Promise((resolve, reject) => {
-    const transaction = database.transaction(STORE_NAME, 'readonly');
-    const request = transaction.objectStore(STORE_NAME).get(key);
+    const transaction = database.transaction(MEDIA_STORE_NAME, 'readonly');
+    const request = transaction.objectStore(MEDIA_STORE_NAME).get(key);
 
     request.onsuccess = () => {
       const blob = request.result as Blob | undefined;
@@ -205,16 +235,44 @@ export async function loadLegacyMediaBlob(key: string): Promise<Blob | null> {
   });
 }
 
+export async function deleteLegacyMedia(key: string): Promise<void> {
+  const database = await openExistingDatabase(LEGACY_DB_NAME);
+  if (!database || !database.objectStoreNames.contains(MEDIA_STORE_NAME)) {
+    database?.close();
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(MEDIA_STORE_NAME, 'readwrite');
+    transaction.objectStore(MEDIA_STORE_NAME).delete(key);
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onabort = () => {
+      database.close();
+      reject(
+        transaction.error ??
+          new DOMException('Legacy media deletion aborted.', 'AbortError'),
+      );
+    };
+    transaction.onerror = () => {
+      database.close();
+      reject(transaction.error);
+    };
+  });
+}
+
 export async function deleteMediaBatch(keys: readonly string[]): Promise<void> {
   const uniqueKeys = [...new Set(keys)];
   if (uniqueKeys.length === 0) {
     return;
   }
 
-  const db = await openDB();
+  const db = await openStarlitDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(MEDIA_STORE_NAME);
 
     uniqueKeys.forEach((key) => store.delete(key));
     tx.oncomplete = () => {
@@ -224,6 +282,10 @@ export async function deleteMediaBatch(keys: readonly string[]): Promise<void> {
       });
       resolve();
     };
+    tx.onabort = () =>
+      reject(
+        tx.error ?? new DOMException('Media deletion aborted.', 'AbortError'),
+      );
     tx.onerror = () => reject(tx.error);
   });
 }

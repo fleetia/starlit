@@ -1,4 +1,4 @@
-import type { ChangeEvent, ReactElement } from 'react';
+import type { ChangeEvent, ReactElement, SetStateAction } from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Button,
@@ -13,20 +13,31 @@ import {
 import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
 
 import { applySiblingOrder } from '../bookmarks/bookmarkTree';
+import type { Bookmark } from '../bookmarks/types';
 import { useTranslation } from '../i18n';
 import { getLayoutStyle } from '../layout/layoutStyle';
 import { createGuideHref } from '../guide/guideRoute';
-import chromeBookmarks from '../platform/bookmarks/chromeBookmarks';
+import chromeBookmarks, {
+  collectWritableBookmarkFolders,
+} from '../platform/bookmarks/chromeBookmarks';
+import { createChromeSceneBookmarkGateway } from '../platform/bookmarks/sceneBookmarkGateway';
 import { OverlayPositionEditor } from '../overlays/OverlayPositionEditor';
 import { appendOverlayImages } from '../overlays/model';
+import type { OverlayScene } from '../overlays/types';
+import type { OverlayImageMutation } from '../overlays/useOverlayImageActions';
 import { getFontFamilyStyle, getThemeStyle } from '../theme/starlitTheme';
 import type { StarlitTheme } from '../theme/types';
 import {
-  exportFull,
-  exportToJson,
-  importFromJson,
-  importFull,
-} from './exportImport';
+  copyBookmarkFolderToScene,
+  DEFAULT_SCENE_BOOKMARK_CONTAINER_TITLE,
+  findDefaultSceneBookmarkParent,
+  mergeCanvasWithOverlay,
+  previewBookmarkCopy,
+  projectOverlaySceneToCanvasScene,
+  remapBookmarkPreferences,
+  type CanvasSceneV2,
+  type SceneRuntimeSnapshot,
+} from '../scenes';
 import { resetAllSettings } from './resetSettings';
 import type { BackgroundMedia } from './backgroundMedia';
 import { AppearancePanel } from './options/AppearancePanel';
@@ -35,8 +46,22 @@ import { GeneralPanel } from './options/GeneralPanel';
 import { GroupsPanel } from './options/GroupsPanel';
 import { LayoutPanel } from './options/LayoutPanel';
 import { LayersPanel } from './options/LayersPanel';
+import { PortableProfilePanel } from './options/PortableProfilePanel';
+import {
+  ScenePanel,
+  type CreateSceneFromSettingsInput,
+  type RelinkSceneFromSettingsInput,
+  type SceneCreatePreview,
+  type SceneFolderOption,
+} from './options/ScenePanel';
 import { SupportPanel } from './options/SupportPanel';
-import { getErrorMessage, isEqual, isPrimaryTab } from './options/helpers';
+import { WidgetsPanel } from './options/WidgetsPanel';
+import {
+  createBookmarkTreePreferences,
+  getErrorMessage,
+  isEqual,
+  isPrimaryTab,
+} from './options/helpers';
 import {
   saveSettingsChanges,
   type SaveSettingsChangesResult,
@@ -49,6 +74,7 @@ import type {
   PrimaryTab,
   SettingsSnapshot,
 } from './options/types';
+import { relinkSceneResources } from './relinkSceneResources';
 import * as styles from './OptionsSidebar.css';
 
 export type {
@@ -67,7 +93,52 @@ function reportCleanupError(error: unknown): void {
   }
 }
 
+const sceneBookmarkGateway = createChromeSceneBookmarkGateway();
+
+function collectSceneFolderOptions(
+  bookmarks: readonly Bookmark[],
+  parentPath: readonly string[] = [],
+): SceneFolderOption[] {
+  return bookmarks.flatMap((bookmark) => {
+    const path = bookmark.route?.length
+      ? [...bookmark.route]
+      : [...parentPath, bookmark.title];
+    const current = bookmark.id
+      ? [{ id: bookmark.id, label: path.join(' / '), path }]
+      : [];
+    return [
+      ...current,
+      ...collectSceneFolderOptions(bookmark.children ?? [], path),
+    ];
+  });
+}
+
+function resolveDraftBackgroundMeta(
+  current: BackgroundMedia | null | undefined,
+  draft: BackgroundDraft | null,
+): BackgroundMedia | null {
+  if (!draft) return current ?? null;
+  if (draft.kind === 'clear') return null;
+  if (draft.kind === 'url') {
+    return {
+      source: 'url',
+      type: /\.(mp4|webm|mov)(\?|$)/i.test(draft.url) ? 'video' : 'image',
+      url: draft.url,
+    };
+  }
+  return {
+    source: 'file',
+    type:
+      draft.file.type === 'image/gif' || draft.file.type.startsWith('video/')
+        ? 'video'
+        : 'image',
+    url: '',
+  };
+}
+
 function OptionsSidebarSession({
+  initialOverlayImageId,
+  initialTab = 'general',
   backgroundMeta,
   colorTheme,
   customCSS,
@@ -80,22 +151,23 @@ function OptionsSidebarSession({
   locale,
   onBackgroundClear,
   onBackgroundFile,
+  onBackgroundRestore,
+  onBackgroundSnapshot,
   onBackgroundUrl,
   onBookmarkTreePreferencesUpdate,
   onBookmarksImported,
   onClose,
   onCustomCSSChange,
-  onExport,
   onFontPreviewChange,
   onGridSettingsUpdate,
   onGroupPreferencesUpdate,
   onIconSizeChange,
-  onImport,
   onLocaleChange,
   onOverlayEditPreviewChange,
   onOverlayFilesPrepare,
   onOverlayImagesFinalize,
   onOverlayImagesDiscard,
+  onOverlayMotionPlaybackOverrideChange,
   onOverlaySceneUpdate,
   onSettingsUpdate,
   onSizeChange,
@@ -106,12 +178,13 @@ function OptionsSidebarSession({
   preview,
   rootId,
   rootPath,
+  sceneController,
   settings,
   siblingOrder,
   size,
 }: OptionsSidebarProps): ReactElement {
   const { t } = useTranslation();
-  const [primaryTab, setPrimaryTab] = useState<PrimaryTab>('general');
+  const [primaryTab, setPrimaryTab] = useState<PrimaryTab>(initialTab);
   const [appearanceTab, setAppearanceTab] =
     useState<AppearanceTab>('background');
   const [backgroundSource, setBackgroundSource] = useState<
@@ -146,15 +219,27 @@ function OptionsSidebarSession({
   const [draftOverlayScene, setDraftOverlayScene] = useState(() =>
     structuredClone(overlayScene),
   );
+  const [draftCanvas, setDraftCanvas] = useState<CanvasSceneV2>(() =>
+    structuredClone(
+      sceneController.activeScene?.canvas ??
+        projectOverlaySceneToCanvasScene(overlayScene),
+    ),
+  );
+  const draftOverlaySceneRef = useRef(draftOverlayScene);
   const [preparedOverlayImageIds, setPreparedOverlayImageIds] = useState<
     string[]
   >([]);
-  const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(false);
+  const [overlayEditorInitialImageId, setOverlayEditorInitialImageId] =
+    useState<string | null>(initialOverlayImageId ?? null);
+  const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(
+    initialOverlayImageId !== undefined,
+  );
   const [isDiscardOpen, setIsDiscardOpen] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isOverlayActionProcessing, setIsOverlayActionProcessing] =
+    useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const settingsFileRef = useRef<HTMLInputElement | null>(null);
   const backgroundFileRef = useRef<HTMLInputElement | null>(null);
   const discardCancelRef = useRef<HTMLButtonElement | null>(null);
   const discardDescriptionId = `starlit-discard-${useId()}`;
@@ -179,6 +264,10 @@ function OptionsSidebarSession({
   }, [draftOverlayScene, isOverlayEditorOpen, onOverlayEditPreviewChange]);
 
   const [snapshot] = useState<SettingsSnapshot>(() => ({
+    canvas: structuredClone(
+      sceneController.activeScene?.canvas ??
+        projectOverlaySceneToCanvasScene(overlayScene),
+    ),
     customCSS,
     gridSettings: structuredClone(gridSettings),
     groupPreferences: structuredClone(groupPreferences),
@@ -206,10 +295,12 @@ function OptionsSidebarSession({
       !isEqual(draftRootPath, snapshot.rootPath) ||
       !isEqual(draftSiblingOrder, snapshot.siblingOrder) ||
       !isEqual(draftOverlayScene, snapshot.overlayScene) ||
+      !isEqual(draftCanvas, snapshot.canvas) ||
       preparedOverlayImageIds.length > 0 ||
       draftBackground !== null,
     [
       draftBackground,
+      draftCanvas,
       draftCSS,
       draftGrid,
       draftGroupPreferences,
@@ -249,7 +340,76 @@ function OptionsSidebarSession({
     () => applySiblingOrder(orderedTree, draftSiblingOrder),
     [draftSiblingOrder, orderedTree],
   );
-  const isMediaProcessing = isBackgroundProcessing || isOverlayProcessing;
+  const convertedSceneFolderOptions = useMemo(
+    () => collectSceneFolderOptions(draftOrderedTree),
+    [draftOrderedTree],
+  );
+  const [rawSceneFolderOptions, setRawSceneFolderOptions] = useState<
+    SceneFolderOption[] | null
+  >(null);
+
+  useEffect(() => {
+    let isActive = true;
+    void chromeBookmarks.getTree().then(
+      (tree) => {
+        if (isActive) {
+          setRawSceneFolderOptions(collectWritableBookmarkFolders(tree));
+        }
+      },
+      () => {
+        if (isActive) setRawSceneFolderOptions([]);
+      },
+    );
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const sceneFolderOptions =
+    rawSceneFolderOptions && rawSceneFolderOptions.length > 0
+      ? rawSceneFolderOptions
+      : convertedSceneFolderOptions;
+  const sceneSourceFolderId =
+    draftRootId ??
+    sceneFolderOptions.find(
+      (option) =>
+        option.path.length === draftRootPath.length &&
+        option.path.every((segment, index) => segment === draftRootPath[index]),
+    )?.id ??
+    '0';
+  const isMediaProcessing =
+    isBackgroundProcessing || isOverlayProcessing || isOverlayActionProcessing;
+
+  function createRuntimeSnapshot(): SceneRuntimeSnapshot {
+    return {
+      backgroundMeta: resolveDraftBackgroundMeta(
+        backgroundMeta,
+        draftBackground,
+      ),
+      bookmarkTreePrefs: createBookmarkTreePreferences(
+        draftRootPath,
+        draftSiblingOrder,
+        draftRootId,
+      ),
+      canvas: draftCanvas,
+      colorTheme: draftTheme,
+      customCSS: draftCSS,
+      gridSettings: draftGrid,
+      groupPreferences: draftGroupPreferences,
+      iconSize: draftIconSize,
+      overlayScene: draftOverlayScene,
+      settings: draftSettings,
+      size: draftSize,
+    };
+  }
+
+  function updateDraftOverlayScene(update: SetStateAction<OverlayScene>): void {
+    const current = draftOverlaySceneRef.current;
+    const next = typeof update === 'function' ? update(current) : update;
+    draftOverlaySceneRef.current = next;
+    setDraftOverlayScene(next);
+    setDraftCanvas((canvas) => mergeCanvasWithOverlay(canvas, next));
+  }
 
   function updateTheme<Key extends keyof StarlitTheme>(
     key: Key,
@@ -316,12 +476,21 @@ function OptionsSidebarSession({
     setActionError(null);
     setIsSaving(true);
     let saveResult: SaveSettingsChangesResult;
+    const activeSceneId = sceneController.activeSceneId;
 
     try {
       saveResult = await saveSettingsChanges({
+        afterSave: activeSceneId
+          ? () =>
+              sceneController
+                .updateScene(activeSceneId, createRuntimeSnapshot())
+                .then(() => undefined)
+          : undefined,
         callbacks: {
           onBackgroundClear,
           onBackgroundFile,
+          onBackgroundRestore,
+          onBackgroundSnapshot,
           onBackgroundUrl,
           onBookmarkTreePreferencesUpdate,
           onCustomCSSChange,
@@ -443,12 +612,22 @@ function OptionsSidebarSession({
         ...currentIds,
         ...preparedIds,
       ]);
-      setDraftOverlayScene((currentScene) =>
+      updateDraftOverlayScene((currentScene) =>
         appendOverlayImages(currentScene, preparedLayers),
       );
-    } catch (error) {
-      setActionError(getErrorMessage(error));
+    } catch {
+      setActionError(t('layers.error'));
     }
+  }
+
+  function handleOverlayImageAction(mutation: OverlayImageMutation): void {
+    setActionError(null);
+    if (mutation.preparedImageIds.length > 0) {
+      setPreparedOverlayImageIds((currentIds) => [
+        ...new Set([...currentIds, ...mutation.preparedImageIds]),
+      ]);
+    }
+    updateDraftOverlayScene(mutation.scene);
   }
 
   async function handleDiscardChanges(): Promise<void> {
@@ -467,53 +646,155 @@ function OptionsSidebarSession({
     onClose();
   }
 
-  async function handleExport(): Promise<void> {
-    setActionError(null);
-
-    try {
-      if (onExport) {
-        await onExport();
-        return;
-      }
-
-      const data = await exportFull(
-        gridSettings,
-        settings,
-        colorTheme,
-        backgroundMeta,
-        customCSS,
-      );
-
-      exportToJson(data, 'starlit-settings.json');
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    }
+  async function prepareSceneCreate(): Promise<SceneCreatePreview> {
+    const [previewResult, defaultDestinationParentId] = await Promise.all([
+      previewBookmarkCopy(sceneSourceFolderId, sceneBookmarkGateway),
+      findDefaultSceneBookmarkParent(sceneBookmarkGateway),
+    ]);
+    return { defaultDestinationParentId, preview: previewResult };
   }
 
-  async function handleImportFile(
-    event: ChangeEvent<HTMLInputElement>,
-  ): Promise<void> {
-    const file = event.currentTarget.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    setActionError(null);
+  async function createSceneFromSettings({
+    destination,
+    name,
+  }: CreateSceneFromSettingsInput): Promise<void> {
+    const previousActiveSceneId = sceneController.activeSceneId;
+    const previousSceneIds = new Set(
+      sceneController.scenes.map((scene) => scene.id),
+    );
+    const copied = await copyBookmarkFolderToScene(
+      {
+        destinationParentId: destination.id,
+        sceneName: name,
+        sourceFolderId: sceneSourceFolderId,
+      },
+      sceneBookmarkGateway,
+    );
+    let createdSceneId: string | null = null;
+    let wasSceneApplied = false;
 
     try {
-      if (onImport) {
-        await onImport(file);
-      } else {
-        const data = await importFromJson(file);
-        await importFull(data);
+      const remappedBookmarkPreferences = remapBookmarkPreferences(
+        {
+          groupPreferences: draftGroupPreferences,
+          siblingOrder: draftSiblingOrder,
+        },
+        copied.identityMap,
+      );
+      const collection = await sceneController.createScene(
+        createRuntimeSnapshot(),
+        {
+          bookmarkCollection: {
+            folderId: copied.sceneFolderId,
+            folderOwnership: 'scene',
+            folderPath: [
+              ...destination.path,
+              DEFAULT_SCENE_BOOKMARK_CONTAINER_TITLE,
+              name,
+            ],
+            groupPreferences: remappedBookmarkPreferences.groupPreferences,
+            siblingOrder: remappedBookmarkPreferences.siblingOrder,
+          },
+          makeActive: false,
+          name,
+        },
+      );
+      createdSceneId =
+        collection.scenes.find((scene) => !previousSceneIds.has(scene.id))
+          ?.id ?? null;
+      if (!createdSceneId) {
+        throw new Error('The new Scene was not saved.');
+      }
+      if (!previousActiveSceneId) {
+        await onBookmarksImported();
+      }
+      await sceneController.applyScene(createdSceneId);
+      wasSceneApplied = true;
+      if (previousActiveSceneId) {
+        await onBookmarksImported();
+      }
+    } catch (error) {
+      const cleanupFailures: unknown[] = [];
+      let canCleanupCreatedResources = true;
+
+      if (createdSceneId && wasSceneApplied) {
+        try {
+          if (previousActiveSceneId) {
+            await sceneController.applyScene(previousActiveSceneId);
+          }
+        } catch (restoreError) {
+          canCleanupCreatedResources = false;
+          cleanupFailures.push(restoreError);
+        }
       }
 
-      window.location.reload();
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-      event.currentTarget.value = '';
+      if (canCleanupCreatedResources) {
+        if (createdSceneId) {
+          try {
+            await sceneController.deleteScene(createdSceneId, {
+              deleteAssets: true,
+            });
+          } catch (cleanupError) {
+            cleanupFailures.push(cleanupError);
+          }
+        }
+        try {
+          await sceneBookmarkGateway.removeTree(copied.sceneFolderId);
+          if (copied.wasContainerCreated) {
+            await sceneBookmarkGateway.removeTree(copied.containerFolderId);
+          }
+        } catch (cleanupError) {
+          cleanupFailures.push(cleanupError);
+        }
+      }
+      if (cleanupFailures.length > 0) {
+        const failure = new AggregateError(
+          [error, ...cleanupFailures],
+          'Scene creation and cleanup both failed.',
+        );
+        failure.cause = error;
+        throw failure;
+      }
+      throw error;
     }
+
+    onClose();
+  }
+
+  async function applySceneFromSettings(sceneId: string): Promise<void> {
+    await sceneController.applyScene(sceneId);
+    await onBookmarksImported();
+    onClose();
+  }
+
+  async function deleteSceneFromSettings(
+    sceneId: string,
+    options: { deleteBookmarkFolder: boolean },
+  ): Promise<void> {
+    await sceneController.deleteScene(sceneId, options);
+    if (options.deleteBookmarkFolder) await onBookmarksImported();
+  }
+
+  async function relinkSceneFromSettings(
+    sceneId: string,
+    input: RelinkSceneFromSettingsInput,
+  ): Promise<void> {
+    const scene = sceneController.scenes.find(
+      (candidate) => candidate.id === sceneId,
+    );
+    if (!scene) throw new Error(`Scene does not exist: ${sceneId}`);
+
+    await relinkSceneResources({
+      assetFiles: input.assetFiles,
+      ...(input.folder
+        ? {
+            folder: { id: input.folder.id, path: input.folder.path },
+          }
+        : {}),
+      relink: (relinkInput) =>
+        sceneController.relinkScene(sceneId, relinkInput).then(() => undefined),
+      scene,
+    });
   }
 
   async function handleResetTheme(): Promise<void> {
@@ -535,6 +816,7 @@ function OptionsSidebarSession({
       window.location.reload();
     } catch (error) {
       setActionError(getErrorMessage(error));
+      throw error;
     }
   }
 
@@ -544,11 +826,19 @@ function OptionsSidebarSession({
     }
   }
 
+  function openOverlayEditor(imageId?: string): void {
+    setOverlayEditorInitialImageId(imageId ?? null);
+    setIsOverlayEditorOpen(true);
+  }
+
   return (
     <>
       {isOverlayEditorOpen ? (
         <OverlayPositionEditor
-          onChange={setDraftOverlayScene}
+          {...(overlayEditorInitialImageId
+            ? { initialSelectedImageId: overlayEditorInitialImageId }
+            : {})}
+          onChange={updateDraftOverlayScene}
           onClose={() => setIsOverlayEditorOpen(false)}
           scene={draftOverlayScene}
         />
@@ -570,7 +860,7 @@ function OptionsSidebarSession({
               >
                 <span aria-hidden="true" className={styles.processingSpinner} />
                 <span>
-                  {isOverlayProcessing
+                  {isOverlayProcessing || isOverlayActionProcessing
                     ? t('layers.processing')
                     : t('sidebar.background.processing')}
                 </span>
@@ -613,10 +903,12 @@ function OptionsSidebarSession({
             <TabList aria-label={t('newtab.options')}>
               <Tab value="general">{t('sidebar.tab.general')}</Tab>
               <Tab value="appearance">{t('sidebar.tab.appearance')}</Tab>
-              <Tab value="layers">{t('sidebar.tab.layers')}</Tab>
+              <Tab value="widgets">{t('sidebar.tab.widgets')}</Tab>
               <Tab value="layout">{t('sidebar.tab.layout')}</Tab>
               <Tab value="css">{t('sidebar.tab.css')}</Tab>
               <Tab value="groups">{t('sidebar.tab.groups')}</Tab>
+              <Tab value="scene">{t('sidebar.tab.scene')}</Tab>
+              <Tab value="portable">{t('portable.title')}</Tab>
             </TabList>
             <TabPanel
               className={styles.panel}
@@ -626,50 +918,11 @@ function OptionsSidebarSession({
               <GeneralPanel
                 guideHref={createGuideHref(draftLocale, 'getting-started')}
                 locale={draftLocale}
-                onExport={handleExport}
-                onImportFile={handleImportFile}
                 onResetAll={handleResetAll}
                 onResetTheme={handleResetTheme}
                 setLocale={setDraftLocale}
                 setSettings={setDraftSettings}
                 settings={draftSettings}
-                settingsFileRef={settingsFileRef}
-              />
-            </TabPanel>
-            <TabPanel
-              className={styles.panel}
-              data-starlit-part="settings-layers"
-              value="layers"
-            >
-              <LayersPanel
-                copy={{
-                  addImages: t('layers.add'),
-                  back: t('layers.back'),
-                  bookmarks: t('layers.bookmarks'),
-                  bookmarksDescription: t('layers.bookmarksDescription'),
-                  description: t('layers.description'),
-                  dragToReorder: t('layers.dragToReorder'),
-                  editPositions: t('layers.editPositions'),
-                  empty: t('layers.empty'),
-                  fileDescription: t('layers.fileDescription'),
-                  front: t('layers.front'),
-                  frontToBackDescription: t('layers.frontToBackDescription'),
-                  layerList: t('layers.layerList'),
-                  moveTowardBack: (name) =>
-                    `${t('layers.moveBackward')}: ${name}`,
-                  moveTowardFront: (name) =>
-                    `${t('layers.moveForward')}: ${name}`,
-                  processing: t('layers.processing'),
-                  removeImage: (name) => `${t('layers.remove')}: ${name}`,
-                  title: t('layers.title'),
-                }}
-                isProcessing={isOverlayProcessing}
-                onEditPositions={() => setIsOverlayEditorOpen(true)}
-                onFilesSelected={(files) =>
-                  void handleOverlayFilesSelected(files)
-                }
-                onSceneChange={setDraftOverlayScene}
-                scene={draftOverlayScene}
               />
             </TabPanel>
             <TabPanel
@@ -705,6 +958,66 @@ function OptionsSidebarSession({
                 size={draftSize}
                 theme={draftTheme}
               />
+            </TabPanel>
+            <TabPanel
+              className={styles.panel}
+              data-starlit-part="settings-widgets"
+              value="widgets"
+            >
+              <WidgetsPanel
+                canvas={sceneController.activeScene ? draftCanvas : null}
+                isImageProcessing={
+                  isOverlayProcessing || isOverlayActionProcessing
+                }
+                onChange={setDraftCanvas}
+                onImageFilesSelected={(files) =>
+                  void handleOverlayFilesSelected(files)
+                }
+              >
+                <LayersPanel
+                  copy={{
+                    addImages: t('layers.add'),
+                    back: t('layers.back'),
+                    bookmarks: t('layers.bookmarks'),
+                    bookmarksDescription: t('layers.bookmarksDescription'),
+                    description: t('layers.description'),
+                    dragToReorder: t('layers.dragToReorder'),
+                    editPositions: t('layers.editPositions'),
+                    empty: t('layers.empty'),
+                    fileDescription: t('layers.fileDescription'),
+                    front: t('layers.front'),
+                    frontToBackDescription: t('layers.frontToBackDescription'),
+                    layerList: t('layers.layerList'),
+                    moveTowardBack: (name) =>
+                      `${t('layers.moveBackward')}: ${name}`,
+                    moveTowardFront: (name) =>
+                      `${t('layers.moveForward')}: ${name}`,
+                    moreActions: (name) =>
+                      `${t('layers.action.more')}: ${name}`,
+                    processing: t('layers.processing'),
+                    removeImage: (name) => `${t('layers.remove')}: ${name}`,
+                    title: t('layers.title'),
+                  }}
+                  isProcessing={isOverlayProcessing}
+                  onEditPositions={openOverlayEditor}
+                  onFilesSelected={(files) =>
+                    void handleOverlayFilesSelected(files)
+                  }
+                  onImageAction={handleOverlayImageAction}
+                  onImageActionError={(error) =>
+                    setActionError(error ? t('layers.error') : null)
+                  }
+                  onImageActionProcessingChange={setIsOverlayActionProcessing}
+                  onImageFilesPrepare={onOverlayFilesPrepare}
+                  onImagePreparationRollback={onOverlayImagesDiscard}
+                  onMotionPlaybackOverrideChange={
+                    onOverlayMotionPlaybackOverrideChange
+                  }
+                  onSceneChange={updateDraftOverlayScene}
+                  scene={draftOverlayScene}
+                  showAddAction={false}
+                />
+              </WidgetsPanel>
             </TabPanel>
             <TabPanel
               className={styles.panel}
@@ -748,6 +1061,37 @@ function OptionsSidebarSession({
                 rootId={draftRootId}
                 rootPath={draftRootPath}
                 siblingOrder={draftSiblingOrder}
+              />
+            </TabPanel>
+            <TabPanel
+              className={styles.panel}
+              data-starlit-part="settings-scene"
+              value="scene"
+            >
+              <ScenePanel
+                activeSceneId={sceneController.activeSceneId}
+                error={sceneController.error}
+                folderOptions={sceneFolderOptions}
+                isProcessing={sceneController.isProcessing}
+                onApply={applySceneFromSettings}
+                onCreate={createSceneFromSettings}
+                onDelete={deleteSceneFromSettings}
+                onGetReadiness={sceneController.getReadiness}
+                onPrepareCreate={prepareSceneCreate}
+                onRelink={relinkSceneFromSettings}
+                onRestore={async (sceneId) => {
+                  await sceneController.restoreScene(sceneId);
+                }}
+                scenes={sceneController.scenes}
+              />
+            </TabPanel>
+            <TabPanel
+              className={styles.panel}
+              data-starlit-part="settings-portable"
+              value="portable"
+            >
+              <PortableProfilePanel
+                onImported={() => window.location.reload()}
               />
             </TabPanel>
           </Tabs>

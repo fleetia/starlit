@@ -1,6 +1,10 @@
 import type { Locale } from '../i18n';
-import { DEFAULT_SYNC_STORAGE_VALUES } from '../platform/storage/defaults';
-import { runStorageMigration } from '../platform/storage/migrateStorage';
+import { installChromeCalendarMessageHandler } from '../calendar';
+import { DEFAULT_LOCAL_STORAGE_VALUES } from '../platform/storage/defaults';
+import {
+  hasLegacySyncHydrationChange,
+  runStorageMigration,
+} from '../platform/storage/migrateStorage';
 import storage from '../platform/storage/storage';
 import { installTabGroupImportPermissionCoordinator } from './tabGroupImportPermissionCoordinator';
 
@@ -8,6 +12,26 @@ const TUTORIAL_STATUS_KEY = 'tutorialStatus';
 const LOCALE_KEY = 'locale';
 
 installTabGroupImportPermissionCoordinator();
+installChromeCalendarMessageHandler();
+
+let storageMigrationQueue = Promise.resolve();
+
+export function installStorageMigrationSyncListener(): void {
+  chrome.storage.onChanged.addListener((changes, areaName): void => {
+    if (!hasLegacySyncHydrationChange(changes, areaName)) return;
+
+    storageMigrationQueue = storageMigrationQueue
+      .catch(() => undefined)
+      .then(runStorageMigration);
+    void storageMigrationQueue.catch((error: unknown) => {
+      if (typeof globalThis.reportError === 'function') {
+        globalThis.reportError(error);
+      }
+    });
+  });
+}
+
+installStorageMigrationSyncListener();
 
 export function getInstallLocale(uiLanguage: string): Locale {
   const language = uiLanguage.toLowerCase().split(/[-_]/)[0];
@@ -41,26 +65,27 @@ export async function initializeFirstInstallState(): Promise<void> {
 }
 
 export async function initializeInstallDefaults(): Promise<void> {
+  await runStorageMigration();
   await initializeFirstInstallState();
 
-  const entries = await Promise.all(
-    Object.entries(DEFAULT_SYNC_STORAGE_VALUES).map(async ([key, value]) => ({
+  const localEntries = await Promise.all(
+    Object.entries(DEFAULT_LOCAL_STORAGE_VALUES).map(async ([key, value]) => ({
       key,
-      storedValue: await storage.sync.get(key),
+      storedValue: await storage.local.get(key),
       value,
     })),
   );
-  const missingEntries = entries.filter(
+  const missingLocalEntries = localEntries.filter(
     ({ storedValue }) => storedValue === undefined,
   );
 
-  if (missingEntries.length > 0) {
-    await storage.sync.set(
-      Object.fromEntries(missingEntries.map(({ key, value }) => [key, value])),
+  if (missingLocalEntries.length > 0) {
+    await storage.local.set(
+      Object.fromEntries(
+        missingLocalEntries.map(({ key, value }) => [key, value]),
+      ),
     );
   }
-
-  await runStorageMigration();
 }
 
 chrome.runtime.onInstalled.addListener((details): void => {

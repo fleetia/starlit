@@ -1,7 +1,16 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { I18nProvider } from '../../i18n';
+import type { OverlayMotionPlaybackOverride } from '../../overlays/OverlayImageStacks';
 import type { OverlayImageLayer, OverlayScene } from '../../overlays/types';
+import type { OverlayImageMutation } from '../../overlays/useOverlayImageActions';
 import { LayersPanel, type LayersPanelCopy } from './LayersPanel';
 
 const COPY: LayersPanelCopy = {
@@ -19,6 +28,7 @@ const COPY: LayersPanelCopy = {
   layerList: 'Layer order',
   moveTowardBack: (name) => `Move ${name} toward back`,
   moveTowardFront: (name) => `Move ${name} toward front`,
+  moreActions: (name) => `More actions: ${name}`,
   processing: 'Processing images',
   removeImage: (name) => `Remove ${name}`,
   title: 'Overlay layers',
@@ -54,8 +64,19 @@ const SCENE: OverlayScene = {
 
 type RenderPanelOptions = {
   isProcessing?: boolean;
-  onEditPositions?: () => void;
+  onEditPositions?: (imageId?: string) => void;
   onFilesSelected?: (files: File[]) => void;
+  onImageAction?: (mutation: OverlayImageMutation) => Promise<void> | void;
+  onImageActionError?: (error: Error | null) => void;
+  onImageActionProcessingChange?: (isProcessing: boolean) => void;
+  onImageFilesPrepare?: (
+    files: readonly File[],
+  ) => Promise<OverlayImageLayer[]>;
+  onImagePreparationRollback?: (ids: readonly string[]) => Promise<void>;
+  onMotionPlaybackOverrideChange?: (
+    imageId: string,
+    override: OverlayMotionPlaybackOverride,
+  ) => void;
   onSceneChange?: (scene: OverlayScene) => void;
   scene?: OverlayScene;
 };
@@ -63,15 +84,34 @@ type RenderPanelOptions = {
 function renderPanel(
   options: RenderPanelOptions = {},
 ): ReturnType<typeof render> {
+  const onSceneChange = options.onSceneChange ?? vi.fn();
   return render(
-    <LayersPanel
-      copy={COPY}
-      isProcessing={options.isProcessing ?? false}
-      onEditPositions={options.onEditPositions ?? vi.fn()}
-      onFilesSelected={options.onFilesSelected ?? vi.fn()}
-      onSceneChange={options.onSceneChange ?? vi.fn()}
-      scene={options.scene ?? SCENE}
-    />,
+    <I18nProvider locale="en">
+      <LayersPanel
+        copy={COPY}
+        isProcessing={options.isProcessing ?? false}
+        onEditPositions={options.onEditPositions ?? vi.fn()}
+        onFilesSelected={options.onFilesSelected ?? vi.fn()}
+        onImageAction={
+          options.onImageAction ?? ((mutation) => onSceneChange(mutation.scene))
+        }
+        onImageActionError={options.onImageActionError ?? vi.fn()}
+        onImageActionProcessingChange={
+          options.onImageActionProcessingChange ?? vi.fn()
+        }
+        onImageFilesPrepare={
+          options.onImageFilesPrepare ?? vi.fn(async () => [])
+        }
+        onImagePreparationRollback={
+          options.onImagePreparationRollback ?? vi.fn(async () => undefined)
+        }
+        onMotionPlaybackOverrideChange={
+          options.onMotionPlaybackOverrideChange ?? vi.fn()
+        }
+        onSceneChange={onSceneChange}
+        scene={options.scene ?? SCENE}
+      />
+    </I18nProvider>,
   );
 }
 
@@ -116,7 +156,7 @@ describe('LayersPanel', () => {
     }
 
     expect(input.multiple).toBe(true);
-    expect(input.accept).toBe('image/*');
+    expect(input.accept).toBe('image/*,video/*,.gif');
     fireEvent.change(input, {
       target: { files: [firstFile, secondFile] },
     });
@@ -175,13 +215,52 @@ describe('LayersPanel', () => {
     });
   });
 
+  it('opens the shared row action menu and applies its scene mutation', async () => {
+    const onImageAction = vi.fn<
+      (mutation: OverlayImageMutation) => Promise<void>
+    >(async () => undefined);
+    renderPanel({ onImageAction });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: COPY.moreActions(FRONT_IMAGE.name),
+      }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide' }));
+
+    await waitFor(() => expect(onImageAction).toHaveBeenCalledOnce());
+    expect(onImageAction.mock.calls[0]?.[0].scene).toEqual({
+      layers: [
+        BACK_IMAGE,
+        { kind: 'bookmarks' },
+        { ...FRONT_IMAGE, hidden: true },
+      ],
+    });
+  });
+
   it('opens position editing when the scene has an image', () => {
-    const onEditPositions = vi.fn<() => void>();
+    const onEditPositions = vi.fn<(imageId?: string) => void>();
     renderPanel({ onEditPositions });
 
     fireEvent.click(screen.getByRole('button', { name: COPY.editPositions }));
 
     expect(onEditPositions).toHaveBeenCalledOnce();
+    expect(onEditPositions).toHaveBeenCalledWith();
+  });
+
+  it('opens the exact row image in the position editor', () => {
+    const onEditPositions = vi.fn<(imageId?: string) => void>();
+    renderPanel({ onEditPositions });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: COPY.moreActions(FRONT_IMAGE.name),
+      }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+
+    expect(onEditPositions).toHaveBeenCalledOnce();
+    expect(onEditPositions).toHaveBeenCalledWith(FRONT_IMAGE.id);
   });
 
   it('explains an empty scene and keeps position editing disabled', () => {

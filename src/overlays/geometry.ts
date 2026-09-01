@@ -8,10 +8,24 @@ export type ViewportSize = {
   width: number;
 };
 
-type Point = {
+export type OverlayPoint = {
   x: number;
   y: number;
 };
+
+export type OverlayBounds = {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+};
+
+export type OverlayPolygon = readonly [
+  OverlayPoint,
+  OverlayPoint,
+  OverlayPoint,
+  OverlayPoint,
+];
 
 type AnchorAxis = 'start' | 'center' | 'end';
 
@@ -115,7 +129,7 @@ function getLocalAnchorPoint(
   anchor: OverlayAnchor,
   width: number,
   height: number,
-): Point {
+): OverlayPoint {
   const axes = ANCHOR_AXES[anchor];
 
   return {
@@ -129,7 +143,7 @@ function getViewportAnchorPoint(
   offsetX: number,
   offsetY: number,
   viewport: ViewportSize,
-): Point {
+): OverlayPoint {
   const axes = ANCHOR_AXES[anchor];
 
   return {
@@ -138,7 +152,7 @@ function getViewportAnchorPoint(
   };
 }
 
-function rotatePoint(point: Point, rotationDeg: number): Point {
+function rotatePoint(point: OverlayPoint, rotationDeg: number): OverlayPoint {
   const radians = (rotationDeg * Math.PI) / 180;
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);
@@ -147,6 +161,97 @@ function rotatePoint(point: Point, rotationDeg: number): Point {
     x: point.x * cosine - point.y * sine,
     y: point.x * sine + point.y * cosine,
   };
+}
+
+function transformLocalPoint(
+  point: OverlayPoint,
+  localAnchor: OverlayPoint,
+  viewportAnchor: OverlayPoint,
+  rotationDeg: number,
+): OverlayPoint {
+  const rotatedPoint = rotatePoint(
+    {
+      x: point.x - localAnchor.x,
+      y: point.y - localAnchor.y,
+    },
+    rotationDeg,
+  );
+
+  return {
+    x: viewportAnchor.x + rotatedPoint.x,
+    y: viewportAnchor.y + rotatedPoint.y,
+  };
+}
+
+export function getOverlayImagePolygon(
+  layer: OverlayImageLayer,
+  viewport: ViewportSize,
+): OverlayPolygon {
+  const scale = getOverlayImageScale(layer);
+  const width = layer.width * scale;
+  const height = layer.height * scale;
+  const localAnchor = getLocalAnchorPoint(layer.anchor, width, height);
+  const viewportAnchor = getViewportAnchorPoint(
+    layer.anchor,
+    layer.offsetX,
+    layer.offsetY,
+    viewport,
+  );
+
+  return [
+    transformLocalPoint(
+      { x: 0, y: 0 },
+      localAnchor,
+      viewportAnchor,
+      layer.rotationDeg,
+    ),
+    transformLocalPoint(
+      { x: width, y: 0 },
+      localAnchor,
+      viewportAnchor,
+      layer.rotationDeg,
+    ),
+    transformLocalPoint(
+      { x: width, y: height },
+      localAnchor,
+      viewportAnchor,
+      layer.rotationDeg,
+    ),
+    transformLocalPoint(
+      { x: 0, y: height },
+      localAnchor,
+      viewportAnchor,
+      layer.rotationDeg,
+    ),
+  ];
+}
+
+export function getOverlayImageBounds(
+  layer: OverlayImageLayer,
+  viewport: ViewportSize,
+): OverlayBounds {
+  const polygon = getOverlayImagePolygon(layer, viewport);
+  const xCoordinates = polygon.map((point) => point.x);
+  const yCoordinates = polygon.map((point) => point.y);
+
+  return {
+    bottom: Math.max(...yCoordinates),
+    left: Math.min(...xCoordinates),
+    right: Math.max(...xCoordinates),
+    top: Math.min(...yCoordinates),
+  };
+}
+
+export function getOverlayImageAnchorPoint(
+  layer: OverlayImageLayer,
+  viewport: ViewportSize,
+): OverlayPoint {
+  return getViewportAnchorPoint(
+    layer.anchor,
+    layer.offsetX,
+    layer.offsetY,
+    viewport,
+  );
 }
 
 export function getOverlayImageStyle(layer: OverlayImageLayer): CSSProperties {

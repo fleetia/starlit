@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RasterizedOverlayImage } from './imageProcessing';
+import type { ProcessedOverlayMedia } from './mediaProcessing';
 import type { OverlayImageLayer, OverlayScene } from './types';
 
 const overlayMocks = vi.hoisted(() => ({
@@ -12,8 +12,7 @@ const overlayMocks = vi.hoisted(() => ({
   localGetAll: vi.fn<() => Promise<Record<string, unknown>>>(),
   localRemove: vi.fn<(keys: string | string[]) => Promise<void>>(),
   localSet: vi.fn<(items: Record<string, unknown>) => Promise<void>>(),
-  rasterizeOverlayImage:
-    vi.fn<(file: File) => Promise<RasterizedOverlayImage>>(),
+  processOverlayMedia: vi.fn<(file: File) => Promise<ProcessedOverlayMedia>>(),
   saveMedia: vi.fn<(key: string, blob: Blob) => Promise<string>>(),
 }));
 
@@ -35,8 +34,8 @@ vi.mock('../platform/storage/storage', () => ({
   },
 }));
 
-vi.mock('./imageProcessing', () => ({
-  rasterizeOverlayImage: overlayMocks.rasterizeOverlayImage,
+vi.mock('./processOverlayMedia', () => ({
+  processOverlayMedia: overlayMocks.processOverlayMedia,
 }));
 
 import { useOverlayScene } from './useOverlayScene';
@@ -47,9 +46,10 @@ import {
   getOverlayMediaKey,
 } from './model';
 
-const RASTERIZED_IMAGE: RasterizedOverlayImage = {
+const PROCESSED_IMAGE: ProcessedOverlayMedia = {
   blob: new Blob(['image'], { type: 'image/webp' }),
   height: 180,
+  mediaKind: 'static',
   width: 320,
 };
 
@@ -65,7 +65,7 @@ beforeEach((): void => {
   overlayMocks.localGetAll.mockResolvedValue({});
   overlayMocks.localRemove.mockResolvedValue(undefined);
   overlayMocks.localSet.mockResolvedValue(undefined);
-  overlayMocks.rasterizeOverlayImage.mockResolvedValue(RASTERIZED_IMAGE);
+  overlayMocks.processOverlayMedia.mockResolvedValue(PROCESSED_IMAGE);
   overlayMocks.saveMedia.mockResolvedValue('blob:overlay-image');
 });
 
@@ -333,11 +333,11 @@ describe('useOverlayScene', () => {
     expect(overlayMocks.deleteMediaBatch).not.toHaveBeenCalled();
   });
 
-  it('rasterizes and stores files sequentially without persisting metadata', async () => {
+  it('processes and stores files sequentially without persisting metadata', async () => {
     const events: string[] = [];
-    overlayMocks.rasterizeOverlayImage.mockImplementation(async (file) => {
-      events.push(`rasterize:${file.name}`);
-      return RASTERIZED_IMAGE;
+    overlayMocks.processOverlayMedia.mockImplementation(async (file) => {
+      events.push(`process:${file.name}`);
+      return PROCESSED_IMAGE;
     });
     overlayMocks.saveMedia.mockImplementation(async (key) => {
       events.push(`save:${key}`);
@@ -359,9 +359,9 @@ describe('useOverlayScene', () => {
       layers = await result.current.prepareFiles(files);
     });
 
-    expect(events[0]).toBe('rasterize:first.png');
+    expect(events[0]).toBe('process:first.png');
     expect(events[1]).toMatch(/^save:overlayImageDraft:.+:image-1$/);
-    expect(events[2]).toBe('rasterize:second.jpg');
+    expect(events[2]).toBe('process:second.jpg');
     expect(events[3]).toMatch(/^save:overlayImageDraft:.+:image-2$/);
     expect(layers).toEqual([
       expect.objectContaining({
@@ -386,14 +386,59 @@ describe('useOverlayScene', () => {
     expect(overlayMocks.deleteMediaBatch).not.toHaveBeenCalled();
   });
 
-  it('reports processing while image rasterization is pending', async () => {
-    let resolveRasterization:
-      | ((image: RasterizedOverlayImage) => void)
-      | undefined;
-    overlayMocks.rasterizeOverlayImage.mockImplementation(
+  it('marks processed GIFs and videos as motion layers before saving', async () => {
+    const motionBlob = new Blob(['motion'], { type: 'video/webm' });
+    overlayMocks.processOverlayMedia.mockResolvedValue({
+      blob: motionBlob,
+      height: 720,
+      mediaKind: 'motion',
+      width: 1280,
+    });
+    const { result } = renderHook(() => useOverlayScene());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    let layers: OverlayImageLayer[] = [];
+
+    await act(async (): Promise<void> => {
+      layers = await result.current.prepareFiles([
+        new File(['video'], 'stars.webm', { type: 'video/webm' }),
+      ]);
+    });
+
+    expect(layers[0]).toMatchObject({
+      height: 720,
+      mediaKind: 'motion',
+      name: 'stars.webm',
+      width: 1280,
+    });
+    expect(overlayMocks.saveMedia).toHaveBeenCalledWith(
+      expect.stringMatching(/^overlayImageDraft:.+:image-1$/),
+      motionBlob,
+    );
+  });
+
+  it('does not save media when processor validation fails', async () => {
+    overlayMocks.processOverlayMedia.mockRejectedValue(
+      new Error('Overlay GIF must be no longer than 30 seconds.'),
+    );
+    const { result } = renderHook(() => useOverlayScene());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    await expect(
+      act(async (): Promise<void> => {
+        await result.current.prepareFiles([
+          new File(['gif'], 'too-long.gif', { type: 'image/gif' }),
+        ]);
+      }),
+    ).rejects.toThrow('30 seconds');
+    expect(overlayMocks.saveMedia).not.toHaveBeenCalled();
+  });
+
+  it('reports processing while media processing is pending', async () => {
+    let resolveProcessing: ((media: ProcessedOverlayMedia) => void) | undefined;
+    overlayMocks.processOverlayMedia.mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolveRasterization = resolve;
+          resolveProcessing = resolve;
         }),
     );
     const { result } = renderHook(() => useOverlayScene());
@@ -408,7 +453,7 @@ describe('useOverlayScene', () => {
     expect(result.current.isProcessing).toBe(true);
 
     await act(async (): Promise<void> => {
-      resolveRasterization?.(RASTERIZED_IMAGE);
+      resolveProcessing?.(PROCESSED_IMAGE);
       await preparation;
     });
 
@@ -416,8 +461,8 @@ describe('useOverlayScene', () => {
   });
 
   it('removes files prepared earlier in the batch when processing fails', async () => {
-    overlayMocks.rasterizeOverlayImage
-      .mockResolvedValueOnce(RASTERIZED_IMAGE)
+    overlayMocks.processOverlayMedia
+      .mockResolvedValueOnce(PROCESSED_IMAGE)
       .mockRejectedValueOnce(new Error('decode failed'));
     const { result } = renderHook(() => useOverlayScene());
     await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -457,7 +502,7 @@ describe('useOverlayScene', () => {
     expect(draftMediaKey).toMatch(/^overlayImageDraft:.+:image-1$/);
     overlayMocks.loadMediaBlob.mockImplementation(async (key) =>
       key === draftMediaKey || key === 'overlayImage:image-1'
-        ? RASTERIZED_IMAGE.blob
+        ? PROCESSED_IMAGE.blob
         : null,
     );
     overlayMocks.localSet.mockClear();
@@ -473,7 +518,7 @@ describe('useOverlayScene', () => {
 
     expect(overlayMocks.saveMedia).toHaveBeenCalledWith(
       'overlayImage:image-1',
-      RASTERIZED_IMAGE.blob,
+      PROCESSED_IMAGE.blob,
     );
     expect(overlayMocks.localSet).toHaveBeenCalledWith({
       overlayScene: {
@@ -571,7 +616,7 @@ describe('useOverlayScene', () => {
   it('persists validated scenes and discards deduplicated image ids', async () => {
     const { result } = renderHook(() => useOverlayScene());
     await waitFor(() => expect(result.current.isLoaded).toBe(true));
-    overlayMocks.loadMediaBlob.mockResolvedValue(RASTERIZED_IMAGE.blob);
+    overlayMocks.loadMediaBlob.mockResolvedValue(PROCESSED_IMAGE.blob);
     overlayMocks.deleteMediaBatch.mockClear();
     const nextScene: OverlayScene = {
       layers: [
@@ -696,7 +741,7 @@ describe('useOverlayScene', () => {
 
       persistedScene = structuredClone(items.overlayScene);
     });
-    overlayMocks.loadMediaBlob.mockResolvedValue(RASTERIZED_IMAGE.blob);
+    overlayMocks.loadMediaBlob.mockResolvedValue(PROCESSED_IMAGE.blob);
     const firstSession = renderHook(() => useOverlayScene());
     const secondSession = renderHook(() => useOverlayScene());
     await waitFor(() =>

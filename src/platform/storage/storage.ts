@@ -99,4 +99,40 @@ const local = {
   },
 };
 
-export default { sync, local };
+const session = {
+  set: async (items: { [key: string]: unknown }): Promise<void> => {
+    if (import.meta.env.DEV) {
+      Object.keys(items).forEach((key) =>
+        sessionStorage.setItem(`__session__${key}`, JSON.stringify(items[key])),
+      );
+    } else {
+      await chrome.storage.session.set(items);
+    }
+  },
+  get: async (key: string): Promise<unknown> => {
+    if (import.meta.env.DEV) {
+      const data = sessionStorage.getItem(`__session__${key}`);
+      if (data == null) return undefined;
+      try {
+        return JSON.parse(data);
+      } catch {
+        return data;
+      }
+    }
+
+    const result = await chrome.storage.session.get(key);
+    return result[key];
+  },
+  remove: async (keys: string | string[]): Promise<void> => {
+    const keyList = Array.isArray(keys) ? keys : [keys];
+
+    if (import.meta.env.DEV) {
+      keyList.forEach((key) => sessionStorage.removeItem(`__session__${key}`));
+      return;
+    }
+
+    await chrome.storage.session.remove(keyList);
+  },
+};
+
+export default { local, session, sync };

@@ -1,4 +1,9 @@
-export const MAX_OVERLAY_IMAGE_DIMENSION = 1920;
+import {
+  MAX_OVERLAY_MEDIA_DIMENSION,
+  MAX_OVERLAY_MEDIA_FILE_SIZE_BYTES,
+} from './mediaProcessing';
+
+export const MAX_OVERLAY_IMAGE_DIMENSION = MAX_OVERLAY_MEDIA_DIMENSION;
 
 export type RasterizedOverlayImage = {
   blob: Blob;
@@ -6,25 +11,18 @@ export type RasterizedOverlayImage = {
   height: number;
 };
 
-function getRasterizedSize(
-  width: number,
-  height: number,
-  maxDimension: number,
-): { width: number; height: number } {
-  const scale = Math.min(1, maxDimension / Math.max(width, height));
-
-  return {
-    height: Math.max(1, Math.round(height * scale)),
-    width: Math.max(1, Math.round(width * scale)),
-  };
-}
-
 export function rasterizeOverlayImage(
   file: File,
   maxDimension = MAX_OVERLAY_IMAGE_DIMENSION,
 ): Promise<RasterizedOverlayImage> {
   if (!file.type.startsWith('image/')) {
     return Promise.reject(new Error('Overlay file must be an image.'));
+  }
+
+  if (file.size > MAX_OVERLAY_MEDIA_FILE_SIZE_BYTES) {
+    return Promise.reject(
+      new Error('Overlay image must be no larger than 20 MiB.'),
+    );
   }
 
   if (!Number.isFinite(maxDimension) || maxDimension <= 0) {
@@ -50,8 +48,16 @@ export function rasterizeOverlayImage(
         rejectRasterization(new Error('Overlay image has invalid dimensions.'));
         return;
       }
+      if (naturalWidth > maxDimension || naturalHeight > maxDimension) {
+        rejectRasterization(
+          new Error(
+            `Overlay image longest edge must be no larger than ${maxDimension} pixels.`,
+          ),
+        );
+        return;
+      }
 
-      const size = getRasterizedSize(naturalWidth, naturalHeight, maxDimension);
+      const size = { height: naturalHeight, width: naturalWidth };
       const canvas = document.createElement('canvas');
       canvas.width = size.width;
       canvas.height = size.height;

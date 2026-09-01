@@ -14,7 +14,23 @@ import { Button, PlacementPicker, Text } from '@fleetia/lagrange';
 
 import { useTranslation, type TranslationKey } from '../i18n';
 import {
+  deleteOverlayImages,
+  getOverlayImageSelectionIds,
+  groupOverlayImages,
+  moveOverlayImages,
+  setOverlayImagesHidden,
+  setOverlayImagesLocked,
+  ungroupOverlayImages,
+} from './actions';
+import {
+  getOverlayImagesIntersectingRect,
+  snapOverlayImages,
+  type OverlaySelectionRect,
+  type OverlaySnapGuide,
+} from './canvasInteractions';
+import {
   changeOverlayImageAnchor,
+  getOverlayImageAnchorPoint,
   getOverlayImageStyle,
   moveOverlayImage,
 } from './geometry';
@@ -23,12 +39,23 @@ import {
   MAX_OVERLAY_IMAGE_SCALE,
   MIN_OVERLAY_IMAGE_SCALE,
   getOverlayImageLayers,
+  getOverlayImageMediaKind,
+  getOverlayImagePlaybackMode,
+  getOverlayImagePlaybackRate,
   getOverlayImageScale,
+  isOverlayImageHidden,
+  isOverlayImageLocked,
 } from './model';
-import type { OverlayAnchor, OverlayImageLayer, OverlayScene } from './types';
+import type {
+  OverlayAnchor,
+  OverlayImageLayer,
+  OverlayPlaybackRate,
+  OverlayScene,
+} from './types';
 import * as styles from './OverlayPositionEditor.css';
 
 const DEFAULT_OFFSET = 24;
+const OVERLAY_PLAYBACK_RATES: readonly OverlayPlaybackRate[] = [0.5, 1, 1.5, 2];
 const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button',
@@ -51,14 +78,26 @@ const ANCHOR_LABEL_KEYS: Record<OverlayAnchor, TranslationKey> = {
   'bottom-right': 'layers.anchor.bottomRight',
 };
 
-type DragState = {
+type ImageDragState = {
   image: OverlayImageLayer;
   latestImage: OverlayImageLayer;
-  pointerId: number;
   previewElements: HTMLElement[];
+};
+
+type DragState = {
+  images: ImageDragState[];
+  pointerId: number;
   startX: number;
   startY: number;
   target: HTMLButtonElement;
+};
+
+type MarqueeState = {
+  baseImageIds: string[];
+  pointerId: number;
+  startX: number;
+  startY: number;
+  target: HTMLDivElement;
 };
 
 type ToolbarDragState = {
@@ -77,7 +116,10 @@ type ToolbarPosition = {
   top: number;
 };
 
+type AnchorPreviewViewport = 'narrow' | 'wide';
+
 export type OverlayPositionEditorProps = {
+  initialSelectedImageId?: string;
   onChange: (scene: OverlayScene) => void;
   onClose: () => void;
   scene: OverlayScene;
@@ -142,11 +184,45 @@ function previewImagePosition(
 
 function releasePointerCapture(dragState: {
   pointerId: number;
-  target: HTMLButtonElement;
+  target: HTMLElement;
 }): void {
   if (dragState.target.hasPointerCapture?.(dragState.pointerId)) {
     dragState.target.releasePointerCapture?.(dragState.pointerId);
   }
+}
+
+function getSelectionRect(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): OverlaySelectionRect {
+  return {
+    bottom: Math.max(startY, endY),
+    left: Math.min(startX, endX),
+    right: Math.max(startX, endX),
+    top: Math.min(startY, endY),
+  };
+}
+
+function replaceImages(
+  scene: OverlayScene,
+  images: readonly OverlayImageLayer[],
+): OverlayScene {
+  const imagesById = new Map(images.map((image) => [image.id, image]));
+  return {
+    layers: scene.layers.map((layer) =>
+      layer.kind === 'image' ? (imagesById.get(layer.id) ?? layer) : layer,
+    ),
+  };
+}
+
+function getGroupId(imageIds: readonly string[]): string {
+  const encodedIds = [...imageIds]
+    .sort()
+    .map((imageId) => `${imageId.length}:${imageId}`)
+    .join('|');
+  return `overlay-group:${encodedIds}`;
 }
 
 function clampToolbarPosition(
@@ -162,6 +238,7 @@ function clampToolbarPosition(
 }
 
 export function OverlayPositionEditor({
+  initialSelectedImageId,
   onChange,
   onClose,
   scene,
@@ -171,25 +248,59 @@ export function OverlayPositionEditor({
   const zoomId = useId();
   const instructionsId = useId();
   const imageLayers = useMemo(() => getOverlayImageLayers(scene), [scene]);
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(
-    () => imageLayers[0]?.id ?? null,
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>(() => {
+    const initialImage =
+      imageLayers.find((image) => image.id === initialSelectedImageId) ??
+      imageLayers[0];
+    return initialImage ? [initialImage.id] : [];
+  });
+  const [dragPreviewImages, setDragPreviewImages] = useState<
+    OverlayImageLayer[]
+  >([]);
+  const [marqueeRect, setMarqueeRect] = useState<OverlaySelectionRect | null>(
+    null,
   );
+  const [snapGuides, setSnapGuides] = useState<OverlaySnapGuide[]>([]);
+  const [viewportSize, setViewportSize] = useState(() => ({
+    height: window.innerHeight,
+    width: window.innerWidth,
+  }));
   const [toolbarPosition, setToolbarPosition] =
     useState<ToolbarPosition | null>(null);
+  const [anchorPreviewViewport, setAnchorPreviewViewport] =
+    useState<AnchorPreviewViewport>('wide');
   const dragStateRef = useRef<DragState | null>(null);
+  const marqueeStateRef = useRef<MarqueeState | null>(null);
   const toolbarDragStateRef = useRef<ToolbarDragState | null>(null);
   const toolbarRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const doneButtonRef = useRef<HTMLButtonElement>(null);
   const sceneRef = useRef(scene);
 
+  const effectiveSelectedImageIds = useMemo(
+    () => getOverlayImageSelectionIds(scene, selectedImageIds),
+    [scene, selectedImageIds],
+  );
+  const selectedImages = imageLayers.filter((image) =>
+    effectiveSelectedImageIds.has(image.id),
+  );
   const selectedImage =
-    (selectedImageId ? findImageLayer(scene, selectedImageId) : undefined) ??
-    imageLayers[0];
-  const effectiveSelectedImageId = selectedImage?.id ?? null;
+    selectedImages.length === 1 ? selectedImages[0] : undefined;
+  const primarySelectedImage = [...selectedImages].at(-1);
   const selectedImageScale = selectedImage
     ? getOverlayImageScale(selectedImage)
     : DEFAULT_OVERLAY_IMAGE_SCALE;
+  const selectedPreviewImages = selectedImages.map(
+    (image) =>
+      dragPreviewImages.find((preview) => preview.id === image.id) ?? image,
+  );
+  const areAllSelectedImagesHidden =
+    selectedImages.length > 0 && selectedImages.every(isOverlayImageHidden);
+  const areAllSelectedImagesLocked =
+    selectedImages.length > 0 && selectedImages.every(isOverlayImageLocked);
+  const hasGroupedSelection = selectedImages.some(
+    (image) => image.groupId !== undefined,
+  );
 
   const cancelActiveDrag = useCallback((): void => {
     const dragState = dragStateRef.current;
@@ -197,25 +308,62 @@ export function OverlayPositionEditor({
       return;
     }
 
-    const sceneImage = findImageLayer(sceneRef.current, dragState.image.id);
-    previewImagePosition(
-      dragState.previewElements,
-      sceneImage ?? dragState.image,
-    );
+    dragState.images.forEach((draggedImage) => {
+      const sceneImage = findImageLayer(
+        sceneRef.current,
+        draggedImage.image.id,
+      );
+      previewImagePosition(
+        draggedImage.previewElements,
+        sceneImage ?? draggedImage.image,
+      );
+    });
     dragStateRef.current = null;
     releasePointerCapture(dragState);
+    setDragPreviewImages([]);
+    setSnapGuides([]);
+  }, []);
+
+  const cancelActiveMarquee = useCallback((): void => {
+    const marqueeState = marqueeStateRef.current;
+    if (!marqueeState) {
+      return;
+    }
+
+    marqueeStateRef.current = null;
+    releasePointerCapture(marqueeState);
+    setMarqueeRect(null);
   }, []);
 
   const closeEditor = useCallback((): void => {
     cancelActiveDrag();
+    cancelActiveMarquee();
     onClose();
-  }, [cancelActiveDrag, onClose]);
+  }, [cancelActiveDrag, cancelActiveMarquee, onClose]);
 
   useEffect(() => {
     sceneRef.current = scene;
   }, [scene]);
 
-  useEffect(() => () => cancelActiveDrag(), [cancelActiveDrag]);
+  useEffect(() => {
+    function updateViewportSize(): void {
+      setViewportSize({
+        height: window.innerHeight,
+        width: window.innerWidth,
+      });
+    }
+
+    window.addEventListener('resize', updateViewportSize);
+    return () => window.removeEventListener('resize', updateViewportSize);
+  }, []);
+
+  useEffect(
+    () => () => {
+      cancelActiveDrag();
+      cancelActiveMarquee();
+    },
+    [cancelActiveDrag, cancelActiveMarquee],
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -277,14 +425,40 @@ export function OverlayPositionEditor({
     return () => window.removeEventListener('resize', keepToolbarInViewport);
   }, []);
 
-  function commitImage(nextImage: OverlayImageLayer): void {
-    const nextScene = {
-      layers: sceneRef.current.layers.map((layer) =>
-        layer.kind === 'image' && layer.id === nextImage.id ? nextImage : layer,
-      ),
-    };
+  function commitScene(nextScene: OverlayScene): void {
+    if (nextScene === sceneRef.current) {
+      return;
+    }
+
     sceneRef.current = nextScene;
     onChange(nextScene);
+  }
+
+  function commitImages(nextImages: readonly OverlayImageLayer[]): void {
+    commitScene(replaceImages(sceneRef.current, nextImages));
+  }
+
+  function commitImage(nextImage: OverlayImageLayer): void {
+    commitImages([nextImage]);
+  }
+
+  function toggleImageSelection(image: OverlayImageLayer): void {
+    setSelectedImageIds((currentIds) => {
+      const effectiveIds = getOverlayImageSelectionIds(
+        sceneRef.current,
+        currentIds,
+      );
+      if (!effectiveIds.has(image.id)) {
+        return [...currentIds, image.id];
+      }
+
+      return currentIds.filter((imageId) => {
+        const selected = findImageLayer(sceneRef.current, imageId);
+        return image.groupId === undefined
+          ? imageId !== image.id
+          : selected?.groupId !== image.groupId;
+      });
+    });
   }
 
   function handlePointerDown(
@@ -296,13 +470,39 @@ export function OverlayPositionEditor({
     }
 
     event.preventDefault();
-    setSelectedImageId(image.id);
-    const currentImage = findImageLayer(sceneRef.current, image.id) ?? image;
+    if (event.shiftKey) {
+      toggleImageSelection(image);
+      return;
+    }
+
+    const currentSelection = getOverlayImageSelectionIds(
+      sceneRef.current,
+      selectedImageIds,
+    );
+    const selectionSeedIds = currentSelection.has(image.id)
+      ? [...currentSelection]
+      : [image.id];
+    const nextSelectedIds = [
+      ...getOverlayImageSelectionIds(sceneRef.current, selectionSeedIds),
+    ];
+    setSelectedImageIds(nextSelectedIds);
+    const dragImages = getOverlayImageLayers(sceneRef.current).filter(
+      (candidate) => nextSelectedIds.includes(candidate.id),
+    );
+    if (
+      dragImages.length === 0 ||
+      dragImages.some((candidate) => isOverlayImageLocked(candidate))
+    ) {
+      return;
+    }
+
     dragStateRef.current = {
-      image: currentImage,
-      latestImage: currentImage,
+      images: dragImages.map((dragImage) => ({
+        image: dragImage,
+        latestImage: dragImage,
+        previewElements: getPreviewElements(dragImage.id),
+      })),
       pointerId: event.pointerId,
-      previewElements: getPreviewElements(image.id),
       startX: event.clientX,
       startY: event.clientY,
       target: event.currentTarget,
@@ -317,13 +517,32 @@ export function OverlayPositionEditor({
     }
 
     event.preventDefault();
-    const nextImage = moveOverlayImage(
-      dragState.image,
-      event.clientX - dragState.startX,
-      event.clientY - dragState.startY,
+    const movedImages = dragState.images.map((draggedImage) =>
+      moveOverlayImage(
+        draggedImage.image,
+        event.clientX - dragState.startX,
+        event.clientY - dragState.startY,
+      ),
     );
-    dragState.latestImage = nextImage;
-    previewImagePosition(dragState.previewElements, nextImage);
+    const snapped = snapOverlayImages(
+      movedImages,
+      getOverlayImageLayers(sceneRef.current),
+      viewportSize,
+      { altKey: event.altKey },
+    );
+    dragState.images.forEach((draggedImage) => {
+      const nextImage = snapped.images.find(
+        (candidate) => candidate.id === draggedImage.image.id,
+      );
+      if (!nextImage) {
+        return;
+      }
+
+      draggedImage.latestImage = nextImage;
+      previewImagePosition(draggedImage.previewElements, nextImage);
+    });
+    setDragPreviewImages(snapped.images);
+    setSnapGuides(snapped.guides);
   }
 
   function completePointerDrag(event: PointerEvent<HTMLButtonElement>): void {
@@ -334,9 +553,17 @@ export function OverlayPositionEditor({
 
     dragStateRef.current = null;
     releasePointerCapture(dragState);
+    setDragPreviewImages([]);
+    setSnapGuides([]);
 
-    if (dragState.latestImage !== dragState.image) {
-      commitImage(dragState.latestImage);
+    if (
+      dragState.images.some(
+        (draggedImage) => draggedImage.latestImage !== draggedImage.image,
+      )
+    ) {
+      commitImages(
+        dragState.images.map((draggedImage) => draggedImage.latestImage),
+      );
     }
   }
 
@@ -346,6 +573,81 @@ export function OverlayPositionEditor({
     }
 
     cancelActiveDrag();
+  }
+
+  function handleMarqueePointerDown(event: PointerEvent<HTMLDivElement>): void {
+    if (event.button !== 0 || event.target !== event.currentTarget) {
+      return;
+    }
+
+    event.preventDefault();
+    const baseImageIds = event.shiftKey ? [...effectiveSelectedImageIds] : [];
+    marqueeStateRef.current = {
+      baseImageIds,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      target: event.currentTarget,
+    };
+    setMarqueeRect(
+      getSelectionRect(
+        event.clientX,
+        event.clientY,
+        event.clientX,
+        event.clientY,
+      ),
+    );
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleMarqueePointerMove(event: PointerEvent<HTMLDivElement>): void {
+    const marqueeState = marqueeStateRef.current;
+    if (!marqueeState || marqueeState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    setMarqueeRect(
+      getSelectionRect(
+        marqueeState.startX,
+        marqueeState.startY,
+        event.clientX,
+        event.clientY,
+      ),
+    );
+  }
+
+  function completeMarquee(event: PointerEvent<HTMLDivElement>): void {
+    const marqueeState = marqueeStateRef.current;
+    if (!marqueeState || marqueeState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const selectionRect = getSelectionRect(
+      marqueeState.startX,
+      marqueeState.startY,
+      event.clientX,
+      event.clientY,
+    );
+    const intersectingIds = getOverlayImagesIntersectingRect(
+      getOverlayImageLayers(sceneRef.current),
+      selectionRect,
+      viewportSize,
+    ).map((image) => image.id);
+    setSelectedImageIds([
+      ...new Set([...marqueeState.baseImageIds, ...intersectingIds]),
+    ]);
+    marqueeStateRef.current = null;
+    releasePointerCapture(marqueeState);
+    setMarqueeRect(null);
+  }
+
+  function cancelMarquee(event: PointerEvent<HTMLDivElement>): void {
+    if (marqueeStateRef.current?.pointerId !== event.pointerId) {
+      return;
+    }
+
+    cancelActiveMarquee();
   }
 
   function handleToolbarPointerDown(
@@ -455,8 +757,18 @@ export function OverlayPositionEditor({
 
   function handleImageKeyDown(
     event: KeyboardEvent<HTMLButtonElement>,
-    imageId: string,
+    image: OverlayImageLayer,
   ): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (event.shiftKey) {
+        toggleImageSelection(image);
+      } else {
+        setSelectedImageIds([image.id]);
+      }
+      return;
+    }
+
     const amount = event.shiftKey ? 10 : 1;
     const movement = {
       ArrowDown: { x: 0, y: amount },
@@ -469,13 +781,114 @@ export function OverlayPositionEditor({
       return;
     }
 
-    const currentImage = findImageLayer(sceneRef.current, imageId);
-    if (!currentImage) {
+    event.preventDefault();
+    const currentSelection = getOverlayImageSelectionIds(
+      sceneRef.current,
+      selectedImageIds,
+    );
+    const nextSelectedIds = currentSelection.has(image.id)
+      ? [...currentSelection]
+      : [image.id];
+    const imagesToMove = getOverlayImageLayers(sceneRef.current).filter(
+      (candidate) => nextSelectedIds.includes(candidate.id),
+    );
+    setSelectedImageIds(nextSelectedIds);
+    if (imagesToMove.some(isOverlayImageLocked)) {
       return;
     }
 
-    event.preventDefault();
-    commitImage(moveOverlayImage(currentImage, movement.x, movement.y));
+    commitScene(
+      moveOverlayImages(
+        sceneRef.current,
+        nextSelectedIds,
+        movement.x,
+        movement.y,
+      ),
+    );
+  }
+
+  function toggleSelectedImagesHidden(): void {
+    commitScene(
+      setOverlayImagesHidden(
+        sceneRef.current,
+        [...effectiveSelectedImageIds],
+        !areAllSelectedImagesHidden,
+      ),
+    );
+  }
+
+  function toggleSelectedImagesLocked(): void {
+    commitScene(
+      setOverlayImagesLocked(
+        sceneRef.current,
+        [...effectiveSelectedImageIds],
+        !areAllSelectedImagesLocked,
+      ),
+    );
+  }
+
+  function groupSelectedImages(): void {
+    const imageIds = [...effectiveSelectedImageIds];
+    if (imageIds.length < 2) {
+      return;
+    }
+
+    setSelectedImageIds(imageIds);
+    commitScene(
+      groupOverlayImages(sceneRef.current, imageIds, getGroupId(imageIds)),
+    );
+  }
+
+  function ungroupSelectedImages(): void {
+    const imageIds = [...effectiveSelectedImageIds];
+    setSelectedImageIds(imageIds);
+    commitScene(ungroupOverlayImages(sceneRef.current, imageIds));
+  }
+
+  function deleteSelectedImages(): void {
+    const nextScene = deleteOverlayImages(sceneRef.current, [
+      ...effectiveSelectedImageIds,
+    ]);
+    const nextImage = getOverlayImageLayers(nextScene)[0];
+    setSelectedImageIds(nextImage ? [nextImage.id] : []);
+    commitScene(nextScene);
+  }
+
+  function handlePlaybackRateChange(
+    event: ChangeEvent<HTMLSelectElement>,
+  ): void {
+    if (
+      !selectedImage ||
+      getOverlayImageMediaKind(selectedImage) !== 'motion'
+    ) {
+      return;
+    }
+
+    const playbackRate = OVERLAY_PLAYBACK_RATES.find(
+      (rate) => rate === Number(event.currentTarget.value),
+    );
+    if (playbackRate === undefined) {
+      return;
+    }
+
+    commitImage({ ...selectedImage, playbackRate });
+  }
+
+  function togglePlaybackMode(): void {
+    if (
+      !selectedImage ||
+      getOverlayImageMediaKind(selectedImage) !== 'motion'
+    ) {
+      return;
+    }
+
+    commitImage({
+      ...selectedImage,
+      playbackMode:
+        getOverlayImagePlaybackMode(selectedImage) === 'active-tab-only'
+          ? 'always'
+          : 'active-tab-only',
+    });
   }
 
   function handleRotationChange(event: ChangeEvent<HTMLInputElement>): void {
@@ -514,12 +927,7 @@ export function OverlayPositionEditor({
       return;
     }
 
-    commitImage(
-      changeOverlayImageAnchor(selectedImage, anchor, {
-        height: window.innerHeight,
-        width: window.innerWidth,
-      }),
-    );
+    commitImage(changeOverlayImageAnchor(selectedImage, anchor, viewportSize));
   }
 
   function resetSelectedPosition(): void {
@@ -547,32 +955,88 @@ export function OverlayPositionEditor({
       onKeyDown={handleEditorKeyDown}
       role="dialog"
     >
-      <div className={styles.canvas} data-starlit-part="overlay-editor-canvas">
-        {scene.layers.map((layer, index) =>
-          layer.kind === 'image' ? (
+      <div
+        className={styles.canvas}
+        data-starlit-part="overlay-editor-canvas"
+        onPointerCancel={cancelMarquee}
+        onPointerDown={handleMarqueePointerDown}
+        onPointerMove={handleMarqueePointerMove}
+        onPointerUp={completeMarquee}
+      >
+        {scene.layers.map((layer, index) => {
+          if (layer.kind !== 'image') {
+            return null;
+          }
+
+          const previewLayer =
+            dragPreviewImages.find((preview) => preview.id === layer.id) ??
+            layer;
+          const isSelected = effectiveSelectedImageIds.has(layer.id);
+          return (
             <button
               key={layer.id}
               aria-label={`${t('layers.editor.image')}: ${layer.name}`}
-              aria-pressed={layer.id === effectiveSelectedImageId}
+              aria-pressed={isSelected}
               className={styles.imageTarget}
+              data-hidden={isOverlayImageHidden(layer) || undefined}
+              data-locked={isOverlayImageLocked(layer) || undefined}
               data-overlay-image-id={layer.id}
-              data-selected={layer.id === effectiveSelectedImageId || undefined}
-              onKeyDown={(event) => handleImageKeyDown(event, layer.id)}
+              data-selected={isSelected || undefined}
+              onKeyDown={(event) => handleImageKeyDown(event, layer)}
               onPointerCancel={cancelPointerDrag}
               onPointerDown={(event) => handlePointerDown(event, layer)}
               onPointerMove={handlePointerMove}
               onPointerUp={completePointerDrag}
               style={{
-                ...getOverlayImageStyle(layer),
-                zIndex:
-                  layer.id === effectiveSelectedImageId
-                    ? scene.layers.length
-                    : index,
+                ...getOverlayImageStyle(previewLayer),
+                zIndex: isSelected ? scene.layers.length + index : index,
               }}
               type="button"
             />
-          ) : null,
-        )}
+          );
+        })}
+
+        {selectedPreviewImages.map((image) => {
+          const anchorPoint = getOverlayImageAnchorPoint(image, viewportSize);
+          return (
+            <span
+              key={image.id}
+              aria-hidden="true"
+              className={styles.anchorMarker}
+              data-overlay-anchor-id={image.id}
+              style={{ left: anchorPoint.x, top: anchorPoint.y }}
+            />
+          );
+        })}
+
+        {snapGuides.map((guide) => (
+          <span
+            key={`${guide.axis}:${guide.position}:${guide.source}:${guide.imageId ?? ''}`}
+            aria-hidden="true"
+            className={styles.snapGuide}
+            data-axis={guide.axis}
+            data-snap-source={guide.source}
+            style={
+              guide.axis === 'x'
+                ? { left: guide.position }
+                : { top: guide.position }
+            }
+          />
+        ))}
+
+        {marqueeRect ? (
+          <span
+            aria-hidden="true"
+            className={styles.marquee}
+            data-starlit-part="overlay-selection-marquee"
+            style={{
+              height: marqueeRect.bottom - marqueeRect.top,
+              left: marqueeRect.left,
+              top: marqueeRect.top,
+              width: marqueeRect.right - marqueeRect.left,
+            }}
+          />
+        ) : null}
       </div>
 
       <aside
@@ -614,17 +1078,20 @@ export function OverlayPositionEditor({
           {t('layers.editor.instructions')}
         </Text>
 
-        {selectedImage ? (
+        {imageLayers.length > 0 ? (
           <>
             <label className={styles.field}>
               <span className={styles.label}>{t('layers.editor.image')}</span>
               <select
                 className={styles.select}
                 onChange={(event) =>
-                  setSelectedImageId(event.currentTarget.value)
+                  setSelectedImageIds([event.currentTarget.value])
                 }
-                value={selectedImage.id}
+                value={primarySelectedImage?.id ?? ''}
               >
+                <option disabled value="">
+                  {t('layers.editor.noImageSelected')}
+                </option>
                 {imageLayers.map((layer) => (
                   <option key={layer.id} value={layer.id}>
                     {layer.name}
@@ -633,67 +1100,196 @@ export function OverlayPositionEditor({
               </select>
             </label>
 
-            <fieldset className={styles.field}>
-              <legend className={styles.label}>
-                {t('layers.editor.anchor')}
-              </legend>
-              <PlacementPicker
-                getItemLabel={(anchor) => t(ANCHOR_LABEL_KEYS[anchor])}
-                label={t('layers.editor.anchor')}
-                onValueChange={handleAnchorChange}
-                value={selectedImage.anchor}
-              />
-            </fieldset>
+            {selectedImages.length > 0 ? (
+              <>
+                <Text tone="muted" variant="caption">
+                  {selectedImages.length} {t('layers.editor.selectedCount')}
+                </Text>
+                <div
+                  aria-label={t('layers.editor.selectedActions')}
+                  className={styles.selectionActions}
+                  role="group"
+                >
+                  <Button
+                    onClick={toggleSelectedImagesHidden}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    {areAllSelectedImagesHidden
+                      ? t('layers.action.show')
+                      : t('layers.action.hide')}
+                  </Button>
+                  <Button
+                    onClick={toggleSelectedImagesLocked}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    {areAllSelectedImagesLocked
+                      ? t('layers.action.unlock')
+                      : t('layers.action.lock')}
+                  </Button>
+                  <Button
+                    disabled={selectedImages.length < 2}
+                    onClick={groupSelectedImages}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    {t('layers.action.group')}
+                  </Button>
+                  <Button
+                    disabled={!hasGroupedSelection}
+                    onClick={ungroupSelectedImages}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    {t('layers.action.ungroup')}
+                  </Button>
+                  <Button
+                    onClick={deleteSelectedImages}
+                    size="compact"
+                    variant="critical"
+                  >
+                    {t('layers.remove')}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Text tone="muted">{t('layers.editor.noSelection')}</Text>
+            )}
 
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={rotationId}>
-                {t('layers.editor.rotation')}
-              </label>
-              <div className={styles.rangeRow}>
-                <input
-                  id={rotationId}
-                  max={180}
-                  min={-180}
-                  onChange={handleRotationChange}
-                  step={1}
-                  type="range"
-                  value={selectedImage.rotationDeg}
-                />
-                <output className={styles.rangeValue} htmlFor={rotationId}>
-                  {selectedImage.rotationDeg}°
-                </output>
-              </div>
-            </div>
+            {selectedImage ? (
+              <>
+                <fieldset className={styles.field}>
+                  <legend className={styles.label}>
+                    {t('layers.editor.anchor')}
+                  </legend>
+                  <PlacementPicker
+                    getItemLabel={(anchor) => t(ANCHOR_LABEL_KEYS[anchor])}
+                    label={t('layers.editor.anchor')}
+                    onValueChange={handleAnchorChange}
+                    value={selectedImage.anchor}
+                  />
+                  <div
+                    aria-label={t('layers.editor.viewportSize')}
+                    className={styles.viewportToggle}
+                    role="group"
+                  >
+                    <Button
+                      aria-pressed={anchorPreviewViewport === 'wide'}
+                      onClick={() => setAnchorPreviewViewport('wide')}
+                      size="compact"
+                      variant="quiet"
+                    >
+                      {t('layers.editor.viewportWide')}
+                    </Button>
+                    <Button
+                      aria-pressed={anchorPreviewViewport === 'narrow'}
+                      onClick={() => setAnchorPreviewViewport('narrow')}
+                      size="compact"
+                      variant="quiet"
+                    >
+                      {t('layers.editor.viewportNarrow')}
+                    </Button>
+                  </div>
+                  <div
+                    aria-label={`${t('layers.editor.viewportPreview')}: ${t(
+                      ANCHOR_LABEL_KEYS[selectedImage.anchor],
+                    )}`}
+                    className={styles.viewportPreview}
+                    data-anchor={selectedImage.anchor}
+                    data-viewport={anchorPreviewViewport}
+                    role="img"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={styles.viewportAnchorMarker}
+                      data-anchor={selectedImage.anchor}
+                    />
+                  </div>
+                </fieldset>
 
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={zoomId}>
-                {t('layers.editor.zoom')}
-              </label>
-              <div className={styles.rangeRow}>
-                <input
-                  id={zoomId}
-                  max={MAX_OVERLAY_IMAGE_SCALE * 100}
-                  min={MIN_OVERLAY_IMAGE_SCALE * 100}
-                  onChange={handleScaleChange}
-                  step={5}
-                  type="range"
-                  value={selectedImageScale * 100}
-                />
-                <output className={styles.rangeValue} htmlFor={zoomId}>
-                  {Math.round(selectedImageScale * 100)}%
-                </output>
-              </div>
-            </div>
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor={rotationId}>
+                    {t('layers.editor.rotation')}
+                  </label>
+                  <div className={styles.rangeRow}>
+                    <input
+                      id={rotationId}
+                      max={180}
+                      min={-180}
+                      onChange={handleRotationChange}
+                      step={1}
+                      type="range"
+                      value={selectedImage.rotationDeg}
+                    />
+                    <output className={styles.rangeValue} htmlFor={rotationId}>
+                      {selectedImage.rotationDeg}°
+                    </output>
+                  </div>
+                </div>
 
-            <div className={styles.actions}>
-              <Button
-                onClick={resetSelectedPosition}
-                size="compact"
-                variant="quiet"
-              >
-                {t('layers.editor.resetPosition')}
-              </Button>
-            </div>
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor={zoomId}>
+                    {t('layers.editor.zoom')}
+                  </label>
+                  <div className={styles.rangeRow}>
+                    <input
+                      id={zoomId}
+                      max={MAX_OVERLAY_IMAGE_SCALE * 100}
+                      min={MIN_OVERLAY_IMAGE_SCALE * 100}
+                      onChange={handleScaleChange}
+                      step={5}
+                      type="range"
+                      value={selectedImageScale * 100}
+                    />
+                    <output className={styles.rangeValue} htmlFor={zoomId}>
+                      {Math.round(selectedImageScale * 100)}%
+                    </output>
+                  </div>
+                </div>
+
+                {getOverlayImageMediaKind(selectedImage) === 'motion' ? (
+                  <>
+                    <label className={styles.field}>
+                      <span className={styles.label}>
+                        {t('layers.playbackRate')}
+                      </span>
+                      <select
+                        className={styles.select}
+                        onChange={handlePlaybackRateChange}
+                        value={getOverlayImagePlaybackRate(selectedImage)}
+                      >
+                        {OVERLAY_PLAYBACK_RATES.map((rate) => (
+                          <option key={rate} value={rate}>
+                            {rate}×
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Button
+                      onClick={togglePlaybackMode}
+                      size="compact"
+                      variant="quiet"
+                    >
+                      {getOverlayImagePlaybackMode(selectedImage) ===
+                      'active-tab-only'
+                        ? t('layers.playbackActiveTab')
+                        : t('layers.playbackAlways')}
+                    </Button>
+                  </>
+                ) : null}
+
+                <div className={styles.actions}>
+                  <Button
+                    onClick={resetSelectedPosition}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    {t('layers.editor.resetPosition')}
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </>
         ) : (
           <Text tone="muted">{t('layers.editor.empty')}</Text>

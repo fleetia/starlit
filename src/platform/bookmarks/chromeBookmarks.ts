@@ -2,6 +2,34 @@ import type { Bookmark, BookmarkItem } from '../../bookmarks/types';
 
 type ChromeBookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
+export type WritableBookmarkFolder = {
+  id: string;
+  label: string;
+  path: string[];
+};
+
+export function collectWritableBookmarkFolders(
+  nodes: readonly ChromeBookmarkNode[],
+  parentPath: readonly string[] = [],
+  isParentWritable = true,
+): WritableBookmarkFolder[] {
+  return nodes.flatMap((node) => {
+    if (node.url !== undefined) return [];
+
+    const path = node.title ? [...parentPath, node.title] : [...parentPath];
+    const isWritable = isParentWritable && node.unmodifiable === undefined;
+    const current =
+      isWritable && node.title
+        ? [{ id: node.id, label: path.join(' / '), path }]
+        : [];
+
+    return [
+      ...current,
+      ...collectWritableBookmarkFolders(node.children ?? [], path, isWritable),
+    ];
+  });
+}
+
 export function convertTree(
   nodes: ChromeBookmarkNode[],
   route: string[] = [],

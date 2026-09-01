@@ -1,8 +1,12 @@
-import { cp, mkdir, readFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+
+import { assertReleaseBuildReady } from './release-guards.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DIST = resolve(ROOT, 'dist');
+const DEVELOPMENT_OAUTH_CLIENT_ID =
+  'starlit-development-client.apps.googleusercontent.com';
 const PACKAGED_ASSET_PATHS = [
   'assets/icons/icon-16.png',
   'assets/icons/icon-32.png',
@@ -13,7 +17,7 @@ const PACKAGED_ASSET_PATHS = [
   'assets/guide/settings-appearance.jpg',
   'assets/guide/settings-bookmark-groups.jpg',
   'assets/guide/settings-custom-css.jpg',
-  'assets/guide/settings-general.jpg',
+  'assets/guide/settings-portable-profile.jpg',
   'assets/guide/settings-layout.jpg',
   'assets/licenses/IBM-Plex-OFL-1.1.txt',
   'assets/overlays/getting.png',
@@ -32,7 +36,25 @@ async function prepareExtension() {
   const entryHtml = resolve(DIST, 'index.html');
   const guideHtml = resolve(DIST, 'guide.html');
 
-  await cp(resolve(ROOT, 'manifest.json'), resolve(DIST, 'manifest.json'));
+  const sourceManifest = JSON.parse(
+    await readFile(resolve(ROOT, 'manifest.json'), 'utf8'),
+  );
+  const isReleaseBuild = process.env.STARLIT_RELEASE_BUILD === 'true';
+  const productionClientId =
+    process.env.STARLIT_GOOGLE_OAUTH_CLIENT_ID_PRODUCTION?.trim();
+  const developmentClientId =
+    process.env.STARLIT_GOOGLE_OAUTH_CLIENT_ID_DEVELOPMENT?.trim();
+
+  assertReleaseBuildReady(process.env);
+
+  sourceManifest.oauth2.client_id = isReleaseBuild
+    ? productionClientId
+    : developmentClientId || DEVELOPMENT_OAUTH_CLIENT_ID;
+
+  await writeFile(
+    resolve(DIST, 'manifest.json'),
+    `${JSON.stringify(sourceManifest, null, 2)}\n`,
+  );
   for (const relativePath of PACKAGED_ASSET_PATHS) {
     const destinationPath = resolve(DIST, relativePath);
     await mkdir(dirname(destinationPath), { recursive: true });
@@ -71,9 +93,36 @@ async function prepareExtension() {
 
   if (
     !manifest.permissions?.includes('storage') ||
-    !manifest.permissions?.includes('bookmarks')
+    !manifest.permissions?.includes('bookmarks') ||
+    !manifest.permissions?.includes('identity')
   ) {
-    throw new Error('Extension must retain storage and bookmarks permissions');
+    throw new Error(
+      'Extension must retain storage, bookmarks, and identity permissions',
+    );
+  }
+
+  if (
+    !manifest.optional_host_permissions?.includes(
+      'https://www.googleapis.com/*',
+    )
+  ) {
+    throw new Error('Extension must declare optional Google API host access');
+  }
+
+  const requiredCalendarScopes = [
+    'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+    'https://www.googleapis.com/auth/calendar.events.readonly',
+  ];
+
+  if (
+    !manifest.oauth2?.client_id ||
+    requiredCalendarScopes.some(
+      (scope) => !manifest.oauth2?.scopes?.includes(scope),
+    )
+  ) {
+    throw new Error(
+      'Extension must declare the read-only Calendar OAuth client',
+    );
   }
 
   if (
