@@ -3,6 +3,12 @@
   "name": "Starlit",
   "version": "1.5.1",
   "description": "Customizable New Tab Bookmark Grid",
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
   "permissions": ["storage", "bookmarks"],
   "optional_permissions": ["tabs", "tabGroups"],
   "background": {

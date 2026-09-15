@@ -4,6 +4,10 @@ import { dirname, resolve } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 const DIST = resolve(ROOT, 'dist');
 const PACKAGED_ASSET_PATHS = [
+  'assets/icons/icon-16.png',
+  'assets/icons/icon-32.png',
+  'assets/icons/icon-48.png',
+  'assets/icons/icon-128.png',
   'assets/guide/new-tab-overview.jpg',
   'assets/guide/open-tab-group-confirm.jpg',
   'assets/guide/settings-appearance.jpg',
@@ -80,6 +84,7 @@ async function prepareExtension() {
   }
 
   const manifestReferences = [
+    ...Object.values(manifest.icons ?? {}),
     manifest.background?.service_worker,
     manifest.chrome_url_overrides?.newtab,
   ];
