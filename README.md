@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/icon-dark.svg" />
+  <img src=".github/assets/icon.svg" alt="Starlit" width="64" height="64" />
+</picture>
+
 # Starlit
 
 Starlit is a standalone Manifest V3 Chrome new-tab extension. It preserves the
