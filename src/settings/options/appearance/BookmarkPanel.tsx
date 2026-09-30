@@ -7,6 +7,7 @@ import type { StarlitTheme } from '../../../theme/types';
 import type { Settings } from '../../types';
 import * as styles from '../../OptionsSidebar.css';
 import { ColorControl, RangeControl, SettingsSection } from '../controls';
+import { getBorderColor, withBorderColor } from '../helpers';
 import type { StateSetter, ThemeUpdater } from '../types';
 
 type BookmarkPanelProps = {
@@ -140,6 +141,26 @@ export function BookmarkPanel({
               }))
             }
             value={gridSettings.icon.color}
+          />
+          <ColorControl
+            label={t('sidebar.bookmark.borderColor')}
+            onValueChange={(value) =>
+              setGridSettings((currentGrid) => ({
+                ...currentGrid,
+                icon: {
+                  ...currentGrid.icon,
+                  border: withBorderColor(
+                    currentGrid.icon.border,
+                    value,
+                    currentGrid.icon.text,
+                  ),
+                },
+              }))
+            }
+            value={getBorderColor(
+              gridSettings.icon.border,
+              gridSettings.icon.text,
+            )}
           />
           <ColorControl
             label={t('sidebar.bookmark.text')}

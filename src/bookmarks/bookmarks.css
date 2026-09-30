@@ -119,8 +119,6 @@
   min-height: calc(var(--icon-size, 28px) + 32px);
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 8px;
   border: var(--icon-border, 1px dotted var(--c-border));
   border-radius: var(--icon-border-radius, 1px);
   color: var(--icon-text, var(--c-text));
@@ -132,7 +130,7 @@
     border-color 120ms ease;
 }
 
-.starlit-bookmark-tile:hover {
+.starlit-bookmark-tile:hover:not(:disabled) {
   border-color: var(--c-accent);
   color: var(--starlit-hover-text, var(--c-text));
   background: var(--starlit-hover-background, var(--c-hover-bg));
@@ -145,11 +143,11 @@
 
 .starlit-bookmark-tile[data-layout='vertical'] {
   width: min(100%, var(--icon-width, calc(4 * var(--em))));
-  min-height: max(
+  height: max(
     calc(var(--icon-size, 28px) + 32px),
     var(--icon-height, calc(4 * var(--em)))
   );
-  flex-direction: column;
+  min-height: min-content;
   justify-self: center;
 }
 
@@ -159,7 +157,8 @@
   min-height: calc(var(--icon-size, 28px) + 20px);
 }
 
-.starlit-bookmark-tile[data-kind='folder'] {
+.starlit-bookmark-tile[data-kind='folder'],
+.starlit-bookmark-tile[data-kind='folder']:hover:not(:disabled) {
   border-style: double;
   color: var(--folder-text, var(--c-text));
   background: var(--folder-color, var(--c-surface));
@@ -196,6 +195,7 @@
 }
 
 .starlit-bookmark-tile__label {
+  min-width: 0;
   max-width: 100%;
   color: inherit;
 }

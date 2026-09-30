@@ -5,6 +5,7 @@ import {
   DEFAULT_OVERLAY_SCENE,
   getOverlayMediaKey,
 } from '../../src/overlays/model';
+import { getTutorialCopy } from '../../src/tutorial/tutorialCopy';
 import { expect, tabGroupTest, test } from './extension.fixture';
 import {
   createProfileSeed,
@@ -170,34 +171,43 @@ test('renders overlay images around bookmarks and keeps anchor offsets on resize
 test('shows the first-install tutorial once and persists completion', async ({
   extension,
 }) => {
+  const uiLanguage = await extension.serviceWorker.evaluate(() =>
+    chrome.i18n.getUILanguage(),
+  );
+  const language = uiLanguage.toLowerCase().split(/[-_]/)[0];
+  const expectedLocale =
+    language === 'ko' || language === 'ja' ? language : 'en';
+  const copy = getTutorialCopy(expectedLocale);
+  expect((await extension.readStorage('sync')).locale).toBe(expectedLocale);
   const page = await extension.openNewTab();
 
+  await expect(page.locator('html')).toHaveAttribute('lang', expectedLocale);
   await expect(
-    page.getByRole('dialog', { name: 'Your bookmarks, already here' }),
+    page.getByRole('dialog', { name: copy.steps[0].title }),
   ).toBeVisible();
-  await expect(page.getByText('Step 1 of 4')).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText(copy.step(1, 4), { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: copy.next }).click();
   await expect(
-    page.getByRole('dialog', { name: 'Browse folders and reopen a group' }),
+    page.getByRole('dialog', { name: copy.steps[1].title }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: copy.next }).click();
+  await page.getByRole('button', { name: copy.next }).click();
 
   const fullGuideLink = page.getByRole('link', {
-    name: 'Open the full guide',
+    name: copy.guide,
   });
   const tabGroupsGuideLink = page.getByRole('link', {
-    name: 'Read about Chrome tab groups',
+    name: copy.tabGroupsGuide,
   });
   await expect(fullGuideLink).toHaveAttribute(
     'href',
-    /guide\.html\?locale=en#getting-started$/,
+    `chrome-extension://${extension.extensionId}/guide.html?locale=${expectedLocale}#getting-started`,
   );
   await expect(tabGroupsGuideLink).toHaveAttribute(
     'href',
-    /guide\.html\?locale=en#tab-groups$/,
+    `chrome-extension://${extension.extensionId}/guide.html?locale=${expectedLocale}#tab-groups`,
   );
-  await page.getByRole('button', { name: 'Finish' }).click();
+  await page.getByRole('button', { name: copy.finish }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect
     .poll(async () => (await extension.readStorage('local')).tutorialStatus)
@@ -291,47 +301,58 @@ tabGroupTest(
   'opens direct bookmarks as a new native tab group in bookmark order',
   async ({ extension }) => {
     await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+    const nativeRootTitle = await extension.serviceWorker.evaluate(async () => {
+      const root = (await chrome.bookmarks.getTree())[0]?.children?.[0];
+      if (!root) {
+        throw new Error('Expected the native bookmarks-bar root.');
+      }
+      return root.title;
+    });
     const page = await extension.openNewTab();
     await waitForBookmarks(page);
 
-    await page
+    const groupTitle = page
       .locator('[data-starlit-part="bookmark-group-title"]')
-      .first()
-      .click();
+      .first();
+    await expect(groupTitle).toHaveText(nativeRootTitle);
+    await groupTitle.click();
     const confirmation = page.getByRole('alertdialog', {
       name: 'Open bookmarks as a tab group?',
     });
-    await expect(confirmation).toContainText('Bookmarks Bar: 18 tabs.');
+    await expect(confirmation).toContainText(`${nativeRootTitle}: 18 tabs.`);
     await confirmation.getByRole('button', { name: 'Open tab group' }).click();
     await expect(page.getByRole('status')).toContainText(
       '18 bookmarks opened as a tab group.',
     );
 
-    const result = await extension.serviceWorker.evaluate(async () => {
-      const groups = await chrome.tabGroups.query({});
-      const group = groups.find(({ title }) => title === 'Bookmarks Bar');
+    const result = await extension.serviceWorker.evaluate(
+      async (expectedTitle) => {
+        const groups = await chrome.tabGroups.query({});
+        const group = groups.find(({ title }) => title === expectedTitle);
 
-      if (!group) {
-        throw new Error('Expected the new Bookmarks Bar tab group.');
-      }
+        if (!group) {
+          throw new Error('Expected the new native bookmarks-bar tab group.');
+        }
 
-      const tabs = (await chrome.tabs.query({ groupId: group.id })).sort(
-        (left, right) => left.index - right.index,
-      );
-      const [starlitTab] = await chrome.tabs.query({
-        url: chrome.runtime.getURL('index.html'),
-      });
-      const activeTab = tabs.find(({ active }) => active);
+        const tabs = (await chrome.tabs.query({ groupId: group.id })).sort(
+          (left, right) => left.index - right.index,
+        );
+        const [starlitTab] = await chrome.tabs.query({
+          url: chrome.runtime.getURL('index.html'),
+        });
+        const activeTab = tabs.find(({ active }) => active);
 
-      return {
-        activeUrl: activeTab?.url || activeTab?.pendingUrl,
-        starlitGroupId: starlitTab?.groupId,
-        title: group.title,
-        urls: tabs.map(({ pendingUrl, url }) => url || pendingUrl),
-      };
-    });
+        return {
+          activeUrl: activeTab?.url || activeTab?.pendingUrl,
+          starlitGroupId: starlitTab?.groupId,
+          title: group.title,
+          urls: tabs.map(({ pendingUrl, url }) => url || pendingUrl),
+        };
+      },
+      nativeRootTitle,
+    );
 
-    expect(result.title).toBe('Bookmarks Bar');
+    expect(result.title).toBe(nativeRootTitle);
     expect(result.starlitGroupId).toBe(-1);
     expect(result.activeUrl).toBe('https://example.com/atlas-1');
     expect(result.urls).toEqual(

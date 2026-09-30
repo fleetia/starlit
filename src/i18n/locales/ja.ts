@@ -107,6 +107,7 @@ const ja: Translations = {
   'sidebar.bookmark.borderRadius': '角丸',
   'sidebar.bookmark.iconBorderRadius': 'アイコン角丸',
   'sidebar.bookmark.boxColor': 'ボックス色',
+  'sidebar.bookmark.borderColor': 'カードのボーダー色',
   'sidebar.bookmark.text': 'テキスト',
   'sidebar.bookmark.hoverBackground': 'ホバー背景',
   'sidebar.bookmark.hoverText': 'ホバーテキスト',

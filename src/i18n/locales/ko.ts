@@ -106,6 +106,7 @@ const ko: Translations = {
   'sidebar.bookmark.borderRadius': '둥글기',
   'sidebar.bookmark.iconBorderRadius': '아이콘 둥글기',
   'sidebar.bookmark.boxColor': '박스 색상',
+  'sidebar.bookmark.borderColor': '카드 테두리 색상',
   'sidebar.bookmark.text': '텍스트',
   'sidebar.bookmark.hoverBackground': '호버 배경',
   'sidebar.bookmark.hoverText': '호버 텍스트',

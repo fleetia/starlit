@@ -13,6 +13,8 @@ const PRIMARY_TABS: readonly PrimaryTab[] = [
   'css',
   'groups',
 ];
+const CSS_WIDE_KEYWORD_PATTERN =
+  /^(initial|inherit|unset|revert|revert-layer)$/;
 
 export function isEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
@@ -25,6 +27,53 @@ export function parseDimension(
   const parsedValue = Number.parseFloat(value ?? '');
 
   return Number.isFinite(parsedValue) ? parsedValue : fallback;
+}
+
+function resolveBorderStyle(
+  border: string,
+  currentColor: string,
+): { color: string; style: string; width: string } {
+  const element = document.createElement('span');
+  element.style.border = border;
+  element.style.color = currentColor;
+  element.style.display = 'none';
+  const parent =
+    document.querySelector('[data-starlit-part="root"]') ?? document.body;
+  parent.append(element);
+
+  try {
+    const style = getComputedStyle(element);
+    const width = element.style.borderTopWidth;
+    const borderStyle = element.style.borderTopStyle;
+
+    return {
+      color: style.borderTopColor || currentColor,
+      style:
+        borderStyle && !CSS_WIDE_KEYWORD_PATTERN.test(borderStyle)
+          ? borderStyle
+          : style.borderTopStyle || 'none',
+      width:
+        width && !CSS_WIDE_KEYWORD_PATTERN.test(width)
+          ? width
+          : style.borderTopWidth || '0px',
+    };
+  } finally {
+    element.remove();
+  }
+}
+
+export function getBorderColor(border: string, currentColor: string): string {
+  return resolveBorderStyle(border, currentColor).color;
+}
+
+export function withBorderColor(
+  border: string,
+  color: string,
+  currentColor: string,
+): string {
+  const style = resolveBorderStyle(border, currentColor);
+
+  return `${style.width} ${style.style} ${color}`;
 }
 
 export function getErrorMessage(error: unknown): string {

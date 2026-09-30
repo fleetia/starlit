@@ -108,6 +108,7 @@ const en: Translations = {
   'sidebar.bookmark.borderRadius': 'Border radius',
   'sidebar.bookmark.iconBorderRadius': 'Icon border radius',
   'sidebar.bookmark.boxColor': 'Box color',
+  'sidebar.bookmark.borderColor': 'Card border color',
   'sidebar.bookmark.text': 'Text',
   'sidebar.bookmark.hoverBackground': 'Hover background',
   'sidebar.bookmark.hoverText': 'Hover text',
