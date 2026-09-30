@@ -84,6 +84,7 @@ export type TranslationKey =
   | 'sidebar.bookmark.borderRadius'
   | 'sidebar.bookmark.iconBorderRadius'
   | 'sidebar.bookmark.boxColor'
+  | 'sidebar.bookmark.borderColor'
   | 'sidebar.bookmark.text'
   | 'sidebar.bookmark.hoverBackground'
   | 'sidebar.bookmark.hoverText'

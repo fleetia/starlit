@@ -427,7 +427,31 @@ export const test = base.extend<ExtensionFixtures & ExtensionOptions>({
           }
 
           if (sync && Object.keys(sync).length > 0) {
-            await chrome.storage.sync.set(sync);
+            const treePrefs = sync.bookmarkTreePrefs;
+            const nativeBookmarksBar = roots[0];
+            const isDefaultNativeRoot =
+              nativeBookmarksBar !== undefined &&
+              typeof treePrefs === 'object' &&
+              treePrefs !== null &&
+              !Array.isArray(treePrefs) &&
+              !('rootId' in treePrefs) &&
+              'rootPath' in treePrefs &&
+              Array.isArray(treePrefs.rootPath) &&
+              treePrefs.rootPath.length === 1 &&
+              treePrefs.rootPath[0] === 'Bookmarks Bar';
+
+            // Native root titles follow the macOS language, not the page locale.
+            await chrome.storage.sync.set(
+              isDefaultNativeRoot
+                ? {
+                    ...sync,
+                    bookmarkTreePrefs: {
+                      ...treePrefs,
+                      rootId: nativeBookmarksBar.id,
+                    },
+                  }
+                : sync,
+            );
           }
           if (local && Object.keys(local).length > 0) {
             await chrome.storage.local.set(local);

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import type { GridSettings } from '../../src/layout/types';
 import { expect, test } from './extension.fixture';
@@ -49,6 +49,82 @@ const CUSTOM_GRID_SETTINGS = {
 async function waitForBookmarks(page: Page): Promise<void> {
   await expect(page.locator('[data-starlit-part="root"]')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Atlas 01' })).toBeVisible();
+}
+
+async function expectScrollableLabel(page: Page, tile: Locator): Promise<void> {
+  const label = tile.locator('[data-starlit-part="bookmark-tile-label"]');
+  await expect(label).toHaveCSS('overflow-y', 'auto');
+  await expect(label).toHaveCSS('overscroll-behavior-y', 'contain');
+  expect(await label.evaluate((element) => element.tagName)).toBe('SPAN');
+  await expect(label).not.toHaveAttribute('tabindex');
+  await label.hover();
+  const outerScrollTop = await label.evaluate(
+    (element) =>
+      element.closest('[data-starlit-part="bookmark-grid"]')?.scrollTop,
+  );
+  await page.mouse.wheel(0, 120);
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  expect(
+    await label.evaluate(
+      (element) =>
+        element.closest('[data-starlit-part="bookmark-grid"]')?.scrollTop,
+    ),
+  ).toBe(outerScrollTop);
+
+  await tile.focus();
+  await page.keyboard.press('Tab');
+  await expect(label).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await page.keyboard.press('ArrowDown');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await page.keyboard.press('Home');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await page.keyboard.press('Tab');
+  await expect(label).not.toBeFocused();
+  await tile.focus();
+  await tile.press('Home');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await tile.press('ArrowDown');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await tile.press('ArrowUp');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await tile.press('PageDown');
+  const lineHeight = await label.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).lineHeight),
+  );
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(lineHeight);
+  await tile.press('PageUp');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await tile.press('End');
+  const maximumScrollTop = await label.evaluate(
+    (element) => element.scrollHeight - element.clientHeight,
+  );
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBeCloseTo(maximumScrollTop, 0);
+  await tile.press('Home');
+  await expect
+    .poll(() => label.evaluate((element) => element.scrollTop))
+    .toBe(0);
 }
 
 test('renders persisted visual leaves in the live surface and settings preview', async ({
@@ -174,6 +250,15 @@ test('renders persisted visual leaves in the live surface and settings preview',
   await expect(folderIcon).toHaveCSS('color', 'rgb(250, 249, 240)');
   await expect(folderIcon).toHaveCSS('border-radius', '9px');
 
+  await bookmark.hover();
+  await expect(bookmark).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  await expect(bookmark).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(
+    bookmark.locator('[data-starlit-part="bookmark-tile-label"]'),
+  ).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await route.hover();
+  await expect(bookmark).toHaveCSS('background-color', 'rgb(210, 211, 212)');
+
   await page.locator('[data-starlit-part="settings-trigger"]').click();
   const settingsDialog = page.locator('[data-starlit-part="settings-dialog"]');
   await expect(settingsDialog).toHaveCSS(
@@ -192,6 +277,15 @@ test('renders persisted visual leaves in the live surface and settings preview',
   const previewFolderIcon = preview.locator(
     '[data-starlit-part="bookmark-tile-icon"][data-kind="folder"]',
   );
+  const previewIcon = previewBookmark.locator(
+    '[data-starlit-part="bookmark-tile-icon"]',
+  );
+  const innerBorderColor = await previewIcon.evaluate(
+    (element) => getComputedStyle(element).borderTopColor,
+  );
+  const previewBorderWidth = await previewBookmark.evaluate(
+    (element) => getComputedStyle(element).borderTopWidth,
+  );
 
   await expect(previewGroup).toHaveAttribute('inert', '');
   await expect(previewGroup).toHaveCSS('background-color', 'rgb(23, 34, 45)');
@@ -208,4 +302,216 @@ test('renders persisted visual leaves in the live surface and settings preview',
     'rgb(210, 211, 212)',
   );
   await expect(previewFolderIcon).toHaveCSS('color', 'rgb(250, 249, 240)');
+
+  await page.getByRole('tab', { name: 'Bookmark', exact: true }).click();
+  const borderColor = page.getByRole('textbox', {
+    name: 'Card border color',
+    exact: true,
+  });
+  await borderColor.fill('#66339980');
+  await borderColor.press('Enter');
+  await expect(previewBookmark).toHaveCSS(
+    'border-top-color',
+    'rgba(102, 51, 153, 0.5)',
+  );
+  await expect(previewBookmark).toHaveCSS(
+    'border-top-width',
+    previewBorderWidth,
+  );
+  await expect(previewBookmark).toHaveCSS('border-top-style', 'dotted');
+  await expect(previewIcon).toHaveCSS('border-top-color', innerBorderColor);
+  await expect(bookmark).toHaveCSS('border-top-color', 'rgb(78, 89, 90)');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(bookmark).toHaveCSS(
+    'border-top-color',
+    'rgba(102, 51, 153, 0.5)',
+  );
+  await page.reload();
+  await waitForBookmarks(page);
+  await expect(bookmark).toHaveCSS(
+    'border-top-color',
+    'rgba(102, 51, 153, 0.5)',
+  );
+  await expect(bookmark).toHaveCSS('border-top-width', '2px');
+  await expect(bookmark).toHaveCSS('border-top-style', 'dotted');
 });
+
+for (const isExpandView of [false, true]) {
+  for (const iconSize of [28, 32]) {
+    test(`wraps tall bookmark names with ${iconSize}px icons in ${isExpandView ? 'expanded' : 'paged'} view`, async ({
+      extension,
+    }, testInfo) => {
+      const koreanTitle =
+        '세로로 긴 카드에서는 북마크 이름을 여러 줄로 읽을 수 있어요';
+      const unbrokenTitle =
+        'DocumentationForAnExtremelyLongUnbrokenBookmarkName';
+      const overflowingTitle = '아주긴북마크이름'.repeat(30);
+      await extension.seedProfile({
+        bookmarkRoots: [
+          [
+            {
+              title: 'Name wrapping',
+              children: [
+                {
+                  title: koreanTitle,
+                  children: [
+                    { title: 'Child', url: 'https://example.com/child' },
+                  ],
+                },
+                { title: unbrokenTitle, url: 'https://example.com/unbroken' },
+                {
+                  title: overflowingTitle,
+                  url: 'https://example.com/overflowing',
+                },
+                { title: 'Short name', url: 'https://example.com/short' },
+              ],
+            },
+          ],
+        ],
+        local: { overlayScene: { layers: [{ kind: 'bookmarks' }] } },
+        sync: {
+          storageSchemaVersion: 2,
+          locale: 'en',
+          size: 30,
+          iconSize,
+          bookmarkTreePrefs: {
+            rootPath: ['Bookmarks Bar'],
+            siblingOrder: {},
+          },
+          gridSettings: {
+            ...CUSTOM_GRID_SETTINGS,
+            columns: 2,
+            rows: 2,
+            gap: '8px',
+            icon: { ...CUSTOM_GRID_SETTINGS.icon, width: 2, height: 10 },
+          },
+          settings: {
+            fontFamily: 'ibm-plex-sans',
+            iconLayout: 'vertical',
+            isExpandView,
+            isFolderEnabled: true,
+            isOpenInNewTab: false,
+            isVisibleOnce: false,
+          },
+        },
+      });
+      const page = await extension.openNewTab();
+      await expect(
+        page.getByRole('button', { name: unbrokenTitle, exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      for (const title of [koreanTitle, unbrokenTitle, overflowingTitle]) {
+        const tile = page.getByRole('button', { name: title, exact: true });
+        const label = tile.locator('[data-starlit-part="bookmark-tile-label"]');
+        const geometry = await label.evaluate((element) => {
+          const tileElement = element.parentElement;
+          if (!tileElement) throw new Error('Missing bookmark tile');
+          const labelBounds = element.getBoundingClientRect();
+          const tileBounds = tileElement.getBoundingClientRect();
+          const icon = tileElement.querySelector(
+            '[data-starlit-part="bookmark-tile-icon"]',
+          );
+          if (!icon) throw new Error('Missing bookmark icon');
+          return {
+            gap: labelBounds.top - icon.getBoundingClientRect().bottom,
+            height: labelBounds.height,
+            lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+            scrollHeight: element.scrollHeight,
+            clientHeight: element.clientHeight,
+            scrollWidth: element.scrollWidth,
+            clientWidth: element.clientWidth,
+            tileHeight: tileBounds.height,
+            isContained:
+              labelBounds.top >= tileBounds.top &&
+              labelBounds.bottom <= tileBounds.bottom &&
+              labelBounds.left >= tileBounds.left &&
+              labelBounds.right <= tileBounds.right,
+          };
+        });
+        expect(geometry.height).toBeGreaterThan(geometry.lineHeight);
+        expect(geometry.tileHeight).toBe(300);
+        expect(geometry.gap).toBeCloseTo(8, 1);
+        expect(geometry.isContained).toBe(true);
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
+        if (title === overflowingTitle) {
+          expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+          expect(geometry.height / geometry.lineHeight).toBeCloseTo(
+            Math.round(geometry.height / geometry.lineHeight),
+            1,
+          );
+          await expect(tile).toHaveAttribute('title', title);
+        } else {
+          expect(geometry.scrollHeight).toBeLessThanOrEqual(
+            geometry.clientHeight,
+          );
+        }
+      }
+      await expectScrollableLabel(
+        page,
+        page.getByRole('button', { name: overflowingTitle, exact: true }),
+      );
+      await page.screenshot({
+        path: testInfo.outputPath('tall-bookmark-names.png'),
+      });
+      await page.locator('[data-starlit-part="settings-trigger"]').click();
+      await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+      await page.getByRole('tab', { name: 'Bookmark', exact: true }).click();
+      const scale = page.getByRole('slider', {
+        name: 'Scale (em)',
+        exact: true,
+      });
+      await scale.press('Home');
+      for (let step = 0; step < 10; step += 1) await scale.press('ArrowRight');
+      for (const name of ['Horizontal size', 'Vertical size']) {
+        const dimension = page.getByRole('slider', { name, exact: true });
+        await dimension.press('Home');
+        for (let step = 0; step < 4; step += 1)
+          await dimension.press('ArrowRight');
+      }
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      const compactTile = page.getByRole('button', {
+        name: unbrokenTitle,
+        exact: true,
+      });
+      await expect(compactTile).toHaveCSS('height', '80px');
+      const compactLabel = compactTile.locator(
+        '[data-starlit-part="bookmark-tile-label"]',
+      );
+      const compactGeometry = await compactLabel.evaluate((element) => {
+        const icon = element.parentElement?.querySelector(
+          '[data-starlit-part="bookmark-tile-icon"]',
+        );
+        if (!icon) throw new Error('Missing bookmark icon');
+        const bounds = element.getBoundingClientRect();
+        return {
+          gap: bounds.top - icon.getBoundingClientRect().bottom,
+          lines:
+            bounds.height /
+            Number.parseFloat(getComputedStyle(element).lineHeight),
+        };
+      });
+      expect(compactGeometry.gap).toBeCloseTo(8, 1);
+      expect(compactGeometry.lines).toBeCloseTo(2, 1);
+      await expectScrollableLabel(page, compactTile);
+      await expect(compactTile).toHaveAttribute('title', unbrokenTitle);
+      await page.screenshot({
+        path: testInfo.outputPath('80px-bookmark-names.png'),
+      });
+      await page.locator('[data-starlit-part="settings-trigger"]').click();
+      await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+      await page.getByRole('tab', { name: 'Bookmark', exact: true }).click();
+      const horizontalSwitch = page.getByRole('switch', {
+        name: 'Use horizontal icons',
+        exact: true,
+      });
+      await horizontalSwitch.press('Space');
+      await expect(horizontalSwitch).toBeChecked();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      const horizontalLabel = page
+        .getByRole('button', { name: unbrokenTitle, exact: true })
+        .locator('[data-starlit-part="bookmark-tile-label"]');
+      await expect(horizontalLabel).toHaveCSS('white-space', 'nowrap');
+      await expect(horizontalLabel).toHaveCSS('text-overflow', 'ellipsis');
+    });
+  }
+}
