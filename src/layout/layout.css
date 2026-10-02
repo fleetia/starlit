@@ -46,7 +46,11 @@
   gap: var(--card-gap, 16px);
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
+  scrollbar-width: none;
+}
+
+.starlit-masonry__column::-webkit-scrollbar {
+  display: none;
 }
 
 .starlit-masonry[data-position^='top-'] > .starlit-masonry__column {

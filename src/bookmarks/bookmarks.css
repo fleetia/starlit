@@ -111,6 +111,11 @@
   align-content: start;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+
+.starlit-bookmark-group--expanded > .starlit-bookmark-grid::-webkit-scrollbar {
+  display: none;
 }
 
 .starlit-bookmark-tile {
@@ -119,6 +124,7 @@
   min-height: calc(var(--icon-size, 28px) + 32px);
   align-items: center;
   justify-content: center;
+  padding: 8px;
   border: var(--icon-border, 1px dotted var(--c-border));
   border-radius: var(--icon-border-radius, 1px);
   color: var(--icon-text, var(--c-text));
@@ -148,6 +154,7 @@
     var(--icon-height, calc(4 * var(--em)))
   );
   min-height: min-content;
+  justify-content: flex-start;
   justify-self: center;
 }
 
@@ -198,6 +205,13 @@
   min-width: 0;
   max-width: 100%;
   color: inherit;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  scrollbar-width: none;
+}
+
+.starlit-bookmark-tile__label::-webkit-scrollbar {
+  display: none;
 }
 
 .starlit-bookmark-grid__placeholder {
