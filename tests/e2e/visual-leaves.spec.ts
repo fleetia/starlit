@@ -51,10 +51,20 @@ async function waitForBookmarks(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Atlas 01' })).toBeVisible();
 }
 
+async function expectHiddenScrollbar(scrollable: Locator): Promise<void> {
+  await expect(scrollable).toHaveCSS('scrollbar-width', 'none');
+  expect(
+    await scrollable.evaluate(
+      (element) => getComputedStyle(element, '::-webkit-scrollbar').display,
+    ),
+  ).toBe('none');
+}
+
 async function expectScrollableLabel(page: Page, tile: Locator): Promise<void> {
   const label = tile.locator('[data-starlit-part="bookmark-tile-label"]');
   await expect(label).toHaveCSS('overflow-y', 'auto');
   await expect(label).toHaveCSS('overscroll-behavior-y', 'contain');
+  await expectHiddenScrollbar(label);
   expect(await label.evaluate((element) => element.tagName)).toBe('SPAN');
   await expect(label).not.toHaveAttribute('tabindex');
   await label.hover();
@@ -104,12 +114,12 @@ async function expectScrollableLabel(page: Page, tile: Locator): Promise<void> {
     .poll(() => label.evaluate((element) => element.scrollTop))
     .toBe(0);
   await tile.press('PageDown');
-  const lineHeight = await label.evaluate((element) =>
-    Number.parseFloat(getComputedStyle(element).lineHeight),
+  const expectedPageDistance = await label.evaluate((element) =>
+    Math.min(element.clientHeight, element.scrollHeight - element.clientHeight),
   );
   await expect
     .poll(() => label.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(lineHeight);
+    .toBeCloseTo(expectedPageDistance, 0);
   await tile.press('PageUp');
   await expect
     .poll(() => label.evaluate((element) => element.scrollTop))
@@ -344,7 +354,7 @@ for (const isExpandView of [false, true]) {
       const koreanTitle =
         '세로로 긴 카드에서는 북마크 이름을 여러 줄로 읽을 수 있어요';
       const unbrokenTitle =
-        'DocumentationForAnExtremelyLongUnbrokenBookmarkName';
+        'https://example.com/DocumentationForAnExtremelyLongUnbrokenBookmarkName';
       const overflowingTitle = '아주긴북마크이름'.repeat(30);
       await extension.seedProfile({
         bookmarkRoots: [
@@ -383,7 +393,7 @@ for (const isExpandView of [false, true]) {
             columns: 2,
             rows: 2,
             gap: '8px',
-            icon: { ...CUSTOM_GRID_SETTINGS.icon, width: 2, height: 10 },
+            icon: { ...CUSTOM_GRID_SETTINGS.icon, width: 3, height: 10 },
           },
           settings: {
             fontFamily: 'ibm-plex-sans',
@@ -400,26 +410,61 @@ for (const isExpandView of [false, true]) {
         page.getByRole('button', { name: unbrokenTitle, exact: true }),
       ).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      const shortTile = page.getByRole('button', {
+        name: 'Short name',
+        exact: true,
+      });
+      const shortIconTopInset = await shortTile.evaluate((element) => {
+        const icon = element.querySelector(
+          '[data-starlit-part="bookmark-tile-icon"]',
+        );
+        if (!icon) {
+          throw new Error('Missing bookmark icon');
+        }
+        return (
+          icon.getBoundingClientRect().top - element.getBoundingClientRect().top
+        );
+      });
+      await expect(shortTile).toHaveCSS('padding-top', '8px');
+      expect(shortIconTopInset).toBeCloseTo(10, 1);
+      if (isExpandView) {
+        await expectHiddenScrollbar(
+          page.locator('[data-starlit-part="bookmark-grid"]').first(),
+        );
+        await expectHiddenScrollbar(page.locator('.starlit-masonry__column'));
+      }
+      const labelGeometries: Record<string, string | number | boolean>[] = [];
       for (const title of [koreanTitle, unbrokenTitle, overflowingTitle]) {
         const tile = page.getByRole('button', { name: title, exact: true });
         const label = tile.locator('[data-starlit-part="bookmark-tile-label"]');
+        await expect(label).toHaveCSS('word-break', 'keep-all');
+        await expect(label).toHaveCSS('overflow-wrap', 'anywhere');
+        await expect(tile).toHaveCSS('padding-top', '8px');
         const geometry = await label.evaluate((element) => {
           const tileElement = element.parentElement;
           if (!tileElement) throw new Error('Missing bookmark tile');
           const labelBounds = element.getBoundingClientRect();
           const tileBounds = tileElement.getBoundingClientRect();
+          const labelStyle = getComputedStyle(element);
           const icon = tileElement.querySelector(
             '[data-starlit-part="bookmark-tile-icon"]',
           );
           if (!icon) throw new Error('Missing bookmark icon');
           return {
             gap: labelBounds.top - icon.getBoundingClientRect().bottom,
+            iconTopInset: icon.getBoundingClientRect().top - tileBounds.top,
             height: labelBounds.height,
-            lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+            lineHeight: Number.parseFloat(labelStyle.lineHeight),
             scrollHeight: element.scrollHeight,
             clientHeight: element.clientHeight,
             scrollWidth: element.scrollWidth,
             clientWidth: element.clientWidth,
+            paddingTop: getComputedStyle(tileElement).paddingTop,
+            wordBreak: labelStyle.wordBreak,
+            overflowWrap: labelStyle.overflowWrap,
+            scrollbarWidth: labelStyle.scrollbarWidth,
+            scrollbarDisplay: getComputedStyle(element, '::-webkit-scrollbar')
+              .display,
             tileHeight: tileBounds.height,
             isContained:
               labelBounds.top >= tileBounds.top &&
@@ -428,9 +473,11 @@ for (const isExpandView of [false, true]) {
               labelBounds.right <= tileBounds.right,
           };
         });
+        labelGeometries.push({ title, ...geometry });
         expect(geometry.height).toBeGreaterThan(geometry.lineHeight);
         expect(geometry.tileHeight).toBe(300);
         expect(geometry.gap).toBeCloseTo(8, 1);
+        expect(geometry.iconTopInset).toBeCloseTo(shortIconTopInset, 1);
         expect(geometry.isContained).toBe(true);
         expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
         if (title === overflowingTitle) {
@@ -446,13 +493,44 @@ for (const isExpandView of [false, true]) {
           );
         }
       }
+      const koreanLabel = page
+        .getByRole('button', { name: koreanTitle, exact: true })
+        .locator('[data-starlit-part="bookmark-tile-label"]');
+      const wordLineCounts = await koreanLabel.evaluate((element) => {
+        const text = document
+          .createTreeWalker(element, NodeFilter.SHOW_TEXT)
+          .nextNode();
+        if (!text) {
+          throw new Error('Missing bookmark label text');
+        }
+        const title = text.textContent ?? '';
+        return title.split(' ').map((word) => {
+          const start = title.indexOf(word);
+          const range = document.createRange();
+          range.setStart(text, start);
+          range.setEnd(text, start + word.length);
+          return new Set(
+            Array.from(range.getClientRects(), (bounds) => bounds.top),
+          ).size;
+        });
+      });
+      expect(wordLineCounts).toEqual(koreanTitle.split(' ').map(() => 1));
+      await testInfo.attach('tall-bookmark-geometry.json', {
+        body: JSON.stringify({
+          shortIconTopInset,
+          wordLineCounts,
+          labelGeometries,
+        }),
+        contentType: 'application/json',
+      });
       await expectScrollableLabel(
         page,
         page.getByRole('button', { name: overflowingTitle, exact: true }),
       );
-      await page.screenshot({
-        path: testInfo.outputPath('tall-bookmark-names.png'),
-      });
+      await page
+        .locator('[data-starlit-part="bookmark-group"]')
+        .first()
+        .screenshot({ path: testInfo.outputPath('tall-bookmark-names.png') });
       await page.locator('[data-starlit-part="settings-trigger"]').click();
       await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
       await page.getByRole('tab', { name: 'Bookmark', exact: true }).click();
@@ -478,25 +556,58 @@ for (const isExpandView of [false, true]) {
         '[data-starlit-part="bookmark-tile-label"]',
       );
       const compactGeometry = await compactLabel.evaluate((element) => {
-        const icon = element.parentElement?.querySelector(
+        const tileElement = element.parentElement;
+        const icon = tileElement?.querySelector(
           '[data-starlit-part="bookmark-tile-icon"]',
         );
-        if (!icon) throw new Error('Missing bookmark icon');
+        if (!tileElement || !icon) {
+          throw new Error('Missing bookmark icon');
+        }
         const bounds = element.getBoundingClientRect();
+        const tileBounds = tileElement.getBoundingClientRect();
+        const tileStyle = getComputedStyle(tileElement);
+        const labelStyle = getComputedStyle(element);
+        const lineHeight = Number.parseFloat(labelStyle.lineHeight);
+        const availableHeight =
+          tileBounds.bottom -
+          Number.parseFloat(tileStyle.borderBottomWidth) -
+          Number.parseFloat(tileStyle.paddingBottom) -
+          bounds.top;
         return {
           gap: bounds.top - icon.getBoundingClientRect().bottom,
-          lines:
-            bounds.height /
-            Number.parseFloat(getComputedStyle(element).lineHeight),
+          iconTopInset: icon.getBoundingClientRect().top - tileBounds.top,
+          isContained: bounds.bottom <= tileBounds.bottom,
+          paddingTop: tileStyle.paddingTop,
+          wordBreak: labelStyle.wordBreak,
+          overflowWrap: labelStyle.overflowWrap,
+          scrollbarWidth: labelStyle.scrollbarWidth,
+          scrollbarDisplay: getComputedStyle(element, '::-webkit-scrollbar')
+            .display,
+          scrollHeight: element.scrollHeight,
+          clientHeight: element.clientHeight,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+          lines: bounds.height / lineHeight,
+          availableLines: Math.max(1, Math.floor(availableHeight / lineHeight)),
         };
       });
       expect(compactGeometry.gap).toBeCloseTo(8, 1);
-      expect(compactGeometry.lines).toBeCloseTo(2, 1);
+      expect(compactGeometry.iconTopInset).toBeCloseTo(shortIconTopInset, 1);
+      expect(compactGeometry.isContained).toBe(true);
+      expect(compactGeometry.lines).toBeCloseTo(
+        compactGeometry.availableLines,
+        1,
+      );
+      await testInfo.attach('compact-bookmark-geometry.json', {
+        body: JSON.stringify(compactGeometry),
+        contentType: 'application/json',
+      });
       await expectScrollableLabel(page, compactTile);
       await expect(compactTile).toHaveAttribute('title', unbrokenTitle);
-      await page.screenshot({
-        path: testInfo.outputPath('80px-bookmark-names.png'),
-      });
+      await page
+        .locator('[data-starlit-part="bookmark-group"]')
+        .first()
+        .screenshot({ path: testInfo.outputPath('80px-bookmark-names.png') });
       await page.locator('[data-starlit-part="settings-trigger"]').click();
       await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
       await page.getByRole('tab', { name: 'Bookmark', exact: true }).click();

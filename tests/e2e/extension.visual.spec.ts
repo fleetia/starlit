@@ -136,16 +136,35 @@ test('masonry with horizontal bookmark tiles', async ({ extension }) => {
   const scrollMetrics = await grid.evaluate((element) => ({
     clientHeight: element.clientHeight,
     overflowY: window.getComputedStyle(element).overflowY,
+    scrollbarWidth: window.getComputedStyle(element).scrollbarWidth,
+    scrollbarDisplay: window.getComputedStyle(element, '::-webkit-scrollbar')
+      .display,
     scrollHeight: element.scrollHeight,
   }));
 
   expect(scrollMetrics.overflowY).toBe('auto');
+  expect(scrollMetrics.scrollbarWidth).toBe('none');
+  expect(scrollMetrics.scrollbarDisplay).toBe('none');
   expect(scrollMetrics.scrollHeight).toBeGreaterThan(
     scrollMetrics.clientHeight,
   );
   await expect(page).toHaveScreenshot('masonry-horizontal.png', {
     fullPage: false,
   });
+
+  await grid.hover();
+  await page.mouse.wheel(0, 120);
+  await expect
+    .poll(() => grid.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await grid.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page.getByRole('button', { name: 'Atlas 01' }).focus();
+  await page.keyboard.press('PageDown');
+  await expect
+    .poll(() => grid.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
 
   await grid.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
@@ -209,16 +228,22 @@ test('expanded groups stay in fixed columns with shared height', async ({
     const columnScrollMetrics = await column.evaluate((element) => ({
       clientHeight: element.clientHeight,
       overflowY: window.getComputedStyle(element).overflowY,
+      scrollbarWidth: window.getComputedStyle(element).scrollbarWidth,
+      scrollbarDisplay: window.getComputedStyle(element, '::-webkit-scrollbar')
+        .display,
       scrollHeight: element.scrollHeight,
     }));
 
     expect(columnScrollMetrics.overflowY).toBe('auto');
+    expect(columnScrollMetrics.scrollbarWidth).toBe('none');
+    expect(columnScrollMetrics.scrollbarDisplay).toBe('none');
     expect(columnScrollMetrics.scrollHeight).toBeGreaterThan(
       columnScrollMetrics.clientHeight,
     );
-    await column.evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-    });
+    await groups.last().getByRole('button').last().focus();
+    await expect
+      .poll(() => column.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
     await expect(groups.last()).toBeInViewport();
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await column.evaluate((element) => {
