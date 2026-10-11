@@ -106,7 +106,7 @@ Reset and Scene deletion preserve Chrome bookmark folders unless the user separa
 
 ## Security and permissions
 
-Starlit limits Calendar access to an HTTPS GET for the user-entered feed, omits browser credentials, and keeps exact-origin host permission behind an explained user action. The broad optional-host declaration permits runtime requests for arbitrary HTTPS feed providers but does not grant those origins automatically. Feed URLs are stored only in device-local Scene records and are redacted from portable exports.
+Starlit starts Calendar feed requests with an HTTPS GET for the user-entered feed, omits browser credentials, and keeps exact-origin host permission behind an explained user action. The broad optional-host declaration permits runtime requests for arbitrary HTTPS feed providers but does not grant those origins automatically. Feed URLs are stored only in device-local Scene records and are redacted from portable exports.
 
 Chrome presents the optional `tabs` permission as browsing-history access because it exposes open-tab titles and URLs. Starlit uses that access only during a user-initiated tab-group import and then removes it. Built-in external services use HTTPS. User-specified resources are requested directly using the provided URL, so users should choose HTTPS sources.
 
