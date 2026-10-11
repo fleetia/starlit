@@ -158,6 +158,7 @@ function OptionsSidebarSession({
   onBackgroundUrl,
   onBookmarkTreePreferencesUpdate,
   onBookmarksImported,
+  onCanvasEditPreviewChange,
   onClose,
   onCustomCSSChange,
   onFontPreviewChange,
@@ -231,13 +232,11 @@ function OptionsSidebarSession({
   const [preparedOverlayImageIds, setPreparedOverlayImageIds] = useState<
     string[]
   >([]);
-  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(
-    initialWidgetId ?? null,
-  );
-  const [overlayEditorInitialImageId, setOverlayEditorInitialImageId] =
-    useState<string | null>(initialOverlayImageId ?? null);
+  const [canvasEditorInitialItemId, setCanvasEditorInitialItemId] = useState<
+    string | null
+  >(initialWidgetId ?? initialOverlayImageId ?? null);
   const [isOverlayEditorOpen, setIsOverlayEditorOpen] = useState(
-    initialOverlayImageId !== undefined,
+    initialOverlayImageId !== undefined || initialWidgetId !== undefined,
   );
   const [isDiscardOpen, setIsDiscardOpen] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
@@ -260,13 +259,22 @@ function OptionsSidebarSession({
     () => () => {
       onFontPreviewChange(null);
       onOverlayEditPreviewChange(null);
+      onCanvasEditPreviewChange?.(null);
     },
-    [onFontPreviewChange, onOverlayEditPreviewChange],
+    [
+      onCanvasEditPreviewChange,
+      onFontPreviewChange,
+      onOverlayEditPreviewChange,
+    ],
   );
 
   useEffect(() => {
     onOverlayEditPreviewChange(isOverlayEditorOpen ? draftOverlayScene : null);
   }, [draftOverlayScene, isOverlayEditorOpen, onOverlayEditPreviewChange]);
+
+  useEffect(() => {
+    onCanvasEditPreviewChange?.(isOverlayEditorOpen ? draftCanvas : null);
+  }, [draftCanvas, isOverlayEditorOpen, onCanvasEditPreviewChange]);
 
   const [snapshot] = useState<SettingsSnapshot>(() => ({
     canvas: structuredClone(
@@ -841,8 +849,8 @@ function OptionsSidebarSession({
     }
   }
 
-  function openOverlayEditor(imageId?: string): void {
-    setOverlayEditorInitialImageId(imageId ?? null);
+  function openOverlayEditor(itemId?: string): void {
+    setCanvasEditorInitialItemId(itemId ?? null);
     setIsOverlayEditorOpen(true);
   }
 
@@ -850,10 +858,12 @@ function OptionsSidebarSession({
     <>
       {isOverlayEditorOpen ? (
         <OverlayPositionEditor
-          {...(overlayEditorInitialImageId
-            ? { initialSelectedImageId: overlayEditorInitialImageId }
+          {...(canvasEditorInitialItemId
+            ? { initialSelectedItemId: canvasEditorInitialItemId }
             : {})}
+          canvas={draftCanvas}
           onChange={updateDraftOverlayScene}
+          onCanvasChange={updateDraftCanvas}
           onClose={() => setIsOverlayEditorOpen(false)}
           scene={draftOverlayScene}
         />
@@ -988,8 +998,7 @@ function OptionsSidebarSession({
                 onImageFilesSelected={(files) =>
                   void handleOverlayFilesSelected(files)
                 }
-                onSelectWidget={setSelectedWidgetId}
-                selectedWidgetId={selectedWidgetId}
+                onWidgetAdded={openOverlayEditor}
               >
                 <LayersPanel
                   canvas={draftCanvas}
@@ -1023,7 +1032,7 @@ function OptionsSidebarSession({
                   }}
                   isProcessing={isOverlayProcessing}
                   onCanvasChange={updateDraftCanvas}
-                  onConfigureWidget={setSelectedWidgetId}
+                  onConfigureWidget={openOverlayEditor}
                   onEditPositions={openOverlayEditor}
                   onFilesSelected={(files) =>
                     void handleOverlayFilesSelected(files)

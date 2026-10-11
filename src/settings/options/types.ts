@@ -72,6 +72,7 @@ export type OptionsSidebarProps = {
     preferences: BookmarkTreePrefs,
   ) => Promise<void>;
   onBookmarksImported: () => Promise<void>;
+  onCanvasEditPreviewChange?: (canvas: CanvasSceneV2 | null) => void;
   onGridSettingsUpdate: (settings: GridSettings) => Promise<void>;
   onGroupPreferencesUpdate: (preferences: GroupPreference[]) => Promise<void>;
   onIconSizeChange: (value: number) => Promise<void>;

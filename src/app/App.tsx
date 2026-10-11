@@ -182,6 +182,8 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
   const [fontPreview, setFontPreview] = useState<FontPreviewState | null>(null);
   const [overlayEditPreview, setOverlayEditPreview] =
     useState<OverlayScene | null>(null);
+  const [canvasEditPreview, setCanvasEditPreview] =
+    useState<CanvasSceneV2 | null>(null);
   const [motionPlaybackOverrides, setMotionPlaybackOverrides] = useState<
     Partial<Record<string, OverlayMotionPlaybackOverride>>
   >({});
@@ -524,9 +526,8 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
   const activeFontFamily = fontPreview?.fontFamily ?? persistedFontFamily;
   const activeFontLocale = fontPreview?.locale ?? locale;
   const renderedOverlayScene = overlayEditPreview ?? overlayScene;
-  const renderedCanvas = overlayEditPreview
-    ? null
-    : (sceneController.activeScene?.canvas ?? null);
+  const renderedCanvas =
+    canvasEditPreview ?? sceneController.activeScene?.canvas ?? null;
   const canvasLayerOrder = getCanvasLayerOrder(
     renderedOverlayScene,
     renderedCanvas,
@@ -649,7 +650,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           error: t('widgets.error'),
           loading: t('widgets.loading'),
         }}
-        canvas={sceneController.activeScene?.canvas ?? null}
+        canvas={renderedCanvas}
         locale={locale}
         onWidgetContextMenu={handleWidgetContextMenu}
       />
@@ -745,6 +746,7 @@ export function App({ locale, onLocaleChange }: AppProps): ReactElement {
           onBackgroundUrl={updateBackgroundFromUrl}
           onBookmarkTreePreferencesUpdate={updatePreferences}
           onBookmarksImported={refreshBookmarks}
+          onCanvasEditPreviewChange={setCanvasEditPreview}
           onClose={() => setIsSettingsOpen(false)}
           onCustomCSSChange={setCustomCSS}
           onFontPreviewChange={setFontPreview}

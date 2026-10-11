@@ -1,30 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../../i18n';
-import type {
-  CalendarWidgetInstance,
-  CanvasSceneV2,
-  ClockWidgetInstance,
-} from '../../scenes';
+import type { CanvasSceneV2, ClockWidgetInstance } from '../../scenes';
 import { WidgetsPanel } from './WidgetsPanel';
-
-const calendarState = vi.hoisted(() => ({
-  refresh: vi.fn(async (): Promise<void> => undefined),
-  subscribe: vi.fn(async (): Promise<void> => undefined),
-}));
-
-vi.mock('../../widgets', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../widgets')>()),
-  useCalendarWidget: () => ({
-    error: null,
-    events: [],
-    name: '',
-    refresh: calendarState.refresh,
-    status: 'disconnected',
-    subscribe: calendarState.subscribe,
-  }),
-}));
 
 const CLOCK: ClockWidgetInstance = {
   anchor: 'top-right',
@@ -42,21 +21,10 @@ const CLOCK: ClockWidgetInstance = {
   widgetType: 'clock',
 };
 
-const CALENDAR: CalendarWidgetInstance = {
-  anchor: 'top-right',
-  config: { feedUrl: null, maxEvents: 8, showAllDay: true },
-  frame: { height: 320, offsetX: 24, offsetY: 168, width: 360 },
-  id: 'calendar-widget',
-  isHidden: false,
-  isLocked: false,
-  kind: 'widget',
-  widgetType: 'calendar',
-};
-
 function renderPanel(
   canvas: CanvasSceneV2 | null,
   onChange: (next: CanvasSceneV2) => void,
-  selectedWidgetId: string | null = null,
+  onWidgetAdded: (widgetId: string) => void = vi.fn(),
 ): void {
   render(
     <I18nProvider locale="en">
@@ -65,43 +33,22 @@ function renderPanel(
         isImageProcessing={false}
         onChange={onChange}
         onImageFilesSelected={vi.fn()}
-        onSelectWidget={vi.fn()}
-        selectedWidgetId={selectedWidgetId}
+        onWidgetAdded={onWidgetAdded}
       />
     </I18nProvider>,
   );
 }
 
 describe('WidgetsPanel', () => {
-  beforeEach(() => {
-    calendarState.refresh.mockClear();
-    calendarState.subscribe.mockClear();
-  });
-
-  it('edits the selected Clock instance without affecting its siblings', () => {
-    const secondClock = { ...CLOCK, id: 'clock-widget-2' };
+  it('keeps configured widget options out of the default panel', () => {
     const canvas: CanvasSceneV2 = {
-      layers: [{ id: 'bookmarks', kind: 'bookmarks' }, CLOCK, secondClock],
+      layers: [{ id: 'bookmarks', kind: 'bookmarks' }, CLOCK],
       version: 2,
     };
-    const onChange = vi.fn<(next: CanvasSceneV2) => void>();
-    renderPanel(canvas, onChange, secondClock.id);
+    renderPanel(canvas, vi.fn());
 
-    fireEvent.change(screen.getByLabelText('Clock style'), {
-      target: { value: 'analog' },
-    });
-
-    expect(onChange).toHaveBeenCalledWith({
-      ...canvas,
-      layers: [
-        canvas.layers[0],
-        CLOCK,
-        {
-          ...secondClock,
-          config: { ...secondClock.config, appearance: 'analog' },
-        },
-      ],
-    });
+    expect(screen.queryByLabelText('Clock style')).toBeNull();
+    expect(screen.queryByLabelText('Screen position')).toBeNull();
   });
 
   it('keeps Clock and Calendar add actions enabled for multiple instances', () => {
@@ -110,7 +57,8 @@ describe('WidgetsPanel', () => {
       version: 2,
     };
     const onChange = vi.fn<(next: CanvasSceneV2) => void>();
-    renderPanel(canvas, onChange);
+    const onWidgetAdded = vi.fn<(widgetId: string) => void>();
+    renderPanel(canvas, onChange, onWidgetAdded);
 
     fireEvent.click(screen.getByRole('button', { name: 'Add widget' }));
     const menu = screen.getByRole('menu', { name: 'Choose a widget' });
@@ -125,39 +73,9 @@ describe('WidgetsPanel', () => {
         expect.objectContaining({ widgetType: 'clock' }),
       ],
     });
-  });
-
-  it('normalizes and subscribes to the Calendar URL from its editor', () => {
-    const canvas: CanvasSceneV2 = {
-      layers: [{ id: 'bookmarks', kind: 'bookmarks' }, CALENDAR],
-      version: 2,
-    };
-    const onChange = vi.fn<(next: CanvasSceneV2) => void>();
-    renderPanel(canvas, onChange, CALENDAR.id);
-
-    fireEvent.change(screen.getByRole('textbox', { name: 'Calendar URL' }), {
-      target: { value: 'webcal://calendar.example.com/private.ics' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Allow and subscribe' }),
-    );
-
-    expect(onChange).toHaveBeenCalledWith({
-      ...canvas,
-      layers: [
-        canvas.layers[0],
-        {
-          ...CALENDAR,
-          config: {
-            ...CALENDAR.config,
-            feedUrl: 'https://calendar.example.com/private.ics',
-          },
-        },
-      ],
-    });
-    expect(calendarState.subscribe).toHaveBeenCalledWith(
-      'https://calendar.example.com/private.ics',
-    );
+    const addedWidget = onChange.mock.calls[0]?.[0].layers.at(-1);
+    expect(addedWidget?.kind).toBe('widget');
+    expect(onWidgetAdded).toHaveBeenCalledWith(addedWidget?.id);
   });
 
   it('requires a Scene before adding built-in widgets', () => {

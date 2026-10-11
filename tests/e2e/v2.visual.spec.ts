@@ -144,6 +144,13 @@ test('Clock widget remains secondary to bookmarks', async ({ extension }) => {
   await openSettingsTab(page, 'Widgets');
   await page.getByRole('button', { name: 'Add widget' }).click();
   await page.getByRole('menuitem', { name: 'Clock' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Edit Canvas items' }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot('clock-widget-editor.png', {
+    fullPage: false,
+  });
+  await page.getByRole('button', { name: 'Back to settings' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await expect(
@@ -183,7 +190,7 @@ test('Calendar consent before subscription', async ({ extension }) => {
   await page.getByRole('menuitem', { name: 'Calendar' }).click();
   await page
     .getByRole('textbox', { name: 'Calendar URL' })
-    .fill('https://calendar.example.test/private.ics');
+    .fill('webcal://calendar.example.test/private.ics');
   const subscribeButton = page.getByRole('button', {
     name: 'Allow and subscribe',
   });
@@ -227,7 +234,9 @@ test('Calendar feed error stays beside consent', async ({ extension }) => {
     .fill('https://calendar.example.test/invalid.ics');
   await page.getByRole('button', { name: 'Allow and subscribe' }).click();
 
-  const error = page.getByText('Events could not be loaded.');
+  const error = page
+    .getByRole('dialog', { name: 'Edit Canvas items' })
+    .getByText('Events could not be loaded.');
   await expect(error).toBeVisible();
   await error.scrollIntoViewIfNeeded();
   await expect(page).toHaveScreenshot('calendar-connection-error.png', {

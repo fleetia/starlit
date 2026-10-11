@@ -50,6 +50,8 @@ export const imageTarget = style({
   },
 });
 
+export const widgetTarget = imageTarget;
+
 export const marquee = style({
   position: 'absolute',
   zIndex: 1001,
@@ -125,9 +127,13 @@ export const toolbarHeader = style({
 
 export const toolbarHeading = style({
   display: 'flex',
+  flex: 1,
   minWidth: 0,
   alignItems: 'center',
   gap: semanticVars.space.xs,
+  cursor: 'move',
+  touchAction: 'none',
+  userSelect: 'none',
 });
 
 export const toolbarMoveHandle = style({

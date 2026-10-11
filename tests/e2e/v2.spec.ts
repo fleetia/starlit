@@ -263,6 +263,74 @@ test('adds an Image through the shared widget chooser', async ({
   await expect(page.locator('[data-overlay-image-id]')).toHaveCount(1);
 });
 
+test('moves a Clock directly from the Canvas editor', async ({ extension }) => {
+  await extension.seedProfile(createProfileSeed({ locale: 'en' }));
+  const page = await extension.openNewTab();
+  await waitForBookmarks(page);
+  await createScene(page, 'Widget drag');
+  await openSettingsTab(page, 'Widgets');
+  await page.getByRole('button', { name: 'Add widget' }).click();
+  await page.getByRole('menuitem', { name: 'Clock' }).click();
+
+  const editor = page.getByRole('dialog', { name: 'Edit Canvas items' });
+  const toolbarTitle = editor.getByRole('heading', {
+    name: 'Edit Canvas items',
+  });
+  const toolbarBounds = await toolbarTitle.boundingBox();
+  if (!toolbarBounds) {
+    throw new Error('Expected the Canvas editor toolbar title.');
+  }
+  await page.mouse.move(
+    toolbarBounds.x + toolbarBounds.width / 2,
+    toolbarBounds.y + toolbarBounds.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(520, 480, { steps: 5 });
+  await page.mouse.up();
+
+  const target = page.getByRole('button', { name: 'Clock 1' });
+  const clock = page.locator('[data-starlit-part="widget-clock"]');
+  const targetBounds = await target.boundingBox();
+  const initialClockBounds = await clock.boundingBox();
+  if (!targetBounds || !initialClockBounds) {
+    throw new Error('Expected the Clock target and rendered frame.');
+  }
+
+  const deltaX = -120;
+  const deltaY = 100;
+  await page.mouse.move(
+    targetBounds.x + targetBounds.width / 2,
+    targetBounds.y + targetBounds.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    targetBounds.x + targetBounds.width / 2 + deltaX,
+    targetBounds.y + targetBounds.height / 2 + deltaY,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await clock.boundingBox())?.x)
+    .toBeCloseTo(initialClockBounds.x + deltaX, 0);
+  await expect
+    .poll(async () => (await clock.boundingBox())?.y)
+    .toBeCloseTo(initialClockBounds.y + deltaY, 0);
+
+  await editor.getByRole('button', { name: 'Back to settings' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(
+    page.locator('[data-starlit-part="settings-dialog"]'),
+  ).toHaveCount(0);
+  await expect(clock).toBeVisible();
+  await page.reload();
+  await waitForBookmarks(page);
+
+  const savedClockBounds = await clock.boundingBox();
+  expect(savedClockBounds?.x).toBeCloseTo(initialClockBounds.x + deltaX, 0);
+  expect(savedClockBounds?.y).toBeCloseTo(initialClockBounds.y + deltaY, 0);
+});
+
 test('previews a palette Scene switch without mutating the bookmark tree', async ({
   extension,
 }) => {
@@ -413,6 +481,7 @@ test('exports independent Portable V4 categories and restores a full profile aft
   const feedUrlInput = page.getByRole('textbox', { name: 'Calendar URL' });
   await feedUrlInput.fill(privateFeedUrl);
   await feedUrlInput.press('Tab');
+  await page.getByRole('button', { name: 'Back to settings' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(
     page.locator('[data-starlit-part="settings-dialog"]'),

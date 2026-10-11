@@ -143,7 +143,9 @@ export function LayersPanel({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const frontToBackLayers = toFrontToBack(canvas.layers);
-  const hasImages = canvas.layers.some((layer) => layer.kind === 'decoration');
+  const hasEditableItems = canvas.layers.some(
+    (layer) => layer.kind === 'decoration' || layer.kind === 'widget',
+  );
   const imageActions = useOverlayImageActions({
     isDisabled: isProcessing,
     onEditImage: onEditPositions,
@@ -240,7 +242,7 @@ export function LayersPanel({
             </Button>
           ) : null}
           <Button
-            disabled={isMutating || !hasImages}
+            disabled={isMutating || !hasEditableItems}
             onClick={() => onEditPositions()}
             size="compact"
           >

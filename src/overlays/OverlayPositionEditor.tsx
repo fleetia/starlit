@@ -13,6 +13,9 @@ import {
 import { Button, PlacementPicker, Text } from '@fleetia/lagrange';
 
 import { useTranslation, type TranslationKey } from '../i18n';
+import type { CanvasSceneV2, WidgetInstance } from '../scenes';
+import { WidgetEditor } from '../settings/options/WidgetEditor';
+import { getWidgetFrameStyle, moveWidget } from '../widgets/frame';
 import {
   deleteOverlayImages,
   getOverlayImageSelectionIds,
@@ -92,6 +95,16 @@ type DragState = {
   target: HTMLButtonElement;
 };
 
+type WidgetDragState = {
+  latestWidget: WidgetInstance;
+  pointerId: number;
+  previewElements: HTMLElement[];
+  startX: number;
+  startY: number;
+  target: HTMLButtonElement;
+  widget: WidgetInstance;
+};
+
 type MarqueeState = {
   baseImageIds: string[];
   pointerId: number;
@@ -106,7 +119,7 @@ type ToolbarDragState = {
   pointerId: number;
   startX: number;
   startY: number;
-  target: HTMLButtonElement;
+  target: HTMLDivElement;
   top: number;
   width: number;
 };
@@ -119,11 +132,22 @@ type ToolbarPosition = {
 type AnchorPreviewViewport = 'narrow' | 'wide';
 
 export type OverlayPositionEditorProps = {
+  canvas?: CanvasSceneV2;
+  initialSelectedItemId?: string;
   initialSelectedImageId?: string;
   onChange: (scene: OverlayScene) => void;
+  onCanvasChange?: (canvas: CanvasSceneV2) => void;
   onClose: () => void;
   scene: OverlayScene;
 };
+
+function getWidgetLayers(canvas: CanvasSceneV2 | undefined): WidgetInstance[] {
+  return (
+    canvas?.layers.filter(
+      (layer): layer is WidgetInstance => layer.kind === 'widget',
+    ) ?? []
+  );
+}
 
 function findImageLayer(
   scene: OverlayScene,
@@ -139,6 +163,12 @@ function getPreviewElements(imageId: string): HTMLElement[] {
   return Array.from(
     document.querySelectorAll<HTMLElement>('[data-overlay-image-id]'),
   ).filter((element) => element.dataset.overlayImageId === imageId);
+}
+
+function getWidgetPreviewElements(widgetId: string): HTMLElement[] {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>('[data-canvas-widget-id]'),
+  ).filter((element) => element.dataset.canvasWidgetId === widgetId);
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
@@ -182,6 +212,30 @@ function previewImagePosition(
   });
 }
 
+function toWidgetStyleValue(value: unknown): string {
+  if (typeof value === 'number') {
+    return `${value}px`;
+  }
+
+  return typeof value === 'string' ? value : '';
+}
+
+function previewWidgetPosition(
+  elements: readonly HTMLElement[],
+  widget: WidgetInstance,
+): void {
+  const style = getWidgetFrameStyle(widget);
+
+  elements.forEach((element) => {
+    element.style.bottom = toWidgetStyleValue(style.bottom);
+    element.style.height = toWidgetStyleValue(style.height);
+    element.style.left = toWidgetStyleValue(style.left);
+    element.style.right = toWidgetStyleValue(style.right);
+    element.style.top = toWidgetStyleValue(style.top);
+    element.style.width = toWidgetStyleValue(style.width);
+  });
+}
+
 function releasePointerCapture(dragState: {
   pointerId: number;
   target: HTMLElement;
@@ -217,6 +271,18 @@ function replaceImages(
   };
 }
 
+function replaceWidget(
+  canvas: CanvasSceneV2,
+  widget: WidgetInstance,
+): CanvasSceneV2 {
+  return {
+    ...canvas,
+    layers: canvas.layers.map((layer) =>
+      layer.kind === 'widget' && layer.id === widget.id ? widget : layer,
+    ),
+  };
+}
+
 function getGroupId(imageIds: readonly string[]): string {
   const encodedIds = [...imageIds]
     .sort()
@@ -238,8 +304,11 @@ function clampToolbarPosition(
 }
 
 export function OverlayPositionEditor({
+  canvas,
+  initialSelectedItemId,
   initialSelectedImageId,
   onChange,
+  onCanvasChange,
   onClose,
   scene,
 }: OverlayPositionEditorProps): ReactElement {
@@ -248,12 +317,27 @@ export function OverlayPositionEditor({
   const zoomId = useId();
   const instructionsId = useId();
   const imageLayers = useMemo(() => getOverlayImageLayers(scene), [scene]);
-  const [selectedImageIds, setSelectedImageIds] = useState<string[]>(() => {
-    const initialImage =
-      imageLayers.find((image) => image.id === initialSelectedImageId) ??
-      imageLayers[0];
-    return initialImage ? [initialImage.id] : [];
-  });
+  const widgetLayers = useMemo(() => getWidgetLayers(canvas), [canvas]);
+  const requestedItemId = initialSelectedItemId ?? initialSelectedImageId;
+  const requestedImage = imageLayers.find(
+    (image) => image.id === requestedItemId,
+  );
+  const requestedWidget = widgetLayers.find(
+    (widget) => widget.id === requestedItemId,
+  );
+  const initialWidget =
+    requestedWidget ??
+    (requestedImage === undefined && imageLayers.length === 0
+      ? widgetLayers[0]
+      : undefined);
+  const initialImage =
+    requestedImage ?? (initialWidget ? undefined : imageLayers[0]);
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(
+    initialWidget?.id ?? null,
+  );
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>(() =>
+    initialImage ? [initialImage.id] : [],
+  );
   const [dragPreviewImages, setDragPreviewImages] = useState<
     OverlayImageLayer[]
   >([]);
@@ -270,11 +354,13 @@ export function OverlayPositionEditor({
   const [anchorPreviewViewport, setAnchorPreviewViewport] =
     useState<AnchorPreviewViewport>('wide');
   const dragStateRef = useRef<DragState | null>(null);
+  const widgetDragStateRef = useRef<WidgetDragState | null>(null);
   const marqueeStateRef = useRef<MarqueeState | null>(null);
   const toolbarDragStateRef = useRef<ToolbarDragState | null>(null);
   const toolbarRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const doneButtonRef = useRef<HTMLButtonElement>(null);
+  const canvasRef = useRef(canvas);
   const sceneRef = useRef(scene);
 
   const effectiveSelectedImageIds = useMemo(
@@ -287,6 +373,9 @@ export function OverlayPositionEditor({
   const selectedImage =
     selectedImages.length === 1 ? selectedImages[0] : undefined;
   const primarySelectedImage = [...selectedImages].at(-1);
+  const selectedWidget = widgetLayers.find(
+    (widget) => widget.id === selectedWidgetId,
+  );
   const selectedImageScale = selectedImage
     ? getOverlayImageScale(selectedImage)
     : DEFAULT_OVERLAY_IMAGE_SCALE;
@@ -335,11 +424,27 @@ export function OverlayPositionEditor({
     setMarqueeRect(null);
   }, []);
 
+  const cancelActiveWidgetDrag = useCallback((): void => {
+    const dragState = widgetDragStateRef.current;
+    if (!dragState) {
+      return;
+    }
+
+    previewWidgetPosition(dragState.previewElements, dragState.widget);
+    widgetDragStateRef.current = null;
+    releasePointerCapture(dragState);
+  }, []);
+
   const closeEditor = useCallback((): void => {
     cancelActiveDrag();
     cancelActiveMarquee();
+    cancelActiveWidgetDrag();
     onClose();
-  }, [cancelActiveDrag, cancelActiveMarquee, onClose]);
+  }, [cancelActiveDrag, cancelActiveMarquee, cancelActiveWidgetDrag, onClose]);
+
+  useEffect(() => {
+    canvasRef.current = canvas;
+  }, [canvas]);
 
   useEffect(() => {
     sceneRef.current = scene;
@@ -361,8 +466,9 @@ export function OverlayPositionEditor({
     () => () => {
       cancelActiveDrag();
       cancelActiveMarquee();
+      cancelActiveWidgetDrag();
     },
-    [cancelActiveDrag, cancelActiveMarquee],
+    [cancelActiveDrag, cancelActiveMarquee, cancelActiveWidgetDrag],
   );
 
   useEffect(() => {
@@ -442,7 +548,56 @@ export function OverlayPositionEditor({
     commitImages([nextImage]);
   }
 
+  function commitWidget(nextWidget: WidgetInstance): void {
+    const currentCanvas = canvasRef.current;
+    if (!currentCanvas || !onCanvasChange) {
+      return;
+    }
+
+    const nextCanvas = replaceWidget(currentCanvas, nextWidget);
+    canvasRef.current = nextCanvas;
+    onCanvasChange(nextCanvas);
+  }
+
+  function getWidgetName(widget: WidgetInstance): string {
+    const sameTypeWidgets = widgetLayers.filter(
+      (candidate) => candidate.widgetType === widget.widgetType,
+    );
+    const ordinal =
+      sameTypeWidgets.findIndex((candidate) => candidate.id === widget.id) + 1;
+    const typeName = t(
+      widget.widgetType === 'clock' ? 'widgets.clock' : 'widgets.calendar',
+    );
+    return `${typeName} ${ordinal}`;
+  }
+
+  function selectImage(imageId: string): void {
+    cancelActiveWidgetDrag();
+    setSelectedWidgetId(null);
+    setSelectedImageIds([imageId]);
+  }
+
+  function selectWidget(widgetId: string): void {
+    cancelActiveDrag();
+    cancelActiveMarquee();
+    cancelActiveWidgetDrag();
+    setSelectedImageIds([]);
+    setSelectedWidgetId(widgetId);
+  }
+
+  function handleItemChange(itemId: string): void {
+    if (widgetLayers.some((widget) => widget.id === itemId)) {
+      selectWidget(itemId);
+      return;
+    }
+
+    if (imageLayers.some((image) => image.id === itemId)) {
+      selectImage(itemId);
+    }
+  }
+
   function toggleImageSelection(image: OverlayImageLayer): void {
+    setSelectedWidgetId(null);
     setSelectedImageIds((currentIds) => {
       const effectiveIds = getOverlayImageSelectionIds(
         sceneRef.current,
@@ -470,6 +625,8 @@ export function OverlayPositionEditor({
     }
 
     event.preventDefault();
+    cancelActiveWidgetDrag();
+    setSelectedWidgetId(null);
     if (event.shiftKey) {
       toggleImageSelection(image);
       return;
@@ -581,6 +738,8 @@ export function OverlayPositionEditor({
     }
 
     event.preventDefault();
+    cancelActiveWidgetDrag();
+    setSelectedWidgetId(null);
     const baseImageIds = event.shiftKey ? [...effectiveSelectedImageIds] : [];
     marqueeStateRef.current = {
       baseImageIds,
@@ -650,9 +809,79 @@ export function OverlayPositionEditor({
     cancelActiveMarquee();
   }
 
-  function handleToolbarPointerDown(
+  function handleWidgetPointerDown(
+    event: PointerEvent<HTMLButtonElement>,
+    widget: WidgetInstance,
+  ): void {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    selectWidget(widget.id);
+    const currentWidget = getWidgetLayers(canvasRef.current).find(
+      (candidate) => candidate.id === widget.id,
+    );
+    if (!currentWidget || currentWidget.isLocked || !onCanvasChange) {
+      return;
+    }
+
+    widgetDragStateRef.current = {
+      latestWidget: currentWidget,
+      pointerId: event.pointerId,
+      previewElements: getWidgetPreviewElements(widget.id),
+      startX: event.clientX,
+      startY: event.clientY,
+      target: event.currentTarget,
+      widget: currentWidget,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleWidgetPointerMove(
     event: PointerEvent<HTMLButtonElement>,
   ): void {
+    const dragState = widgetDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextWidget = moveWidget(
+      dragState.widget,
+      event.clientX - dragState.startX,
+      event.clientY - dragState.startY,
+    );
+    dragState.latestWidget = nextWidget;
+    previewWidgetPosition(dragState.previewElements, nextWidget);
+  }
+
+  function completeWidgetPointerDrag(
+    event: PointerEvent<HTMLButtonElement>,
+  ): void {
+    const dragState = widgetDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    widgetDragStateRef.current = null;
+    releasePointerCapture(dragState);
+    if (dragState.latestWidget !== dragState.widget) {
+      commitWidget(dragState.latestWidget);
+    }
+  }
+
+  function cancelWidgetPointerDrag(
+    event: PointerEvent<HTMLButtonElement>,
+  ): void {
+    if (widgetDragStateRef.current?.pointerId !== event.pointerId) {
+      return;
+    }
+
+    cancelActiveWidgetDrag();
+  }
+
+  function handleToolbarPointerDown(event: PointerEvent<HTMLDivElement>): void {
     const toolbar = toolbarRef.current;
     if (event.button !== 0 || !toolbar) {
       return;
@@ -673,9 +902,7 @@ export function OverlayPositionEditor({
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
-  function handleToolbarPointerMove(
-    event: PointerEvent<HTMLButtonElement>,
-  ): void {
+  function handleToolbarPointerMove(event: PointerEvent<HTMLDivElement>): void {
     const dragState = toolbarDragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
@@ -692,7 +919,7 @@ export function OverlayPositionEditor({
     );
   }
 
-  function endToolbarDrag(event: PointerEvent<HTMLButtonElement>): void {
+  function endToolbarDrag(event: PointerEvent<HTMLDivElement>): void {
     const dragState = toolbarDragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
@@ -764,7 +991,7 @@ export function OverlayPositionEditor({
       if (event.shiftKey) {
         toggleImageSelection(image);
       } else {
-        setSelectedImageIds([image.id]);
+        selectImage(image.id);
       }
       return;
     }
@@ -805,6 +1032,34 @@ export function OverlayPositionEditor({
         movement.y,
       ),
     );
+  }
+
+  function handleWidgetKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    widget: WidgetInstance,
+  ): void {
+    const amount = event.shiftKey ? 10 : 1;
+    const movement = {
+      ArrowDown: { x: 0, y: amount },
+      ArrowLeft: { x: -amount, y: 0 },
+      ArrowRight: { x: amount, y: 0 },
+      ArrowUp: { x: 0, y: -amount },
+    }[event.key];
+
+    if (!movement) {
+      return;
+    }
+
+    event.preventDefault();
+    selectWidget(widget.id);
+    const currentWidget = getWidgetLayers(canvasRef.current).find(
+      (candidate) => candidate.id === widget.id,
+    );
+    if (!currentWidget || currentWidget.isLocked) {
+      return;
+    }
+
+    commitWidget(moveWidget(currentWidget, movement.x, movement.y));
   }
 
   function toggleSelectedImagesHidden(): void {
@@ -851,7 +1106,26 @@ export function OverlayPositionEditor({
     ]);
     const nextImage = getOverlayImageLayers(nextScene)[0];
     setSelectedImageIds(nextImage ? [nextImage.id] : []);
+    setSelectedWidgetId(nextImage ? null : (widgetLayers[0]?.id ?? null));
     commitScene(nextScene);
+  }
+
+  function removeSelectedWidget(): void {
+    if (!canvas || !selectedWidget || !onCanvasChange) {
+      return;
+    }
+
+    const nextCanvas = {
+      ...canvas,
+      layers: canvas.layers.filter((layer) => layer.id !== selectedWidget.id),
+    };
+    const nextWidget = getWidgetLayers(nextCanvas)[0];
+    onCanvasChange(nextCanvas);
+    if (imageLayers[0]) {
+      selectImage(imageLayers[0].id);
+    } else {
+      setSelectedWidgetId(nextWidget?.id ?? null);
+    }
   }
 
   function handlePlaybackRateChange(
@@ -989,7 +1263,38 @@ export function OverlayPositionEditor({
               onPointerUp={completePointerDrag}
               style={{
                 ...getOverlayImageStyle(previewLayer),
-                zIndex: isSelected ? scene.layers.length + index : index,
+                zIndex: isSelected
+                  ? scene.layers.length + widgetLayers.length + index
+                  : index,
+              }}
+              type="button"
+            />
+          );
+        })}
+
+        {widgetLayers.map((widget, index) => {
+          const isSelected = selectedWidget?.id === widget.id;
+          return (
+            <button
+              key={widget.id}
+              aria-label={getWidgetName(widget)}
+              aria-pressed={isSelected}
+              className={styles.widgetTarget}
+              data-canvas-widget-id={widget.id}
+              data-hidden={widget.isHidden || undefined}
+              data-locked={widget.isLocked || undefined}
+              data-selected={isSelected || undefined}
+              onClick={() => selectWidget(widget.id)}
+              onKeyDown={(event) => handleWidgetKeyDown(event, widget)}
+              onPointerCancel={cancelWidgetPointerDrag}
+              onPointerDown={(event) => handleWidgetPointerDown(event, widget)}
+              onPointerMove={handleWidgetPointerMove}
+              onPointerUp={completeWidgetPointerDrag}
+              style={{
+                ...getWidgetFrameStyle(widget),
+                zIndex: isSelected
+                  ? scene.layers.length + widgetLayers.length + index
+                  : scene.layers.length + index,
               }}
               type="button"
             />
@@ -1054,15 +1359,17 @@ export function OverlayPositionEditor({
         }
       >
         <div className={styles.toolbarHeader}>
-          <div className={styles.toolbarHeading}>
+          <div
+            className={styles.toolbarHeading}
+            onPointerCancel={endToolbarDrag}
+            onPointerDown={handleToolbarPointerDown}
+            onPointerMove={handleToolbarPointerMove}
+            onPointerUp={endToolbarDrag}
+          >
             <button
               aria-label={t('layers.editor.moveToolbar')}
               className={styles.toolbarMoveHandle}
               onKeyDown={handleToolbarKeyDown}
-              onPointerCancel={endToolbarDrag}
-              onPointerDown={handleToolbarPointerDown}
-              onPointerMove={handleToolbarPointerMove}
-              onPointerUp={endToolbarDrag}
               type="button"
             >
               <span aria-hidden="true">⋮⋮</span>
@@ -1078,218 +1385,246 @@ export function OverlayPositionEditor({
           {t('layers.editor.instructions')}
         </Text>
 
-        {imageLayers.length > 0 ? (
+        {imageLayers.length + widgetLayers.length > 0 ? (
           <>
             <label className={styles.field}>
-              <span className={styles.label}>{t('layers.editor.image')}</span>
+              <span className={styles.label}>{t('layers.editor.item')}</span>
               <select
                 className={styles.select}
                 onChange={(event) =>
-                  setSelectedImageIds([event.currentTarget.value])
+                  handleItemChange(event.currentTarget.value)
                 }
-                value={primarySelectedImage?.id ?? ''}
+                value={selectedWidget?.id ?? primarySelectedImage?.id ?? ''}
               >
                 <option disabled value="">
-                  {t('layers.editor.noImageSelected')}
+                  {t('layers.editor.noItemSelected')}
                 </option>
-                {imageLayers.map((layer) => (
-                  <option key={layer.id} value={layer.id}>
-                    {layer.name}
-                  </option>
-                ))}
+                {imageLayers.length > 0 ? (
+                  <optgroup label={t('widgets.image')}>
+                    {imageLayers.map((layer) => (
+                      <option key={layer.id} value={layer.id}>
+                        {layer.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                {widgetLayers.length > 0 ? (
+                  <optgroup label={t('sidebar.tab.widgets')}>
+                    {widgetLayers.map((widget) => (
+                      <option key={widget.id} value={widget.id}>
+                        {getWidgetName(widget)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
             </label>
 
-            {selectedImages.length > 0 ? (
-              <>
-                <Text tone="muted" variant="caption">
-                  {selectedImages.length} {t('layers.editor.selectedCount')}
-                </Text>
-                <div
-                  aria-label={t('layers.editor.selectedActions')}
-                  className={styles.selectionActions}
-                  role="group"
-                >
-                  <Button
-                    onClick={toggleSelectedImagesHidden}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    {areAllSelectedImagesHidden
-                      ? t('layers.action.show')
-                      : t('layers.action.hide')}
-                  </Button>
-                  <Button
-                    onClick={toggleSelectedImagesLocked}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    {areAllSelectedImagesLocked
-                      ? t('layers.action.unlock')
-                      : t('layers.action.lock')}
-                  </Button>
-                  <Button
-                    disabled={selectedImages.length < 2}
-                    onClick={groupSelectedImages}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    {t('layers.action.group')}
-                  </Button>
-                  <Button
-                    disabled={!hasGroupedSelection}
-                    onClick={ungroupSelectedImages}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    {t('layers.action.ungroup')}
-                  </Button>
-                  <Button
-                    onClick={deleteSelectedImages}
-                    size="compact"
-                    variant="critical"
-                  >
-                    {t('layers.remove')}
-                  </Button>
-                </div>
-              </>
+            {selectedWidget && canvas && onCanvasChange ? (
+              <WidgetEditor
+                key={selectedWidget.id}
+                canvas={canvas}
+                onChange={onCanvasChange}
+                onRemove={removeSelectedWidget}
+                widget={selectedWidget}
+              />
             ) : (
-              <Text tone="muted">{t('layers.editor.noSelection')}</Text>
-            )}
-
-            {selectedImage ? (
               <>
-                <fieldset className={styles.field}>
-                  <legend className={styles.label}>
-                    {t('layers.editor.anchor')}
-                  </legend>
-                  <PlacementPicker
-                    getItemLabel={(anchor) => t(ANCHOR_LABEL_KEYS[anchor])}
-                    label={t('layers.editor.anchor')}
-                    onValueChange={handleAnchorChange}
-                    value={selectedImage.anchor}
-                  />
-                  <div
-                    aria-label={t('layers.editor.viewportSize')}
-                    className={styles.viewportToggle}
-                    role="group"
-                  >
-                    <Button
-                      aria-pressed={anchorPreviewViewport === 'wide'}
-                      onClick={() => setAnchorPreviewViewport('wide')}
-                      size="compact"
-                      variant="quiet"
-                    >
-                      {t('layers.editor.viewportWide')}
-                    </Button>
-                    <Button
-                      aria-pressed={anchorPreviewViewport === 'narrow'}
-                      onClick={() => setAnchorPreviewViewport('narrow')}
-                      size="compact"
-                      variant="quiet"
-                    >
-                      {t('layers.editor.viewportNarrow')}
-                    </Button>
-                  </div>
-                  <div
-                    aria-label={`${t('layers.editor.viewportPreview')}: ${t(
-                      ANCHOR_LABEL_KEYS[selectedImage.anchor],
-                    )}`}
-                    className={styles.viewportPreview}
-                    data-anchor={selectedImage.anchor}
-                    data-viewport={anchorPreviewViewport}
-                    role="img"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={styles.viewportAnchorMarker}
-                      data-anchor={selectedImage.anchor}
-                    />
-                  </div>
-                </fieldset>
-
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={rotationId}>
-                    {t('layers.editor.rotation')}
-                  </label>
-                  <div className={styles.rangeRow}>
-                    <input
-                      id={rotationId}
-                      max={180}
-                      min={-180}
-                      onChange={handleRotationChange}
-                      step={1}
-                      type="range"
-                      value={selectedImage.rotationDeg}
-                    />
-                    <output className={styles.rangeValue} htmlFor={rotationId}>
-                      {selectedImage.rotationDeg}°
-                    </output>
-                  </div>
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={zoomId}>
-                    {t('layers.editor.zoom')}
-                  </label>
-                  <div className={styles.rangeRow}>
-                    <input
-                      id={zoomId}
-                      max={MAX_OVERLAY_IMAGE_SCALE * 100}
-                      min={MIN_OVERLAY_IMAGE_SCALE * 100}
-                      onChange={handleScaleChange}
-                      step={5}
-                      type="range"
-                      value={selectedImageScale * 100}
-                    />
-                    <output className={styles.rangeValue} htmlFor={zoomId}>
-                      {Math.round(selectedImageScale * 100)}%
-                    </output>
-                  </div>
-                </div>
-
-                {getOverlayImageMediaKind(selectedImage) === 'motion' ? (
+                {selectedImages.length > 0 ? (
                   <>
-                    <label className={styles.field}>
-                      <span className={styles.label}>
-                        {t('layers.playbackRate')}
-                      </span>
-                      <select
-                        className={styles.select}
-                        onChange={handlePlaybackRateChange}
-                        value={getOverlayImagePlaybackRate(selectedImage)}
-                      >
-                        {OVERLAY_PLAYBACK_RATES.map((rate) => (
-                          <option key={rate} value={rate}>
-                            {rate}×
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <Button
-                      onClick={togglePlaybackMode}
-                      size="compact"
-                      variant="quiet"
+                    <Text tone="muted" variant="caption">
+                      {selectedImages.length} {t('layers.editor.selectedCount')}
+                    </Text>
+                    <div
+                      aria-label={t('layers.editor.selectedActions')}
+                      className={styles.selectionActions}
+                      role="group"
                     >
-                      {getOverlayImagePlaybackMode(selectedImage) ===
-                      'active-tab-only'
-                        ? t('layers.playbackActiveTab')
-                        : t('layers.playbackAlways')}
-                    </Button>
+                      <Button
+                        onClick={toggleSelectedImagesHidden}
+                        size="compact"
+                        variant="quiet"
+                      >
+                        {areAllSelectedImagesHidden
+                          ? t('layers.action.show')
+                          : t('layers.action.hide')}
+                      </Button>
+                      <Button
+                        onClick={toggleSelectedImagesLocked}
+                        size="compact"
+                        variant="quiet"
+                      >
+                        {areAllSelectedImagesLocked
+                          ? t('layers.action.unlock')
+                          : t('layers.action.lock')}
+                      </Button>
+                      <Button
+                        disabled={selectedImages.length < 2}
+                        onClick={groupSelectedImages}
+                        size="compact"
+                        variant="quiet"
+                      >
+                        {t('layers.action.group')}
+                      </Button>
+                      <Button
+                        disabled={!hasGroupedSelection}
+                        onClick={ungroupSelectedImages}
+                        size="compact"
+                        variant="quiet"
+                      >
+                        {t('layers.action.ungroup')}
+                      </Button>
+                      <Button
+                        onClick={deleteSelectedImages}
+                        size="compact"
+                        variant="critical"
+                      >
+                        {t('layers.remove')}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Text tone="muted">{t('layers.editor.noSelection')}</Text>
+                )}
+
+                {selectedImage ? (
+                  <>
+                    <fieldset className={styles.field}>
+                      <legend className={styles.label}>
+                        {t('layers.editor.anchor')}
+                      </legend>
+                      <PlacementPicker
+                        getItemLabel={(anchor) => t(ANCHOR_LABEL_KEYS[anchor])}
+                        label={t('layers.editor.anchor')}
+                        onValueChange={handleAnchorChange}
+                        value={selectedImage.anchor}
+                      />
+                      <div
+                        aria-label={t('layers.editor.viewportSize')}
+                        className={styles.viewportToggle}
+                        role="group"
+                      >
+                        <Button
+                          aria-pressed={anchorPreviewViewport === 'wide'}
+                          onClick={() => setAnchorPreviewViewport('wide')}
+                          size="compact"
+                          variant="quiet"
+                        >
+                          {t('layers.editor.viewportWide')}
+                        </Button>
+                        <Button
+                          aria-pressed={anchorPreviewViewport === 'narrow'}
+                          onClick={() => setAnchorPreviewViewport('narrow')}
+                          size="compact"
+                          variant="quiet"
+                        >
+                          {t('layers.editor.viewportNarrow')}
+                        </Button>
+                      </div>
+                      <div
+                        aria-label={`${t('layers.editor.viewportPreview')}: ${t(
+                          ANCHOR_LABEL_KEYS[selectedImage.anchor],
+                        )}`}
+                        className={styles.viewportPreview}
+                        data-anchor={selectedImage.anchor}
+                        data-viewport={anchorPreviewViewport}
+                        role="img"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={styles.viewportAnchorMarker}
+                          data-anchor={selectedImage.anchor}
+                        />
+                      </div>
+                    </fieldset>
+
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={rotationId}>
+                        {t('layers.editor.rotation')}
+                      </label>
+                      <div className={styles.rangeRow}>
+                        <input
+                          id={rotationId}
+                          max={180}
+                          min={-180}
+                          onChange={handleRotationChange}
+                          step={1}
+                          type="range"
+                          value={selectedImage.rotationDeg}
+                        />
+                        <output
+                          className={styles.rangeValue}
+                          htmlFor={rotationId}
+                        >
+                          {selectedImage.rotationDeg}°
+                        </output>
+                      </div>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={zoomId}>
+                        {t('layers.editor.zoom')}
+                      </label>
+                      <div className={styles.rangeRow}>
+                        <input
+                          id={zoomId}
+                          max={MAX_OVERLAY_IMAGE_SCALE * 100}
+                          min={MIN_OVERLAY_IMAGE_SCALE * 100}
+                          onChange={handleScaleChange}
+                          step={5}
+                          type="range"
+                          value={selectedImageScale * 100}
+                        />
+                        <output className={styles.rangeValue} htmlFor={zoomId}>
+                          {Math.round(selectedImageScale * 100)}%
+                        </output>
+                      </div>
+                    </div>
+
+                    {getOverlayImageMediaKind(selectedImage) === 'motion' ? (
+                      <>
+                        <label className={styles.field}>
+                          <span className={styles.label}>
+                            {t('layers.playbackRate')}
+                          </span>
+                          <select
+                            className={styles.select}
+                            onChange={handlePlaybackRateChange}
+                            value={getOverlayImagePlaybackRate(selectedImage)}
+                          >
+                            {OVERLAY_PLAYBACK_RATES.map((rate) => (
+                              <option key={rate} value={rate}>
+                                {rate}×
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <Button
+                          onClick={togglePlaybackMode}
+                          size="compact"
+                          variant="quiet"
+                        >
+                          {getOverlayImagePlaybackMode(selectedImage) ===
+                          'active-tab-only'
+                            ? t('layers.playbackActiveTab')
+                            : t('layers.playbackAlways')}
+                        </Button>
+                      </>
+                    ) : null}
+
+                    <div className={styles.actions}>
+                      <Button
+                        onClick={resetSelectedPosition}
+                        size="compact"
+                        variant="quiet"
+                      >
+                        {t('layers.editor.resetPosition')}
+                      </Button>
+                    </div>
                   </>
                 ) : null}
-
-                <div className={styles.actions}>
-                  <Button
-                    onClick={resetSelectedPosition}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    {t('layers.editor.resetPosition')}
-                  </Button>
-                </div>
               </>
-            ) : null}
+            )}
           </>
         ) : (
           <Text tone="muted">{t('layers.editor.empty')}</Text>

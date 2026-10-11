@@ -9,8 +9,6 @@ export const widget = style({
   padding: semanticVars.space.md,
   overflow: 'hidden',
   color: semanticVars.color.content.primary,
-  backgroundColor: 'color-mix(in srgb, currentColor 6%, transparent)',
-  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.border.subtle}`,
   pointerEvents: 'auto',
 });
 
@@ -20,7 +18,6 @@ export const clock = style({
   fontSize: 'clamp(1.25rem, 2.25vw, 2.25rem)',
   fontVariantNumeric: 'tabular-nums',
   lineHeight: 1,
-  backgroundColor: 'color-mix(in srgb, currentColor 3%, transparent)',
 });
 
 export const digitalClock = style({});

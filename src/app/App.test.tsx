@@ -694,11 +694,11 @@ describe('App', () => {
 
     expect(
       await screen.findByRole('dialog', {
-        name: 'Edit image widget positions',
+        name: 'Edit Canvas items',
       }),
     ).toBeDefined();
     expect(screen.queryByRole('dialog', { name: 'Options' })).toBeNull();
-    expect(screen.getByLabelText<HTMLSelectElement>('Image').value).toBe(
+    expect(screen.getByLabelText<HTMLSelectElement>('Canvas item').value).toBe(
       targetImage.id,
     );
 
@@ -845,13 +845,11 @@ describe('App', () => {
     );
 
     expect(
-      await screen.findByRole('dialog', { name: 'Options' }),
+      await screen.findByRole('dialog', { name: 'Edit Canvas items' }),
     ).toBeDefined();
-    expect(
-      screen
-        .getByRole('tab', { name: 'Widgets' })
-        .getAttribute('aria-selected'),
-    ).toBe('true');
+    expect(screen.getByLabelText<HTMLSelectElement>('Canvas item').value).toBe(
+      'target-clock',
+    );
     expect(
       (
         screen.getByRole('combobox', {
@@ -859,9 +857,7 @@ describe('App', () => {
         }) as HTMLSelectElement
       ).value,
     ).toBe('analog');
-    expect(
-      screen.getByRole('button', { name: 'Configure widget: Clock 2' }),
-    ).toBeDefined();
+    expect(screen.queryByRole('dialog', { name: 'Options' })).toBeNull();
   });
 
   it('preserves the original settings IA and appends the v2 tabs', async () => {
@@ -1730,7 +1726,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit positions' }));
     await screen.findByRole('dialog', {
-      name: 'Edit image widget positions',
+      name: 'Edit Canvas items',
     });
     await waitFor(() => {
       expect(document.activeElement).toBe(
@@ -1803,6 +1799,11 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Widgets' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add widget' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clock' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Edit Canvas items' }),
+    ).toBeDefined();
+    expect(screen.getByLabelText('Clock style')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to settings' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add widget' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Image' }));
     fireEvent.change(screen.getByLabelText('Add images'), {

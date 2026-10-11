@@ -1,7 +1,8 @@
-import type { CSSProperties, MouseEvent, ReactElement } from 'react';
+import type { MouseEvent, ReactElement } from 'react';
 
 import type { Locale } from '../i18n';
-import type { CanvasFrame, CanvasSceneV2, WidgetInstance } from '../scenes';
+import type { CanvasSceneV2, WidgetInstance } from '../scenes';
+import { getWidgetFrameStyle } from './frame';
 import { CalendarWidgetView, ClockWidgetView } from './WidgetViews';
 import type { CalendarWidgetCopy } from './WidgetViews';
 import * as styles from './CanvasWidgets.css';
@@ -15,35 +16,6 @@ type CanvasWidgetsProps = {
     widgetId: string,
   ) => void;
 };
-
-function getCenteredInset(offset: number, size: number): string {
-  const inset = offset - size / 2;
-  return `calc(50% ${inset < 0 ? '-' : '+'} ${Math.abs(inset)}px)`;
-}
-
-function getFrameStyle(widget: WidgetInstance): CSSProperties {
-  const [vertical, horizontal] = widget.anchor.split('-');
-  const frame: CanvasFrame = widget.frame;
-  const horizontalStyle =
-    horizontal === 'center'
-      ? { left: getCenteredInset(frame.offsetX, frame.width) }
-      : horizontal === 'right'
-        ? { right: frame.offsetX }
-        : { left: frame.offsetX };
-  const verticalStyle =
-    vertical === 'center'
-      ? { top: getCenteredInset(frame.offsetY, frame.height) }
-      : vertical === 'bottom'
-        ? { bottom: frame.offsetY }
-        : { top: frame.offsetY };
-
-  return {
-    ...horizontalStyle,
-    ...verticalStyle,
-    height: frame.height,
-    width: frame.width,
-  };
-}
 
 function renderWidgets(
   canvas: CanvasSceneV2,
@@ -63,9 +35,10 @@ function renderWidgets(
       >
         <div
           className={styles.frame}
+          data-canvas-widget-id={widget.id}
           data-starlit-part={`widget-${widget.widgetType}`}
           onContextMenu={(event) => onWidgetContextMenu?.(event, widget.id)}
-          style={getFrameStyle(widget)}
+          style={getWidgetFrameStyle(widget)}
         >
           {widget.widgetType === 'clock' ? (
             <ClockWidgetView instance={widget} locale={locale} />

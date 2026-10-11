@@ -187,9 +187,9 @@ test('renders overlay images around bookmarks and supports right-click actions',
   );
   await page.getByRole('menuitem', { name: 'Edit' }).click();
   await expect(
-    page.getByRole('dialog', { name: 'Edit image widget positions' }),
+    page.getByRole('dialog', { name: 'Edit Canvas items' }),
   ).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Image' })).toHaveValue(
+  await expect(page.getByRole('combobox', { name: 'Canvas item' })).toHaveValue(
     'above',
   );
   await page.getByRole('button', { name: 'Back to settings' }).click();
