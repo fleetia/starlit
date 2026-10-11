@@ -137,6 +137,13 @@ export function GuidePage({ locale, section }: GuidePageProps): ReactElement {
             {copy.screenshotNote ? (
               <p className={styles.screenshotNote}>{copy.screenshotNote}</p>
             ) : null}
+            <aside
+              aria-label={copy.releaseStatus.title}
+              className={styles.releaseStatus}
+            >
+              <strong>{copy.releaseStatus.title}</strong>
+              <p className={styles.calloutBody}>{copy.releaseStatus.body}</p>
+            </aside>
             <section
               aria-labelledby="data-ownership"
               className={styles.dataOwnership}

@@ -6,10 +6,16 @@ import {
 } from '../../settings/defaults';
 import { DEFAULT_STARLIT_THEME } from '../../theme/defaults';
 
-export const DEFAULT_SYNC_STORAGE_VALUES = {
+export const DEFAULT_LOCAL_STORAGE_VALUES = {
   colorTheme: DEFAULT_STARLIT_THEME,
   gridSettings: DEFAULT_GRID_SETTINGS,
   iconSize: DEFAULT_ICON_SIZE,
   settings: DEFAULT_SETTINGS,
   size: DEFAULT_SIZE,
+} as const;
+
+export const DEFAULT_SYNC_STORAGE_VALUES = {
+  settings: {
+    isOpenInNewTab: DEFAULT_SETTINGS.isOpenInNewTab,
+  },
 } as const;

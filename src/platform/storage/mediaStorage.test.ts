@@ -1,10 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
+  deleteLegacyMedia,
   deleteMediaBatch,
   deleteMediaByPrefix,
+  loadLegacyMediaBlob,
+  loadMediaBlob,
   listMediaKeys,
+  MEDIA_STORE_NAME,
   saveMedia,
+  saveMediaBlob,
+  SCENE_STORE_NAME,
+  SHARED_ASSET_STORE_NAME,
+  STARLIT_DB_NAME,
 } from './mediaStorage';
 
 type FakeRequest<TResult> = {
@@ -39,8 +47,21 @@ function createSuccessfulRequest<TResult>(
   return request;
 }
 
-function createFakeIndexedDB(): IDBFactory {
-  const media = new Map<IDBValidKey, Blob>();
+type FakeIndexedDBState = {
+  media: Map<IDBValidKey, Blob>;
+  storeNames: Set<string>;
+};
+
+function createFakeIndexedDB(): {
+  factory: IDBFactory;
+  state: FakeIndexedDBState;
+} {
+  const state: FakeIndexedDBState = {
+    media: new Map([
+      ['legacy-media', new Blob(['legacy'], { type: 'image/png' })],
+    ]),
+    storeNames: new Set([MEDIA_STORE_NAME]),
+  };
 
   function createTransaction(): IDBTransaction {
     let isCompletionScheduled = false;
@@ -62,22 +83,26 @@ function createFakeIndexedDB(): IDBFactory {
 
     const objectStore = {
       delete: (key: IDBValidKey): IDBRequest<undefined> => {
-        media.delete(key);
+        state.media.delete(key);
         scheduleCompletion();
         return createSuccessfulRequest(
           undefined,
         ) as unknown as IDBRequest<undefined>;
       },
-      getAllKeys: (): IDBRequest<IDBValidKey[]> =>
-        createSuccessfulRequest([...media.keys()]) as unknown as IDBRequest<
-          IDBValidKey[]
+      get: (key: IDBValidKey): IDBRequest<Blob | undefined> =>
+        createSuccessfulRequest(state.media.get(key)) as unknown as IDBRequest<
+          Blob | undefined
         >,
+      getAllKeys: (): IDBRequest<IDBValidKey[]> =>
+        createSuccessfulRequest([
+          ...state.media.keys(),
+        ]) as unknown as IDBRequest<IDBValidKey[]>,
       put: (value: Blob, key?: IDBValidKey): IDBRequest<IDBValidKey> => {
         if (key === undefined) {
           throw new Error('A media key is required.');
         }
 
-        media.set(key, value);
+        state.media.set(key, value);
         scheduleCompletion();
         return createSuccessfulRequest(
           key,
@@ -90,14 +115,23 @@ function createFakeIndexedDB(): IDBFactory {
 
   const database = {
     close: vi.fn(),
-    createObjectStore: vi.fn(() => ({}) as IDBObjectStore),
+    createObjectStore: vi.fn((name: string) => {
+      state.storeNames.add(name);
+      return {} as IDBObjectStore;
+    }),
+    objectStoreNames: {
+      contains: (name: string): boolean => state.storeNames.has(name),
+    } as DOMStringList,
     onclose: null,
     onversionchange: null,
     transaction: vi.fn(() => createTransaction()),
   } as unknown as IDBDatabase;
 
-  return {
-    open: vi.fn(() => {
+  const factory = {
+    databases: vi.fn(async () => [
+      { name: 'lotuspad', version: 1 } as IDBDatabaseInfo,
+    ]),
+    open: vi.fn((name: string) => {
       const request: FakeOpenRequest = {
         error: null,
         onerror: null,
@@ -107,18 +141,25 @@ function createFakeIndexedDB(): IDBFactory {
       };
 
       queueMicrotask(() => {
-        request.onupgradeneeded?.(
-          new Event('upgradeneeded') as IDBVersionChangeEvent,
-        );
+        if (name === STARLIT_DB_NAME) {
+          request.onupgradeneeded?.(
+            new Event('upgradeneeded') as IDBVersionChangeEvent,
+          );
+        }
         request.onsuccess?.(new Event('success'));
       });
       return request as unknown as IDBOpenDBRequest;
     }),
   } as unknown as IDBFactory;
+
+  return { factory, state };
 }
 
+let fakeIndexedDB: ReturnType<typeof createFakeIndexedDB>;
+
 beforeAll((): void => {
-  vi.stubGlobal('indexedDB', createFakeIndexedDB());
+  fakeIndexedDB = createFakeIndexedDB();
+  vi.stubGlobal('indexedDB', fakeIndexedDB.factory);
 });
 
 afterAll((): void => {
@@ -126,6 +167,32 @@ afterAll((): void => {
 });
 
 describe('media storage collections', () => {
+  it('adds Scene stores without replacing legacy media during upgrade', async () => {
+    const legacyMedia = await loadMediaBlob('legacy-media');
+
+    expect(fakeIndexedDB.state.storeNames).toEqual(
+      new Set([MEDIA_STORE_NAME, SCENE_STORE_NAME, SHARED_ASSET_STORE_NAME]),
+    );
+    expect(await legacyMedia?.text()).toBe('legacy');
+
+    await deleteMediaBatch(['legacy-media']);
+  });
+
+  it('deletes a migrated background from the legacy database', async () => {
+    fakeIndexedDB.state.media.set(
+      'backgroundMedia',
+      new Blob(['legacy-background']),
+    );
+
+    expect(await (await loadLegacyMediaBlob('backgroundMedia'))?.text()).toBe(
+      'legacy-background',
+    );
+
+    await deleteLegacyMedia('backgroundMedia');
+
+    expect(await loadLegacyMediaBlob('backgroundMedia')).toBeNull();
+  });
+
   it('lists namespaced keys and deletes batches while revoking active URLs', async () => {
     let nextUrl = 0;
     vi.spyOn(URL, 'createObjectURL').mockImplementation(
@@ -160,5 +227,17 @@ describe('media storage collections', () => {
     expect(await listMediaKeys('overlayImage:')).toEqual([]);
     expect(await listMediaKeys()).toEqual(['backgroundMedia']);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:media-2');
+  });
+
+  it('writes raw migration media without creating an object URL', async () => {
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL');
+
+    await saveMediaBlob('migration-media', new Blob(['migration']));
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(await (await loadMediaBlob('migration-media'))?.text()).toBe(
+      'migration',
+    );
+    await deleteMediaBatch(['migration-media']);
   });
 });

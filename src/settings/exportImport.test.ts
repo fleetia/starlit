@@ -11,6 +11,7 @@ import type { StarlitTheme } from '../theme/types';
 import type { Settings } from './types';
 
 const mockState = vi.hoisted(() => ({
+  failBackgroundMediaSaveOnce: false,
   failOverlayBatchDeleteOnce: false,
   failOverlaySceneSetOnce: false,
   localValues: {} as Record<string, unknown>,
@@ -104,6 +105,10 @@ vi.mock('../platform/storage/mediaStorage', () => ({
   ),
   saveMedia: vi.fn(async (key: string, blob: Blob): Promise<string> => {
     if (key === 'backgroundMedia') {
+      if (mockState.failBackgroundMediaSaveOnce) {
+        mockState.failBackgroundMediaSaveOnce = false;
+        throw new Error('background media save failed');
+      }
       mockState.media = blob;
     } else {
       mockState.observedMutationLeaseDuringOverlayMutation ||= Object.keys(
@@ -118,13 +123,13 @@ vi.mock('../platform/storage/mediaStorage', () => ({
 }));
 
 import {
-  BACKUP_SCHEMA_VERSION,
+  LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
   exportFull,
   importFromJson,
   importFull,
-  type ExportData,
   type LegacyExportData,
   type V2ExportData,
+  type V3ExportData,
 } from './exportImport';
 
 const GRID_SETTINGS: GridSettings = {
@@ -164,7 +169,7 @@ const STARLIT_THEME: StarlitTheme = {
   muted: '#665e6a',
 };
 
-function createExportData(overrides: Partial<ExportData> = {}): ExportData {
+function createExportData(overrides: Partial<V3ExportData> = {}): V3ExportData {
   return {
     backgroundMeta: null,
     bookmarkTreePrefs: {
@@ -179,7 +184,7 @@ function createExportData(overrides: Partial<ExportData> = {}): ExportData {
     locale: 'ko',
     overlayMedia: {},
     overlayScene: { layers: [{ kind: 'bookmarks' }] },
-    schemaVersion: BACKUP_SCHEMA_VERSION,
+    schemaVersion: LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
     settings: SETTINGS,
     size: 16,
     ...overrides,
@@ -220,6 +225,7 @@ beforeEach(() => {
     'createImageBitmap',
     vi.fn(async () => ({ close: vi.fn(), height: 1, width: 1 })),
   );
+  mockState.failBackgroundMediaSaveOnce = false;
   mockState.failOverlayBatchDeleteOnce = false;
   mockState.failOverlaySceneSetOnce = false;
   mockState.localValues = {};
@@ -238,16 +244,23 @@ describe('exportFull', () => {
   it('writes schema version 3 with layout, locale, tree preferences and overlays', async () => {
     mockState.syncValues = {
       bookmarkTreePrefs: {
+        rootPath: ['Stale synced path'],
+        siblingOrder: {},
+      },
+      groupPreferences: [{ key: 'Stale synced group', visible: true }],
+      iconSize: 99,
+      locale: 'ja',
+      size: 99,
+    };
+    mockState.localValues = {
+      bookmarkTreePrefs: {
         rootId: 'bookmarks-bar',
         rootPath: ['Bookmarks bar'],
         siblingOrder: { 'Bookmarks bar': ['Work'] },
       },
       groupPreferences: [{ key: 'Work', visible: false }],
       iconSize: 30,
-      locale: 'ja',
       size: 18,
-    };
-    mockState.localValues = {
       favicons: { bookmark1: 'data:image/png;base64,AAAA' },
     };
     mockState.media = new Blob(['background'], { type: 'video/webm' });
@@ -314,6 +327,20 @@ describe('importFromJson', () => {
     await expect(importFromJson(file)).resolves.toMatchObject(legacyData);
   });
 
+  it('accepts an explicitly versioned V1 backup', async () => {
+    const data = {
+      colorTheme: STARLIT_THEME,
+      gridSettings: GRID_SETTINGS,
+      schemaVersion: 1,
+      settings: SETTINGS,
+    };
+    const file = new File([JSON.stringify(data)], 'v1.json', {
+      type: 'application/json',
+    });
+
+    await expect(importFromJson(file)).resolves.toMatchObject(data);
+  });
+
   it('accepts a V2 backup without overlay data', async () => {
     const data = createV2ExportData();
     const file = new File([JSON.stringify(data)], 'v2.json', {
@@ -353,7 +380,7 @@ describe('importFromJson', () => {
       type: 'application/json',
     });
 
-    const imported = await importFromJson(file);
+    const imported = (await importFromJson(file)) as V3ExportData;
 
     expect(imported.schemaVersion).toBe(3);
     if (imported.schemaVersion === 3) {
@@ -416,7 +443,7 @@ describe('importFromJson', () => {
       type: 'application/json',
     });
 
-    const imported = await importFromJson(file);
+    const imported = (await importFromJson(file)) as LegacyExportData;
 
     expect(imported.colorTheme).toEqual({
       ...DEFAULT_STARLIT_THEME,
@@ -635,17 +662,20 @@ describe('importFull', () => {
 
     await importFull(data);
 
-    expect(mockState.syncValues).toMatchObject({
+    expect(mockState.syncValues).toEqual({
+      locale: 'en',
+      settings: { isOpenInNewTab: false },
+    });
+    expect(mockState.localValues).toMatchObject({
+      backgroundMeta: { source: 'file', type: 'video', url: '' },
+      bookmarkTreePrefs: data.bookmarkTreePrefs,
+      colorTheme: STARLIT_THEME,
+      customCSS: '.bookmark { color: red; }',
       gridSettings: GRID_SETTINGS,
       settings: SETTINGS,
-      colorTheme: STARLIT_THEME,
-      size: 20,
-      iconSize: 32,
-      locale: 'en',
       groupPreferences: data.groupPreferences,
-      bookmarkTreePrefs: data.bookmarkTreePrefs,
-      customCSS: '.bookmark { color: red; }',
-      backgroundMeta: { source: 'file', type: 'video', url: '' },
+      iconSize: 32,
+      size: 20,
     });
     expect(mockState.localValues.favicons).toEqual({
       existing: 'existing-data',
@@ -679,13 +709,48 @@ describe('importFull', () => {
     ).toBe(false);
   });
 
+  it('keeps imported Scene URLs local and writes only global preferences to sync', async () => {
+    const privateBackgroundUrl =
+      'https://private.example/account/background.webp';
+    const data = createExportData({
+      backgroundMeta: {
+        source: 'url',
+        type: 'image',
+        url: privateBackgroundUrl,
+      },
+      bookmarkTreePrefs: {
+        rootId: 'private-folder',
+        rootPath: ['Private', 'Finance'],
+        siblingOrder: { Private: ['Finance'] },
+      },
+      customCSS: '.private-bookmark { opacity: 0.5; }',
+      locale: 'ja',
+      settings: { ...SETTINGS, isOpenInNewTab: true },
+    });
+
+    await importFull(data);
+
+    expect(mockState.localValues).toMatchObject({
+      backgroundMeta: data.backgroundMeta,
+      bookmarkTreePrefs: data.bookmarkTreePrefs,
+      customCSS: data.customCSS,
+    });
+    expect(mockState.syncValues).toEqual({
+      locale: 'ja',
+      settings: { isOpenInNewTab: true },
+    });
+    expect(JSON.stringify(mockState.syncValues)).not.toContain(
+      privateBackgroundUrl,
+    );
+  });
+
   it('preserves current file media when a V1 backup has metadata without data', async () => {
     const currentBackground = {
       source: 'file' as const,
       type: 'video' as const,
       url: '',
     };
-    mockState.syncValues = { backgroundMeta: currentBackground };
+    mockState.localValues = { backgroundMeta: currentBackground };
     mockState.media = new Blob(['current-media'], { type: 'video/webm' });
     const data: LegacyExportData = {
       backgroundMeta: { source: 'file', type: 'image', url: '' },
@@ -696,7 +761,15 @@ describe('importFull', () => {
 
     await importFull(data);
 
-    expect(mockState.syncValues.backgroundMeta).toEqual(currentBackground);
+    expect(mockState.localValues).toMatchObject({
+      backgroundMeta: currentBackground,
+      colorTheme: STARLIT_THEME,
+      gridSettings: GRID_SETTINGS,
+      settings: SETTINGS,
+    });
+    expect(mockState.syncValues).toEqual({
+      settings: { isOpenInNewTab: false },
+    });
     expect(await mockState.media.text()).toBe('current-media');
   });
 
@@ -706,7 +779,7 @@ describe('importFull', () => {
       type: 'video' as const,
       url: '',
     };
-    mockState.syncValues = { backgroundMeta: currentBackground };
+    mockState.localValues = { backgroundMeta: currentBackground };
     mockState.media = new Blob(['current-media'], { type: 'video/webm' });
     const data = createV2ExportData({
       backgroundMeta: { source: 'file', type: 'image', url: '' },
@@ -714,8 +787,56 @@ describe('importFull', () => {
 
     await importFull(data);
 
-    expect(mockState.syncValues.backgroundMeta).toEqual(currentBackground);
+    expect(mockState.localValues).toMatchObject({
+      backgroundMeta: currentBackground,
+      bookmarkTreePrefs: data.bookmarkTreePrefs,
+      colorTheme: STARLIT_THEME,
+      gridSettings: GRID_SETTINGS,
+      groupPreferences: data.groupPreferences,
+      iconSize: data.iconSize,
+      settings: SETTINGS,
+      size: data.size,
+    });
+    expect(mockState.syncValues).toEqual({
+      locale: 'ko',
+      settings: { isOpenInNewTab: false },
+    });
     expect(await mockState.media.text()).toBe('current-media');
+  });
+
+  it('restores local and legacy sync values when media fails after sync cleanup', async () => {
+    const originalSyncValues = {
+      backgroundMeta: {
+        source: 'url',
+        type: 'image',
+        url: 'https://private.example/previous.webp',
+      },
+      colorTheme: { ...STARLIT_THEME, accent: '#111111' },
+      locale: 'ja',
+      settings: { ...SETTINGS, isOpenInNewTab: true },
+    };
+    const originalLocalValues = {
+      backgroundMeta: { source: 'file', type: 'video', url: '' },
+      colorTheme: { ...STARLIT_THEME, accent: '#222222' },
+      settings: { ...SETTINGS, isExpandView: true },
+    };
+    mockState.syncValues = structuredClone(originalSyncValues);
+    mockState.localValues = structuredClone(originalLocalValues);
+    mockState.media = new Blob(['old-media'], { type: 'video/webm' });
+    mockState.failBackgroundMediaSaveOnce = true;
+    const data = createExportData({
+      backgroundData: `data:video/webm;base64,${btoa('new-media')}`,
+      backgroundMeta: { source: 'file', type: 'video', url: '' },
+      locale: 'en',
+    });
+
+    await expect(importFull(data)).rejects.toThrow(
+      'background media save failed',
+    );
+
+    expect(mockState.syncValues).toEqual(originalSyncValues);
+    expect(mockState.localValues).toEqual(originalLocalValues);
+    expect(await mockState.media?.text()).toBe('old-media');
   });
 
   it('rolls storage and IndexedDB media back when an import write fails', async () => {

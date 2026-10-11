@@ -25,7 +25,7 @@ export function useBookmarkTreePrefs(): UseBookmarkTreePrefsReturn {
     'bookmarkTreePrefs',
     DEFAULT_BOOKMARK_TREE_PREFS,
     decodeBookmarkTreePrefs,
-    'sync',
+    'local',
   );
 
   const setRootPath = useCallback(

@@ -5,6 +5,7 @@ import {
   getBookmarkRouteKey,
   getGroupKey,
   getLegacyBookmarkRouteKey,
+  parseBookmarkIdKey,
   parseBookmarkRouteKey,
 } from './bookmarkRoute';
 
@@ -35,5 +36,10 @@ describe('bookmark route keys', () => {
       getGroupKey({ id: 'folder/42', route: ['Work'], title: 'Work' }),
     ).toBe(getBookmarkIdKey('folder/42'));
     expect(getGroupKey({ route: ['Work'], title: 'Work' })).toBe('Work');
+  });
+
+  it('round-trips encoded Chrome bookmark identities', () => {
+    expect(parseBookmarkIdKey(getBookmarkIdKey('folder/42'))).toBe('folder/42');
+    expect(parseBookmarkIdKey('Bookmarks Bar/Work')).toBeNull();
   });
 });

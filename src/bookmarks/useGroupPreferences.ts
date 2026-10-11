@@ -45,7 +45,7 @@ export function useGroupPreferences(
     'groupPreferences',
     [],
     decodeGroupPreferences,
-    'sync',
+    'local',
   );
 
   const reconciled = useMemo(() => {

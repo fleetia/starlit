@@ -152,10 +152,10 @@ async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
 async function waitForInitialInstall(serviceWorker: Worker): Promise<void> {
   await serviceWorker.evaluate(async () => {
     for (let attempt = 0; attempt < 100; attempt += 1) {
-      const { storageSchemaVersion } = await chrome.storage.sync.get(
-        'storageSchemaVersion',
+      const { deviceStorageSchemaVersion } = await chrome.storage.local.get(
+        'deviceStorageSchemaVersion',
       );
-      if (storageSchemaVersion === 2) {
+      if (deviceStorageSchemaVersion === 3) {
         return;
       }
       await new Promise((resolveAttempt) => setTimeout(resolveAttempt, 25));
@@ -323,151 +323,171 @@ export const test = base.extend<ExtensionFixtures & ExtensionOptions>({
 
     async function seedProfile(seed: ProfileSeed = {}): Promise<void> {
       await serviceWorker.evaluate(
-        async ({ bookmarkRoots, indexedDb, local, sync }) => {
-          await chrome.storage.sync.clear();
-          await chrome.storage.local.clear();
+        ({ bookmarkRoots, indexedDb, local, sync }) =>
+          navigator.locks.request(
+            'starlit-storage-migration',
+            { mode: 'exclusive' },
+            async () => {
+              await chrome.storage.sync.clear();
+              await chrome.storage.local.clear();
 
-          const databaseNames = new Set([
-            'lotuspad',
-            'starlit',
-            ...(indexedDb ?? []).map(({ databaseName }) => databaseName),
-          ]);
+              const databaseNames = new Set([
+                'lotuspad',
+                'starlit',
+                ...(indexedDb ?? []).map(({ databaseName }) => databaseName),
+              ]);
 
-          await Promise.all(
-            [...databaseNames].map(
-              (databaseName) =>
-                new Promise<void>((resolveDelete, rejectDelete) => {
-                  const request = indexedDB.deleteDatabase(databaseName);
-                  request.onsuccess = () => resolveDelete();
-                  request.onerror = () => rejectDelete(request.error);
-                  request.onblocked = () =>
-                    rejectDelete(
-                      new Error(`IndexedDB deletion blocked: ${databaseName}`),
+              await Promise.all(
+                [...databaseNames].map(
+                  (databaseName) =>
+                    new Promise<void>((resolveDelete, rejectDelete) => {
+                      const request = indexedDB.deleteDatabase(databaseName);
+                      request.onsuccess = () => resolveDelete();
+                      request.onerror = () => rejectDelete(request.error);
+                      request.onblocked = () =>
+                        rejectDelete(
+                          new Error(
+                            `IndexedDB deletion blocked: ${databaseName}`,
+                          ),
+                        );
+                    }),
+                ),
+              );
+
+              for (const databaseSeed of indexedDb ?? []) {
+                await new Promise<void>((resolveDatabase, rejectDatabase) => {
+                  const request = indexedDB.open(databaseSeed.databaseName, 1);
+                  request.onupgradeneeded = () => {
+                    if (
+                      !request.result.objectStoreNames.contains(
+                        databaseSeed.storeName,
+                      )
+                    ) {
+                      request.result.createObjectStore(databaseSeed.storeName);
+                    }
+                  };
+                  request.onerror = () => rejectDatabase(request.error);
+                  request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction(
+                      databaseSeed.storeName,
+                      'readwrite',
                     );
-                }),
-            ),
-          );
-
-          for (const databaseSeed of indexedDb ?? []) {
-            await new Promise<void>((resolveDatabase, rejectDatabase) => {
-              const request = indexedDB.open(databaseSeed.databaseName, 1);
-              request.onupgradeneeded = () => {
-                if (
-                  !request.result.objectStoreNames.contains(
-                    databaseSeed.storeName,
-                  )
-                ) {
-                  request.result.createObjectStore(databaseSeed.storeName);
-                }
-              };
-              request.onerror = () => rejectDatabase(request.error);
-              request.onsuccess = () => {
-                const database = request.result;
-                const transaction = database.transaction(
-                  databaseSeed.storeName,
-                  'readwrite',
-                );
-                const binary = atob(databaseSeed.base64);
-                const bytes = Uint8Array.from(binary, (character) =>
-                  character.charCodeAt(0),
-                );
-                transaction
-                  .objectStore(databaseSeed.storeName)
-                  .put(
-                    new Blob([bytes], { type: databaseSeed.mimeType }),
-                    databaseSeed.key,
-                  );
-                transaction.onerror = () => rejectDatabase(transaction.error);
-                transaction.oncomplete = () => {
-                  database.close();
-                  resolveDatabase();
-                };
-              };
-            });
-          }
-
-          const tree = await chrome.bookmarks.getTree();
-          const roots = tree[0]?.children ?? [];
-
-          for (const root of roots) {
-            for (const child of root.children ?? []) {
-              if (child.url) {
-                await chrome.bookmarks.remove(child.id);
-              } else {
-                await chrome.bookmarks.removeTree(child.id);
+                    const binary = atob(databaseSeed.base64);
+                    const bytes = Uint8Array.from(binary, (character) =>
+                      character.charCodeAt(0),
+                    );
+                    transaction
+                      .objectStore(databaseSeed.storeName)
+                      .put(
+                        new Blob([bytes], { type: databaseSeed.mimeType }),
+                        databaseSeed.key,
+                      );
+                    transaction.onerror = () =>
+                      rejectDatabase(transaction.error);
+                    transaction.oncomplete = () => {
+                      database.close();
+                      resolveDatabase();
+                    };
+                  };
+                });
               }
-            }
-          }
 
-          async function createBookmarks(
-            parentId: string,
-            bookmarks: BookmarkSeed[],
-          ): Promise<void> {
-            for (const bookmark of bookmarks) {
-              const created = await chrome.bookmarks.create({
-                parentId,
-                title: bookmark.title,
-                url: bookmark.url,
-              });
+              const tree = await chrome.bookmarks.getTree();
+              const roots = tree[0]?.children ?? [];
 
-              if (bookmark.children) {
-                await createBookmarks(created.id, bookmark.children);
-              }
-            }
-          }
-
-          for (const [rootIndex, bookmarks] of (
-            bookmarkRoots ?? []
-          ).entries()) {
-            const root = roots[rootIndex];
-            if (!root) {
-              throw new Error(`Bookmark root ${rootIndex} is unavailable.`);
-            }
-            await createBookmarks(root.id, bookmarks);
-          }
-
-          if (sync && Object.keys(sync).length > 0) {
-            const treePrefs = sync.bookmarkTreePrefs;
-            const nativeBookmarksBar = roots[0];
-            const isDefaultNativeRoot =
-              nativeBookmarksBar !== undefined &&
-              typeof treePrefs === 'object' &&
-              treePrefs !== null &&
-              !Array.isArray(treePrefs) &&
-              !('rootId' in treePrefs) &&
-              'rootPath' in treePrefs &&
-              Array.isArray(treePrefs.rootPath) &&
-              treePrefs.rootPath.length === 1 &&
-              treePrefs.rootPath[0] === 'Bookmarks Bar';
-
-            // Native root titles follow the macOS language, not the page locale.
-            await chrome.storage.sync.set(
-              isDefaultNativeRoot
-                ? {
-                    ...sync,
-                    bookmarkTreePrefs: {
-                      ...treePrefs,
-                      rootId: nativeBookmarksBar.id,
-                    },
+              for (const root of roots) {
+                for (const child of root.children ?? []) {
+                  if (child.url) {
+                    await chrome.bookmarks.remove(child.id);
+                  } else {
+                    await chrome.bookmarks.removeTree(child.id);
                   }
-                : sync,
-            );
-          }
-          if (local && Object.keys(local).length > 0) {
-            await chrome.storage.local.set(local);
-          }
-        },
+                }
+              }
+
+              async function createBookmarks(
+                parentId: string,
+                bookmarks: BookmarkSeed[],
+              ): Promise<void> {
+                for (const bookmark of bookmarks) {
+                  const created = await chrome.bookmarks.create({
+                    parentId,
+                    title: bookmark.title,
+                    url: bookmark.url,
+                  });
+
+                  if (bookmark.children) {
+                    await createBookmarks(created.id, bookmark.children);
+                  }
+                }
+              }
+
+              for (const [rootIndex, bookmarks] of (
+                bookmarkRoots ?? []
+              ).entries()) {
+                const root = roots[rootIndex];
+                if (!root) {
+                  throw new Error(`Bookmark root ${rootIndex} is unavailable.`);
+                }
+                await createBookmarks(root.id, bookmarks);
+              }
+
+              if (sync && Object.keys(sync).length > 0) {
+                const treePrefs = sync.bookmarkTreePrefs;
+                const nativeBookmarksBar = roots[0];
+                const isDefaultNativeRoot =
+                  nativeBookmarksBar !== undefined &&
+                  typeof treePrefs === 'object' &&
+                  treePrefs !== null &&
+                  !Array.isArray(treePrefs) &&
+                  !('rootId' in treePrefs) &&
+                  'rootPath' in treePrefs &&
+                  Array.isArray(treePrefs.rootPath) &&
+                  treePrefs.rootPath.length === 1 &&
+                  treePrefs.rootPath[0] === 'Bookmarks Bar';
+
+                // Native root titles follow the macOS language, not the page locale.
+                await chrome.storage.sync.set(
+                  isDefaultNativeRoot
+                    ? {
+                        ...sync,
+                        bookmarkTreePrefs: {
+                          ...treePrefs,
+                          rootId: nativeBookmarksBar.id,
+                        },
+                      }
+                    : sync,
+                );
+              }
+              if (local && Object.keys(local).length > 0) {
+                await chrome.storage.local.set(local);
+              }
+            },
+          ),
         seed,
       );
     }
 
     async function openNewTab(): Promise<Page> {
       const page = await context.newPage();
-      await page.goto(`chrome-extension://${extensionId}/index.html`);
-      await page.waitForFunction(() => {
-        const status = document.documentElement.dataset.starlitFontStatus;
-        return status === 'loaded' || status === 'system';
+      let handleInitializationError: (error: Error) => void = () => undefined;
+      const initializationError = new Promise<never>((_resolve, reject) => {
+        handleInitializationError = reject;
       });
+      page.on('pageerror', handleInitializationError);
+      try {
+        await page.goto(`chrome-extension://${extensionId}/index.html`);
+        await Promise.race([
+          page.waitForFunction(() => {
+            const status = document.documentElement.dataset.starlitFontStatus;
+            return status === 'loaded' || status === 'system';
+          }),
+          initializationError,
+        ]);
+      } finally {
+        page.off('pageerror', handleInitializationError);
+      }
       const fontStatus = await page.evaluate(
         () => document.documentElement.dataset.starlitFontStatus,
       );

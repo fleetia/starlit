@@ -4,9 +4,12 @@ import type { Bookmark, GroupPreference } from '../../bookmarks/types';
 import type { BookmarkTreePrefs } from '../../bookmarks/useBookmarkTreePrefs';
 import type { Locale } from '../../i18n';
 import type { GridSettings } from '../../layout/types';
+import type { OverlayMotionPlaybackOverride } from '../../overlays/OverlayImageStacks';
 import type { OverlayImageLayer, OverlayScene } from '../../overlays/types';
+import type { CanvasSceneV2, UseScenesReturn } from '../../scenes';
 import type { StarlitTheme } from '../../theme/types';
 import type { BackgroundMedia } from '../backgroundMedia';
+import type { BackgroundSnapshot } from '../useBackgroundImage';
 import type { Settings } from '../types';
 
 export type PrimaryTab =
@@ -14,8 +17,10 @@ export type PrimaryTab =
   | 'css'
   | 'general'
   | 'groups'
-  | 'layers'
-  | 'layout';
+  | 'layout'
+  | 'portable'
+  | 'scene'
+  | 'widgets';
 
 export type AppearanceTab = 'background' | 'bookmark' | 'container' | 'folder';
 
@@ -41,6 +46,9 @@ export type FontPreviewState = {
 };
 
 export type OptionsSidebarProps = {
+  initialOverlayImageId?: string;
+  initialWidgetId?: string;
+  initialTab?: PrimaryTab;
   backgroundMeta: BackgroundMedia | null | undefined;
   colorTheme: StarlitTheme;
   customCSS: string;
@@ -53,6 +61,8 @@ export type OptionsSidebarProps = {
   locale: Locale;
   onBackgroundClear: () => Promise<void>;
   onBackgroundFile: (file: File) => Promise<void>;
+  onBackgroundRestore: (snapshot: BackgroundSnapshot) => Promise<void>;
+  onBackgroundSnapshot: () => Promise<BackgroundSnapshot>;
   onBackgroundUrl: (url: string) => Promise<void>;
   onClose: () => void;
   onCustomCSSChange: (css: string) => Promise<void>;
@@ -62,6 +72,7 @@ export type OptionsSidebarProps = {
     preferences: BookmarkTreePrefs,
   ) => Promise<void>;
   onBookmarksImported: () => Promise<void>;
+  onCanvasEditPreviewChange?: (canvas: CanvasSceneV2 | null) => void;
   onGridSettingsUpdate: (settings: GridSettings) => Promise<void>;
   onGroupPreferencesUpdate: (preferences: GroupPreference[]) => Promise<void>;
   onIconSizeChange: (value: number) => Promise<void>;
@@ -73,6 +84,10 @@ export type OptionsSidebarProps = {
   ) => Promise<OverlayImageLayer[]>;
   onOverlayImagesFinalize: (ids: readonly string[]) => Promise<void>;
   onOverlayImagesDiscard: (ids: readonly string[]) => Promise<void>;
+  onOverlayMotionPlaybackOverrideChange: (
+    imageId: string,
+    override: OverlayMotionPlaybackOverride,
+  ) => void;
   onOverlaySceneUpdate: (scene: OverlayScene) => Promise<void>;
   onSettingsUpdate: (settings: Settings) => Promise<void>;
   onSizeChange: (value: number) => Promise<void>;
@@ -83,12 +98,14 @@ export type OptionsSidebarProps = {
   preview?: ReactNode | ((draft: OptionsPreviewState) => ReactNode);
   rootId?: string;
   rootPath: string[];
+  sceneController: UseScenesReturn;
   settings: Settings;
   siblingOrder: Record<string, string[]>;
   size: number;
 };
 
 export type SettingsSnapshot = {
+  canvas?: CanvasSceneV2 | null;
   customCSS: string;
   gridSettings: GridSettings;
   iconSize: number;

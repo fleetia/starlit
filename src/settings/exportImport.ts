@@ -22,6 +22,7 @@ import { withOverlayMediaMutationLock } from '../overlays/mediaMutationLock';
 import type { StarlitTheme } from '../theme/types';
 import {
   BACKUP_SCHEMA_VERSION,
+  LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
   dataUrlToBlob,
   isBookmarkTreePreferences,
   isFiniteNumber,
@@ -33,35 +34,59 @@ import {
   type BookmarkTreePreferences,
   type ExportData,
   type ImportData,
+  type LegacyExportData,
+  type V1ExportData,
+  type V2ExportData,
+  type V3ExportData,
 } from './backupSchema';
 import type { BackgroundMedia } from './backgroundMedia';
 import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from './defaults';
 import type { Settings } from './types';
 
-export { BACKUP_SCHEMA_VERSION } from './backupSchema';
+export {
+  BACKUP_SCHEMA_VERSION,
+  LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
+} from './backupSchema';
 export type {
   BookmarkTreePreferences,
   ExportData,
   ImportData,
   LegacyExportData,
+  V1ExportData,
   V2ExportData,
+  V3ExportData,
 } from './backupSchema';
 
 const MEDIA_KEY = 'backgroundMedia';
 const DEFAULT_LOCALE: Locale = 'ko';
-const SYNC_SNAPSHOT_KEYS = [
-  'gridSettings',
-  'settings',
-  'colorTheme',
-  'size',
-  'iconSize',
-  'locale',
-  'groupPreferences',
-  'bookmarkTreePrefs',
-  'customCSS',
+const SYNC_SNAPSHOT_KEYS = ['locale', 'settings'] as const;
+const LEGACY_SYNC_SCENE_KEYS = [
+  'backgroundImage',
   'backgroundMeta',
+  'bookmarkTreePrefs',
+  'bookmarks',
+  'colorTheme',
+  'customCSS',
+  'displaySize',
+  'gridSettings',
+  'groupPreferences',
+  'iconSize',
+  'overlayScene',
+  'size',
 ] as const;
-const LOCAL_SNAPSHOT_KEYS = ['favicons', OVERLAY_SCENE_STORAGE_KEY] as const;
+const LOCAL_SNAPSHOT_KEYS = [
+  'backgroundMeta',
+  'bookmarkTreePrefs',
+  'colorTheme',
+  'customCSS',
+  'favicons',
+  'gridSettings',
+  'groupPreferences',
+  'iconSize',
+  OVERLAY_SCENE_STORAGE_KEY,
+  'settings',
+  'size',
+] as const;
 
 function createOverlayMutationLeaseKey(): string {
   const nonce = Math.random().toString(36).slice(2);
@@ -81,7 +106,17 @@ type ImportSnapshot = {
   sync: Record<string, unknown>;
 };
 
-function shouldApplyBackground(data: ImportData): boolean {
+type LegacyImportData =
+  | LegacyExportData
+  | V1ExportData
+  | V2ExportData
+  | V3ExportData;
+
+function isPortableProfile(data: ImportData): data is ExportData {
+  return data.schemaVersion === BACKUP_SCHEMA_VERSION;
+}
+
+function shouldApplyBackground(data: LegacyImportData): boolean {
   if (data.backgroundMeta === undefined) {
     return false;
   }
@@ -134,6 +169,11 @@ function getStoredFavicons(value: unknown): Record<string, string> {
   return isFaviconMap(value) ? value : {};
 }
 
+async function getLocalFirstStoredValue(key: string): Promise<unknown> {
+  const localValue = await storage.local.get(key);
+  return localValue === undefined ? storage.sync.get(key) : localValue;
+}
+
 async function snapshotStorageArea(
   area: StorageAreaAdapter,
   keys: readonly string[],
@@ -161,7 +201,10 @@ async function createImportSnapshot(
 ): Promise<ImportSnapshot> {
   const [syncSnapshot, localSnapshot, mediaSnapshot, overlayMediaSnapshot] =
     await Promise.all([
-      snapshotStorageArea(storage.sync, SYNC_SNAPSHOT_KEYS),
+      snapshotStorageArea(storage.sync, [
+        ...SYNC_SNAPSHOT_KEYS,
+        ...LEGACY_SYNC_SCENE_KEYS,
+      ]),
       snapshotStorageArea(storage.local, LOCAL_SNAPSHOT_KEYS),
       shouldSnapshotMedia
         ? loadMediaBlob(MEDIA_KEY)
@@ -250,31 +293,34 @@ async function restoreImportSnapshot(snapshot: ImportSnapshot): Promise<void> {
   }
 }
 
-async function applyImport(data: ImportData): Promise<void> {
+async function applyImport(data: LegacyImportData): Promise<void> {
   const syncUpdates: Record<string, unknown> = {
+    settings: { isOpenInNewTab: data.settings.isOpenInNewTab },
+  };
+  const localUpdates: Record<string, unknown> = {
     colorTheme: data.colorTheme,
     gridSettings: data.gridSettings,
     settings: data.settings,
   };
   const isBackgroundApplicable = shouldApplyBackground(data);
 
-  if (data.schemaVersion !== undefined) {
-    syncUpdates.size = data.size;
-    syncUpdates.iconSize = data.iconSize;
+  if (data.schemaVersion === 2 || data.schemaVersion === 3) {
     syncUpdates.locale = data.locale;
-    syncUpdates.groupPreferences = data.groupPreferences;
-    syncUpdates.bookmarkTreePrefs = data.bookmarkTreePrefs;
+    localUpdates.size = data.size;
+    localUpdates.iconSize = data.iconSize;
+    localUpdates.groupPreferences = data.groupPreferences;
+    localUpdates.bookmarkTreePrefs = data.bookmarkTreePrefs;
   }
 
   if (data.customCSS !== undefined) {
-    syncUpdates.customCSS = data.customCSS;
+    localUpdates.customCSS = data.customCSS;
   }
 
   if (isBackgroundApplicable) {
-    syncUpdates.backgroundMeta = data.backgroundMeta;
+    localUpdates.backgroundMeta = data.backgroundMeta;
   }
 
-  if (data.schemaVersion === BACKUP_SCHEMA_VERSION) {
+  if (data.schemaVersion === LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION) {
     const imageLayers = getOverlayImageLayers(data.overlayScene);
     const previousMediaKeys = await listMediaKeys(
       OVERLAY_IMAGE_MEDIA_KEY_PREFIX,
@@ -319,10 +365,11 @@ async function applyImport(data: ImportData): Promise<void> {
         return { ...layer, id: importedId };
       }),
     };
-    await storage.local.set({
-      [OVERLAY_SCENE_STORAGE_KEY]: importedScene,
-    });
+    localUpdates[OVERLAY_SCENE_STORAGE_KEY] = importedScene;
+    await storage.local.set(localUpdates);
     await deleteMediaBatch(previousMediaKeys);
+  } else {
+    await storage.local.set(localUpdates);
   }
 
   await storage.sync.set(syncUpdates);
@@ -394,7 +441,7 @@ async function createFullExport(
   colorTheme: StarlitTheme,
   backgroundMeta: BackgroundMedia | null | undefined,
   customCSS?: string,
-): Promise<ExportData> {
+): Promise<V3ExportData> {
   const [
     storedSize,
     storedIconSize,
@@ -404,11 +451,11 @@ async function createFullExport(
     storedFavicons,
     storedOverlayScene,
   ] = await Promise.all([
-    storage.sync.get('size'),
-    storage.sync.get('iconSize'),
+    getLocalFirstStoredValue('size'),
+    getLocalFirstStoredValue('iconSize'),
     storage.sync.get('locale'),
-    storage.sync.get('groupPreferences'),
-    storage.sync.get('bookmarkTreePrefs'),
+    getLocalFirstStoredValue('groupPreferences'),
+    getLocalFirstStoredValue('bookmarkTreePrefs'),
     storage.local.get('favicons'),
     storage.local.get(OVERLAY_SCENE_STORAGE_KEY),
   ]);
@@ -426,7 +473,7 @@ async function createFullExport(
   }
   const overlayMedia = Object.fromEntries(overlayMediaEntries);
 
-  const data: ExportData = {
+  const data: V3ExportData = {
     backgroundMeta: backgroundMeta ?? null,
     bookmarkTreePrefs: getStoredBookmarkTreePreferences(storedTree),
     colorTheme,
@@ -436,7 +483,7 @@ async function createFullExport(
     locale: getStoredLocale(storedLocale),
     overlayMedia,
     overlayScene,
-    schemaVersion: BACKUP_SCHEMA_VERSION,
+    schemaVersion: LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
     settings,
     size: getStoredNumber(storedSize, DEFAULT_SIZE),
   };
@@ -466,7 +513,7 @@ export function exportFull(
   colorTheme: StarlitTheme,
   backgroundMeta: BackgroundMedia | null | undefined,
   customCSS?: string,
-): Promise<ExportData> {
+): Promise<V3ExportData> {
   return withOverlayMediaMutationLock(() =>
     createFullExport(
       gridSettings,
@@ -478,10 +525,10 @@ export function exportFull(
   );
 }
 
-async function applyImportWithRollback(data: ImportData): Promise<void> {
+async function applyImportWithRollback(data: LegacyImportData): Promise<void> {
   const snapshot = await createImportSnapshot(
     shouldApplyBackground(data),
-    data.schemaVersion === BACKUP_SCHEMA_VERSION,
+    data.schemaVersion === LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION,
   );
 
   try {
@@ -503,7 +550,13 @@ async function applyImportWithRollback(data: ImportData): Promise<void> {
 
 export async function importFull(data: ImportData): Promise<void> {
   const validatedData = parseExportData(data);
-  if (validatedData.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+  if (isPortableProfile(validatedData)) {
+    throw new Error(
+      'Portable profile imports require a Scene conflict preview.',
+    );
+  }
+
+  if (validatedData.schemaVersion !== LEGACY_OVERLAY_BACKUP_SCHEMA_VERSION) {
     await applyImportWithRollback(validatedData);
     return;
   }

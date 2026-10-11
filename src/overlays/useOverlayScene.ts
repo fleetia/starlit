@@ -7,7 +7,6 @@ import {
   saveMedia,
 } from '../platform/storage/mediaStorage';
 import storage from '../platform/storage/storage';
-import { rasterizeOverlayImage } from './imageProcessing';
 import { withOverlayMediaMutationLock } from './mediaMutationLock';
 import {
   DEFAULT_OVERLAY_IMAGE_SCALE,
@@ -25,6 +24,7 @@ import {
   normalizeOverlayScene,
   parseOverlayScene,
 } from './model';
+import { processOverlayMedia } from './processOverlayMedia';
 import type { OverlayImageLayer, OverlayScene } from './types';
 
 const DEFAULT_OVERLAY_OFFSET = 24;
@@ -366,26 +366,29 @@ export function useOverlayScene(): UseOverlaySceneReturn {
         const layers: OverlayImageLayer[] = [];
 
         for (const file of files) {
-          const rasterized = await rasterizeOverlayImage(file);
+          const processed = await processOverlayMedia(file);
           const id = crypto.randomUUID();
           const draftMediaKey = getOverlayDraftMediaKey(draftSessionId, id);
           const item = { draftMediaKey, id };
           createdItems.push(item);
           draftLeaseItemsRef.current.set(id, item);
           await persistDraftLease();
-          await saveMedia(draftMediaKey, rasterized.blob);
+          await saveMedia(draftMediaKey, processed.blob);
           layers.push({
             anchor: 'top-left',
             draftMediaKey,
-            height: rasterized.height,
+            height: processed.height,
             id,
             kind: 'image',
+            ...(processed.mediaKind === 'motion'
+              ? { mediaKind: processed.mediaKind }
+              : {}),
             name: file.name,
             offsetX: DEFAULT_OVERLAY_OFFSET,
             offsetY: DEFAULT_OVERLAY_OFFSET,
             rotationDeg: 0,
             scale: DEFAULT_OVERLAY_IMAGE_SCALE,
-            width: rasterized.width,
+            width: processed.width,
           });
         }
 

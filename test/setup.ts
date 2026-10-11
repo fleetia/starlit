@@ -9,6 +9,10 @@ beforeAll((): void => {
         getTree: vi.fn(),
         remove: vi.fn(),
       },
+      permissions: {
+        contains: vi.fn(async () => false),
+        request: vi.fn(async () => true),
+      },
       runtime: {
         onInstalled: { addListener: vi.fn() },
         onMessage: { addListener: vi.fn() },

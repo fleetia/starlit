@@ -54,6 +54,20 @@ textarea {
   background-size: cover;
 }
 
+.starlit-background-motion-control {
+  position: fixed;
+  z-index: var(--starlit-canvas-ui-z-index, 4);
+  top: 18px;
+  left: 18px;
+  padding: 6px 10px;
+  color: var(--c-text);
+  cursor: pointer;
+  background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-border) 72%, transparent);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+}
+
 .starlit-main {
   position: relative;
   display: grid;
@@ -67,7 +81,7 @@ textarea {
 
 .starlit-main > :where(.starlit-paged, .starlit-masonry, .starlit-empty) {
   position: relative;
-  z-index: 1;
+  z-index: var(--starlit-bookmark-z-index, 1);
 }
 
 .starlit-grid-texture {
@@ -80,11 +94,65 @@ textarea {
   pointer-events: none;
 }
 
-.starlit-settings-trigger {
+.starlit-scene-toolbar {
   position: fixed;
-  z-index: 4;
+  z-index: var(--starlit-canvas-ui-z-index, 4);
   right: 18px;
   bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(22rem, calc(100vw - 36px));
+  padding: 4px;
+  color: var(--c-muted);
+  background: color-mix(in srgb, var(--c-surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-border) 70%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.starlit-action-error {
+  position: fixed;
+  z-index: var(--starlit-canvas-ui-z-index, 4);
+  right: 18px;
+  bottom: 64px;
+  max-width: min(22rem, calc(100vw - 36px));
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--c-surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-border) 70%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.starlit-scene-name {
+  min-width: 0;
+  padding-inline: 8px 4px;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.starlit-scene-apply-preview {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.starlit-scene-apply-preview > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+
+.starlit-scene-apply-preview :where(dt, dd) {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.starlit-scene-apply-preview dt {
+  color: var(--c-muted);
 }
 
 .starlit-visually-hidden {

@@ -304,6 +304,14 @@ export const screenshotNote = style({
   lineHeight: semanticVars.typography.lineHeight.body,
 });
 
+export const releaseStatus = style({
+  margin: `0 0 ${semanticVars.space.xl}`,
+  padding: semanticVars.space.lg,
+  backgroundColor: semanticVars.color.surface.muted,
+  border: `${semanticVars.border.width.hairline} solid ${semanticVars.color.border.strong}`,
+  fontFamily: semanticVars.typography.family.ui,
+});
+
 export const dataOwnership = style({
   padding: semanticVars.space.xl,
   backgroundColor: semanticVars.color.surface.raised,

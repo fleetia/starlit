@@ -1,5 +1,7 @@
-import { cp, mkdir, readFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+
+import { assertReleaseBuildReady } from './release-guards.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DIST = resolve(ROOT, 'dist');
@@ -13,9 +15,10 @@ const PACKAGED_ASSET_PATHS = [
   'assets/guide/settings-appearance.jpg',
   'assets/guide/settings-bookmark-groups.jpg',
   'assets/guide/settings-custom-css.jpg',
-  'assets/guide/settings-general.jpg',
+  'assets/guide/settings-portable-profile.jpg',
   'assets/guide/settings-layout.jpg',
   'assets/licenses/IBM-Plex-OFL-1.1.txt',
+  'assets/licenses/ical.js-MPL-2.0.txt',
   'assets/overlays/getting.png',
 ];
 
@@ -32,7 +35,15 @@ async function prepareExtension() {
   const entryHtml = resolve(DIST, 'index.html');
   const guideHtml = resolve(DIST, 'guide.html');
 
-  await cp(resolve(ROOT, 'manifest.json'), resolve(DIST, 'manifest.json'));
+  const sourceManifest = JSON.parse(
+    await readFile(resolve(ROOT, 'manifest.json'), 'utf8'),
+  );
+  assertReleaseBuildReady(process.env);
+
+  await writeFile(
+    resolve(DIST, 'manifest.json'),
+    `${JSON.stringify(sourceManifest, null, 2)}\n`,
+  );
   for (const relativePath of PACKAGED_ASSET_PATHS) {
     const destinationPath = resolve(DIST, relativePath);
     await mkdir(dirname(destinationPath), { recursive: true });
@@ -74,6 +85,10 @@ async function prepareExtension() {
     !manifest.permissions?.includes('bookmarks')
   ) {
     throw new Error('Extension must retain storage and bookmarks permissions');
+  }
+
+  if (!manifest.optional_host_permissions?.includes('https://*/*')) {
+    throw new Error('Extension must declare optional HTTPS feed host access');
   }
 
   if (

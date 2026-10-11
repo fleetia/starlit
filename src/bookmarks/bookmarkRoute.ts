@@ -58,6 +58,24 @@ export function getBookmarkIdKey(id: string): string {
   return `${BOOKMARK_ID_PREFIX}${encodeURIComponent(id)}`;
 }
 
+export function parseBookmarkIdKey(key: string): string | null {
+  if (!key.startsWith(BOOKMARK_ID_PREFIX)) {
+    return null;
+  }
+
+  const encodedId = key.slice(BOOKMARK_ID_PREFIX.length);
+  if (encodedId === '') {
+    return null;
+  }
+
+  try {
+    const id = decodeURIComponent(encodedId);
+    return id === '' ? null : id;
+  } catch {
+    return null;
+  }
+}
+
 export function getRouteGroupKey(bookmark: Bookmark): string {
   return getBookmarkRouteKey(getBookmarkRoute(bookmark));
 }

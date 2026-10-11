@@ -20,6 +20,7 @@ export function useGridSettings(): UseGridSettingsReturn {
     'gridSettings',
     DEFAULT_GRID_SETTINGS,
     decodeGridSettings,
+    'local',
   );
 
   return { gridSettings, isLoaded, updateGridSettings };

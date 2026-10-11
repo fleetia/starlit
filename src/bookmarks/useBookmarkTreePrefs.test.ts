@@ -9,19 +9,29 @@ type BookmarkTreePrefsUpdate =
   | ((previous: BookmarkTreePrefs) => BookmarkTreePrefs);
 
 const storageState = vi.hoisted(() => ({
+  area: undefined as 'local' | 'sync' | undefined,
   prefs: { rootPath: [], siblingOrder: {} } as BookmarkTreePrefs,
   setPrefs: vi.fn<(next: BookmarkTreePrefsUpdate) => Promise<void>>(),
 }));
 
 vi.mock('../hooks/useStorageState', () => ({
-  useStorageState: () => ({
-    isLoaded: true,
-    setValue: storageState.setPrefs,
-    value: storageState.prefs,
-  }),
+  useStorageState: (
+    _key: string,
+    _fallback: BookmarkTreePrefs,
+    _decode: (value: unknown, fallback: BookmarkTreePrefs) => BookmarkTreePrefs,
+    area?: 'local' | 'sync',
+  ) => {
+    storageState.area = area;
+    return {
+      isLoaded: true,
+      setValue: storageState.setPrefs,
+      value: storageState.prefs,
+    };
+  },
 }));
 
 beforeEach((): void => {
+  storageState.area = undefined;
   storageState.prefs = { rootPath: [], siblingOrder: {} };
   storageState.setPrefs.mockImplementation(async (next): Promise<void> => {
     storageState.prefs =
@@ -38,6 +48,7 @@ describe('useBookmarkTreePrefs', () => {
     const { result } = renderHook(() => useBookmarkTreePrefs());
 
     expect(result.current.isLoaded).toBe(true);
+    expect(storageState.area).toBe('local');
 
     await act(async (): Promise<void> => {
       await result.current.setRootPath(['Bookmarks', 'Work']);

@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_OVERLAY_MEDIA_KIND,
+  DEFAULT_OVERLAY_PLAYBACK_MODE,
+  DEFAULT_OVERLAY_PLAYBACK_RATE,
   DEFAULT_OVERLAY_SCENE,
   EMPTY_OVERLAY_SCENE,
   appendOverlayImages,
   getOverlayDraftMediaKey,
   getOverlayImageLayers,
+  getOverlayImageMediaKind,
+  getOverlayImagePlaybackMode,
+  getOverlayImagePlaybackRate,
   getOverlayImageScale,
   getOverlayMediaKey,
+  isOverlayImageHidden,
+  isOverlayImageLocked,
   normalizeOverlayScene,
   parseOverlayScene,
 } from './model';
@@ -110,6 +118,70 @@ describe('overlay scene model', () => {
     const [image] = getOverlayImageLayers(scene);
 
     expect(image && getOverlayImageScale(image)).toBe(1);
+  });
+
+  it('preserves the legacy decode shape while applying media defaults through getters', () => {
+    const scene = parseOverlayScene({
+      layers: [IMAGE_LAYER, { kind: 'bookmarks' }],
+    });
+    const [image] = getOverlayImageLayers(scene);
+
+    expect(image).toEqual(IMAGE_LAYER);
+    expect(image && getOverlayImageMediaKind(image)).toBe(
+      DEFAULT_OVERLAY_MEDIA_KIND,
+    );
+    expect(image && getOverlayImagePlaybackRate(image)).toBe(
+      DEFAULT_OVERLAY_PLAYBACK_RATE,
+    );
+    expect(image && getOverlayImagePlaybackMode(image)).toBe(
+      DEFAULT_OVERLAY_PLAYBACK_MODE,
+    );
+    expect(image && isOverlayImageHidden(image)).toBe(false);
+    expect(image && isOverlayImageLocked(image)).toBe(false);
+  });
+
+  it('decodes decorative media state and grouping fields', () => {
+    const motionImage = {
+      ...IMAGE_LAYER,
+      groupId: 'group-1',
+      hidden: true,
+      locked: true,
+      mediaKind: 'motion' as const,
+      playbackMode: 'always' as const,
+      playbackRate: 1.5 as const,
+    };
+
+    expect(
+      parseOverlayScene({
+        layers: [{ kind: 'bookmarks' }, motionImage],
+      }),
+    ).toEqual({ layers: [{ kind: 'bookmarks' }, motionImage] });
+  });
+
+  it.each([0.5, 1, 1.5, 2] as const)(
+    'accepts the %s motion playback rate',
+    (playbackRate) => {
+      expect(
+        parseOverlayScene({
+          layers: [{ ...IMAGE_LAYER, playbackRate }, { kind: 'bookmarks' }],
+        }).layers[0],
+      ).toMatchObject({ playbackRate });
+    },
+  );
+
+  it.each([
+    [{ hidden: 'yes' }, 'hidden'],
+    [{ locked: 1 }, 'locked'],
+    [{ mediaKind: 'video' }, 'media kind'],
+    [{ playbackRate: 0.75 }, 'playback rate'],
+    [{ playbackMode: 'background' }, 'playback mode'],
+    [{ groupId: '  ' }, 'group'],
+  ])('rejects invalid decorative media fields', (fields, message) => {
+    expect(() =>
+      parseOverlayScene({
+        layers: [{ ...IMAGE_LAYER, ...fields }, { kind: 'bookmarks' }],
+      }),
+    ).toThrow(message);
   });
 
   it('normalizes invalid persisted data to the bookmark-only scene', () => {
