@@ -119,6 +119,37 @@ describe('migrateStorage', () => {
     });
   });
 
+  it.each([undefined, 2])(
+    'preserves schema 2 visual preferences while moving them local with device schema %s',
+    async (deviceVersion) => {
+      const visualPreferences = {
+        colorTheme: { ...LEGACY_DEFAULT_THEME, accent: '#123456' },
+        gridSettings: { ...LEGACY_DEFAULT_GRID_SETTINGS, gap: '3rem' },
+        iconSize: 32,
+        size: 20,
+      };
+      const syncValues = { ...visualPreferences, storageSchemaVersion: 2 };
+      const localValues: Record<string, unknown> = {
+        ...(deviceVersion === undefined
+          ? {}
+          : { [DEVICE_STORAGE_SCHEMA_VERSION_KEY]: deviceVersion }),
+      };
+      const dependencies = createDependencies(syncValues, localValues);
+
+      await migrateStorage(dependencies);
+      await migrateStorage(dependencies);
+      const secondDeviceValues: Record<string, unknown> = {};
+      await migrateStorage(createDependencies(syncValues, secondDeviceValues));
+
+      expect(secondDeviceValues).toMatchObject(visualPreferences);
+      expect(localValues).toMatchObject(visualPreferences);
+      expect(syncValues).toMatchObject(visualPreferences);
+      expect(localValues[DEVICE_STORAGE_SCHEMA_VERSION_KEY]).toBe(
+        STORAGE_SCHEMA_VERSION,
+      );
+    },
+  );
+
   it('copies recoverable data and writes the version stamp last', async () => {
     const legacyMedia = new Blob(['legacy']);
     const dependencies = createDependencies({

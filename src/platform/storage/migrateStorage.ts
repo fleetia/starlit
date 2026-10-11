@@ -1,10 +1,13 @@
-import { normalizeGridSettings } from '../../layout/normalizeGridSettings';
+import {
+  decodeGridSettings,
+  normalizeGridSettings,
+} from '../../layout/normalizeGridSettings';
 import { withExclusiveLock } from '../locks/exclusiveLock';
 import { DEFAULT_OVERLAY_SCENE } from '../../overlays/model';
 import type { BackgroundMedia } from '../../settings/backgroundMedia';
 import { DEFAULT_ICON_SIZE, DEFAULT_SIZE } from '../../settings/defaults';
 import { normalizeSettings } from '../../settings/normalizeSettings';
-import { normalizeTheme } from '../../theme/normalizeTheme';
+import { decodeTheme, normalizeTheme } from '../../theme/normalizeTheme';
 import {
   loadLegacyMediaBlob,
   loadMediaBlob,
@@ -19,6 +22,7 @@ export { normalizeTheme } from '../../theme/normalizeTheme';
 const MEDIA_KEY = 'backgroundMedia';
 export const DEVICE_STORAGE_SCHEMA_VERSION_KEY = 'deviceStorageSchemaVersion';
 export const LEGACY_SCENE_SETTINGS_SNAPSHOT_KEY = 'legacySceneSettingsV1';
+export const LEGACY_SCENE_SCHEMA_VERSION_KEY = 'legacySceneSchemaVersionV1';
 export const LEGACY_SYNC_HYDRATION_STATE_KEY = 'legacySyncHydrationStateV1';
 export const STORAGE_MIGRATION_LOCK_NAME = 'starlit-storage-migration';
 export const DISMISSED_LEGACY_SYNC_HYDRATION_STATE = {
@@ -111,6 +115,7 @@ export const LEGACY_SYNC_HYDRATION_KEYS = [
   ...LEGACY_SYNC_SCENE_KEYS,
   'settings',
   LEGACY_SCENE_SETTINGS_SNAPSHOT_KEY,
+  LEGACY_SCENE_SCHEMA_VERSION_KEY,
 ] as const;
 
 const HYDRATION_PROFILE_KEYS = [
@@ -317,11 +322,14 @@ export async function migrateStorage(
     ...LEGACY_SYNC_SCENE_KEYS,
     ...HYDRATION_PROFILE_KEYS,
     LEGACY_SCENE_SETTINGS_SNAPSHOT_KEY,
+    LEGACY_SCENE_SCHEMA_VERSION_KEY,
   ] as const;
   const [syncValues, localValues] = await Promise.all([
     readStorageValues(dependencies.sync, storageKeys),
     readStorageValues(dependencies.local, storageKeys),
   ]);
+  const hasNormalizedSyncedPreferences =
+    currentVersion === 2 || syncValues[LEGACY_SCENE_SCHEMA_VERSION_KEY] === 2;
   const syncSceneSettings =
     syncValues[LEGACY_SCENE_SETTINGS_SNAPSHOT_KEY] ?? syncValues.settings;
   const migrationSyncValues: Record<string, unknown> = {
@@ -375,16 +383,26 @@ export async function migrateStorage(
     const settings = getMigrationValue('settings');
 
     if (shouldMigrateDevice || localValues.gridSettings === undefined) {
-      localUpdates.gridSettings = normalizeGridSettings(gridSettings);
+      localUpdates.gridSettings = hasNormalizedSyncedPreferences
+        ? decodeGridSettings(gridSettings)
+        : normalizeGridSettings(gridSettings);
     }
     if (shouldMigrateDevice || localValues.colorTheme === undefined) {
-      localUpdates.colorTheme = normalizeTheme(colorTheme);
+      localUpdates.colorTheme = hasNormalizedSyncedPreferences
+        ? decodeTheme(colorTheme)
+        : normalizeTheme(colorTheme);
     }
     if (shouldMigrateDevice || localValues.size === undefined) {
-      localUpdates.size = getSize(size, displaySize);
+      localUpdates.size = hasNormalizedSyncedPreferences
+        ? (getFiniteNumber(size) ??
+          getFiniteNumber(displaySize) ??
+          DEFAULT_SIZE)
+        : getSize(size, displaySize);
     }
     if (shouldMigrateDevice || localValues.iconSize === undefined) {
-      localUpdates.iconSize = getIconSize(iconSize);
+      localUpdates.iconSize = hasNormalizedSyncedPreferences
+        ? (getFiniteNumber(iconSize) ?? DEFAULT_ICON_SIZE)
+        : getIconSize(iconSize);
     }
     if (shouldMigrateDevice || localValues.settings === undefined) {
       localUpdates.settings = normalizeSettings(settings);
@@ -461,6 +479,9 @@ export async function migrateStorage(
   }
 
   if (shouldMigrateSync && canUpdateSync) {
+    if (currentVersion === 2) {
+      await dependencies.sync.set({ [LEGACY_SCENE_SCHEMA_VERSION_KEY]: 2 });
+    }
     await dependencies.sync.set({
       storageSchemaVersion: STORAGE_SCHEMA_VERSION,
     });

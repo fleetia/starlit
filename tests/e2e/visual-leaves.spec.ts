@@ -244,11 +244,11 @@ test('renders persisted visual leaves in the live surface and settings preview',
       };
     }),
   ).toEqual({
-    height: 65.296875,
-    iconHeight: '64px',
-    iconWidth: '80px',
-    pagedWidth: '592px',
-    width: 80,
+    height: 80,
+    iconHeight: '80px',
+    iconWidth: '100px',
+    pagedWidth: '692px',
+    width: 100,
   });
 
   await expect(folder).toHaveCSS('background-color', 'rgb(190, 191, 192)');
