@@ -70,6 +70,10 @@ type ExtensionManifest = {
 };
 
 const EXTENSION_PATH = resolve(process.cwd(), 'dist');
+const TEST_BACKGROUND_VIDEO_PATH = resolve(
+  process.cwd(),
+  'tests/e2e/media/background.webm',
+);
 const TEST_FONT_ROMAN_PATH = resolve(
   process.cwd(),
   'node_modules/@ibm/plex-sans-variable/fonts/complete/woff2/IBM Plex Sans Var-Roman.woff2',
@@ -165,60 +169,6 @@ async function waitForInitialInstall(serviceWorker: Worker): Promise<void> {
   });
 }
 
-async function createBackgroundVideo(context: BrowserContext): Promise<Buffer> {
-  const page = context.pages()[0] ?? (await context.newPage());
-  const base64 = await page.evaluate(async () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 2;
-    canvas.height = 2;
-    const stream = canvas.captureStream(5);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-      ? 'video/webm;codecs=vp8'
-      : 'video/webm';
-    const chunks: Blob[] = [];
-    const recorder = new MediaRecorder(stream, { mimeType });
-    const recorded = new Promise<Blob>((resolveVideo, rejectVideo) => {
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-      recorder.onerror = () =>
-        rejectVideo(new Error('Test video recording failed.'));
-      recorder.onstop = () =>
-        resolveVideo(new Blob(chunks, { type: 'video/webm' }));
-    });
-
-    recorder.start();
-    const context2d = canvas.getContext('2d');
-    if (!context2d) {
-      throw new Error('Test video canvas context is unavailable.');
-    }
-    context2d.fillStyle = '#4d2d57';
-    context2d.fillRect(0, 0, canvas.width, canvas.height);
-    const track = stream.getVideoTracks()[0];
-    if (
-      track &&
-      'requestFrame' in track &&
-      typeof track.requestFrame === 'function'
-    ) {
-      track.requestFrame();
-    }
-    await new Promise((resolveFrame) => setTimeout(resolveFrame, 120));
-    recorder.stop();
-
-    const bytes = new Uint8Array(await (await recorded).arrayBuffer());
-    let binary = '';
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    stream.getTracks().forEach((streamTrack) => streamTrack.stop());
-    return btoa(binary);
-  });
-
-  return Buffer.from(base64, 'base64');
-}
-
 export const test = base.extend<ExtensionFixtures & ExtensionOptions>({
   pregrantTabGroupPermissions: [false, { option: true }],
   extension: async (
@@ -258,7 +208,7 @@ export const test = base.extend<ExtensionFixtures & ExtensionOptions>({
     const serviceWorker = await waitForServiceWorker(context);
     await waitForInitialInstall(serviceWorker);
     const extensionId = new URL(serviceWorker.url()).host;
-    const backgroundVideo = await createBackgroundVideo(context);
+    const backgroundVideo = await readFile(TEST_BACKGROUND_VIDEO_PATH);
     let fontStylesheetRequestCount = 0;
 
     await Promise.all(context.pages().map((page) => page.close()));
