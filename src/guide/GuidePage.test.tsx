@@ -47,14 +47,16 @@ describe('GuidePage', () => {
     ).toBeTruthy();
     expect(
       screen.getByRole('complementary', {
-        name: 'Calendar release review is still pending',
+        name: 'Calendar access is optional',
       }),
     ).toBeTruthy();
     expect(
-      screen.getByText(/does not claim that review is complete/i),
+      screen.getByText(/only to the entered feed origin.*never on first run/i),
     ).toBeTruthy();
     expect(
-      screen.getByText(/Chrome Web Store privacy disclosure.*optional-host/i),
+      screen.getByText(
+        /Feed URLs are stored on this device.*Portable Profile exports/i,
+      ),
     ).toBeTruthy();
     expect(
       screen.getByText(/reference screenshots use the English product UI/i),
@@ -89,13 +91,13 @@ describe('GuidePage', () => {
     expect(heading?.textContent).toBe('Clock と URL 購読 Calendar');
     expect(
       screen.getByRole('complementary', {
-        name: 'Calendar の公開審査はまだ完了していません',
+        name: 'Calendar のアクセス許可は任意です',
       }),
     ).toBeTruthy();
     expect(document.documentElement.lang).toBe('ja');
   });
 
-  it('renders the Korean v2 chapters and unfinished release review notice', () => {
+  it('renders the Korean v2 chapters and Calendar permission notice', () => {
     render(<GuidePage locale="ko" />);
 
     expect(
@@ -112,7 +114,7 @@ describe('GuidePage', () => {
     ).toBeTruthy();
     expect(
       screen.getByRole('complementary', {
-        name: 'Calendar 출시 전 Store 검토가 남아 있습니다',
+        name: 'Calendar 접근 권한은 선택 사항입니다',
       }),
     ).toBeTruthy();
   });

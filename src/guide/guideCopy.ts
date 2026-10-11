@@ -104,8 +104,8 @@ const COPY: Record<Locale, GuideCopy> = {
     screenshotNote:
       'The reference screenshots use the English product UI. Control positions and section layouts are the same in every language.',
     releaseStatus: {
-      body: 'The v2 Calendar release remains blocked until the Chrome Web Store privacy disclosure and optional-host justification match this behavior. This guide does not claim that review is complete.',
-      title: 'Calendar release review is still pending',
+      body: 'Calendar is read-only. Starlit requests access only to the entered feed origin after you choose Allow and subscribe in Settings, never on first run. Feed URLs are stored on this device and removed from Portable Profile exports.',
+      title: 'Calendar access is optional',
     },
     sections: {
       scenes: {
@@ -163,7 +163,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Add as many independent Clock and read-only Calendar widgets as a Scene needs without turning the new tab into a general plugin dashboard.',
         details: [
           {
-            body: 'Starlit fetches an entered HTTPS iCalendar URL with credentials omitted. It parses the next seven days, keeps up to 50 events, and retains summary, time, all-day status, calendar color, and an HTTPS event link. Descriptions, attendees, and the raw feed are discarded.',
+            body: 'Starlit fetches an entered HTTPS iCalendar URL with credentials omitted. It parses the next seven days, keeps up to 50 events, and retains the calendar display name, event summary, time, all-day status, calendar color, and an HTTPS event link. Descriptions, attendees, and the raw feed are discarded.',
             title: 'What Calendar data is read?',
           },
           {
@@ -734,8 +734,8 @@ const COPY: Record<Locale, GuideCopy> = {
     screenshotNote:
       '参考スクリーンショットは英語版の画面です。操作位置と各セクションの配置は、どの言語でも共通です。',
     releaseStatus: {
-      body: 'v2 の Calendar を公開するには、この動作に一致する Chrome Web Store のプライバシー申告と optional-host 権限の説明が必要です。このガイドは審査が完了したとは示していません。',
-      title: 'Calendar の公開審査はまだ完了していません',
+      body: 'Calendar は読み取り専用です。設定で［アクセスを許可して購読］を選んだときだけ、入力した URL のオリジンへのアクセス権限を求めます。初回起動時には求めません。購読 URL はこの端末に保存し、Portable Profile の書き出し時には除外します。',
+      title: 'Calendar のアクセス許可は任意です',
     },
     sections: {
       scenes: {
@@ -793,7 +793,7 @@ const COPY: Record<Locale, GuideCopy> = {
           '新しいタブを一般的な plugin dashboard に変えず、Scene に Clock と read-only Calendar を必要な数だけ追加します。',
         details: [
           {
-            body: 'Starlit は入力した HTTPS iCalendar URL を credential なしで取得します。今後 7 日分から最大 50 件を読み、件名、開始・終了、終日かどうか、Calendar 色、HTTPS event link だけを残します。説明、参加者、raw feed は破棄します。',
+            body: 'Starlit は入力した HTTPS iCalendar URL を credential なしで取得します。今後 7 日分から最大 50 件を読み、Calendar の表示名、件名、開始・終了、終日かどうか、Calendar 色、HTTPS event link だけを残します。説明、参加者、raw feed は破棄します。',
             title: 'どの Calendar data を読みますか？',
           },
           {
@@ -1364,8 +1364,8 @@ const COPY: Record<Locale, GuideCopy> = {
     },
     sectionKicker: '가이드',
     releaseStatus: {
-      body: 'v2 Calendar를 출시하려면 URL별 선택적 host 접근과 data 처리 방식에 맞춰 Chrome Web Store privacy practices를 갱신해야 합니다. 이 가이드는 Store 검토가 끝났다고 주장하지 않습니다.',
-      title: 'Calendar 출시 전 Store 검토가 남아 있습니다',
+      body: 'Calendar는 읽기 전용입니다. 설정에서 ‘접근 허용 및 구독’을 선택할 때만 입력한 URL의 출처에 대한 권한을 요청하며, 첫 실행에서는 요청하지 않습니다. 구독 URL은 이 기기에 저장하고 Portable Profile에서 내보낼 때 제거합니다.',
+      title: 'Calendar 접근 권한은 선택 사항입니다',
     },
     sections: {
       scenes: {
@@ -1423,7 +1423,7 @@ const COPY: Record<Locale, GuideCopy> = {
           'Scene에 Clock과 읽기 전용 Calendar를 필요한 만큼 추가하고, 각 위젯을 독립적으로 배치하고 설정합니다.',
         details: [
           {
-            body: 'Starlit은 인증 정보가 포함되지 않은 HTTPS iCalendar URL을 읽습니다. 앞으로 7일의 event를 최대 50개까지 표시하며 제목, 시작·종료, 종일 여부, Calendar 색상, 안전한 HTTPS event link만 남깁니다. 설명, 참석자와 raw feed는 저장하지 않습니다.',
+            body: 'Starlit은 입력한 HTTPS iCalendar URL을 요청할 때 쿠키 등의 브라우저 인증 정보를 보내지 않습니다. 앞으로 7일의 event를 최대 50개까지 표시하며 Calendar 표시 이름, 일정 제목, 시작·종료, 종일 여부, Calendar 색상, 안전한 HTTPS event link만 남깁니다. 설명, 참석자와 raw feed는 저장하지 않습니다.',
             title: '어떤 Calendar data를 읽나요?',
           },
           {

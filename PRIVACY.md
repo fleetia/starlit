@@ -1,6 +1,6 @@
 # Privacy Policy for Starlit
 
-Last updated: September 2, 2026
+Last updated: October 11, 2026
 
 ## Overview
 
@@ -10,9 +10,9 @@ Starlit does not operate a developer-controlled backend or data-collection serve
 
 “Local” in this policy means there is no Starlit backend. It does not mean the extension never connects to another service. After the actions described below, the extension can request a user-provided Calendar feed directly from its provider, request favicon and font resources from Google, and load URLs chosen by the user.
 
-## Release status
+## Calendar permission and URL handling
 
-The v2 release that includes URL-subscribed Calendar widgets remains blocked until the Chrome Web Store privacy-practices disclosure and optional-host permission justification are updated to match this policy. The presence of Calendar code, this policy, or a release acknowledgement flag is not a claim that the external review is complete. Starlit v2 must not be published until that blocker is confirmed.
+Calendar subscriptions are optional and read-only. Starlit requests access to the entered feed URL's origin only after the user chooses `Allow and subscribe` in Settings, never on first run. A subscription URL may contain a private access token; Starlit stores the URL on the device and removes it from Portable Profile exports. The Calendar section below explains the request, storage, and deletion behavior.
 
 ## Data Starlit Handles
 
@@ -60,7 +60,7 @@ The manifest's `https://*/*` optional-host declaration is the set of HTTPS origi
 
 The background service worker requests the feed directly from its provider with cookies and other credentials omitted, no referrer, a ten-second timeout, and a 2 MiB response limit. The provider still receives ordinary network information such as the user's IP address and the requested URL under the provider's privacy policy. A subscription URL can itself contain a secret token, so users should treat it as sensitive.
 
-Starlit parses RFC 5545 iCalendar data locally, expands recurrences within a bounded work budget, requests events from now through the next seven days, and keeps at most 50 events. It retains only summary, start and end, all-day status, calendar color, and an HTTPS event link. Descriptions, attendees, and the raw feed body are discarded after parsing. Parsed events are cached in `chrome.storage.session` under an opaque URL-derived key and reused for at most five minutes.
+Starlit parses RFC 5545 iCalendar data locally, expands recurrences within a bounded work budget, requests events from now through the next seven days, and keeps at most 50 events. It retains the calendar display name and only these event fields: summary, start and end, all-day status, calendar color, and an HTTPS event link. Descriptions, attendees, and the raw feed body are discarded after parsing. Parsed events are cached in `chrome.storage.session` under an opaque URL-derived key and reused for at most five minutes.
 
 Calendar feed URLs remain in their device-local Scene until the user clears the URL, removes the widget, replaces or deletes the Scene, resets Starlit, clears extension data, or uninstalls Starlit. Reset all clears Calendar session caches. Portable Profile V4 keeps Calendar widget layout and display settings but replaces each feed URL with `null`; cached event data and Chrome host permissions are never exported.
 
