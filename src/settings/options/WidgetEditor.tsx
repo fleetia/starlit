@@ -338,6 +338,7 @@ function CalendarConfiguration({
 }): ReactElement {
   const { t } = useTranslation();
   const [feedUrlInput, setFeedUrlInput] = useState(widget.config.feedUrl ?? '');
+  const [isSubscribing, setIsSubscribing] = useState(false);
   const location = normalizeCalendarFeedUrl(feedUrlInput);
   const calendar = useCalendarWidget(widget.config.feedUrl);
 
@@ -359,7 +360,16 @@ function CalendarConfiguration({
 
   async function subscribe(): Promise<void> {
     const feedUrl = commitFeedUrl();
-    if (feedUrl) await calendar.subscribe(feedUrl);
+    if (!feedUrl || isSubscribing) {
+      return;
+    }
+
+    setIsSubscribing(true);
+    try {
+      await calendar.subscribe(feedUrl);
+    } finally {
+      setIsSubscribing(false);
+    }
   }
 
   return (
@@ -392,8 +402,8 @@ function CalendarConfiguration({
       </Text>
       <Inline gap="sm" wrap>
         <Button
-          disabled={!location || calendar.status === 'loading'}
-          isPending={calendar.status === 'loading'}
+          disabled={!location || isSubscribing}
+          isPending={isSubscribing}
           onClick={() => void subscribe()}
           size="compact"
         >
