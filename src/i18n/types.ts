@@ -21,6 +21,8 @@ export type TranslationKey =
   | 'contextMenu.deleteConfirmDescription'
   | 'contextMenu.deleteConfirmAction'
   | 'contextMenu.deleteFailed'
+  | 'sidebar.general.about'
+  | 'sidebar.general.licenses'
   | 'sidebar.tab.appearance'
   | 'sidebar.tab.layout'
   | 'sidebar.tab.css'

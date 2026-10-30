@@ -31,6 +31,9 @@ const ko: Translations = {
   'contextMenu.deleteFailed':
     'Chrome 북마크를 삭제하지 못했습니다. 다시 시도해 주세요.',
 
+  'sidebar.general.about': 'Starlit 정보',
+  'sidebar.general.licenses': '오픈소스 라이선스',
+
   // OptionsSidebar - Primary tabs
   'sidebar.tab.appearance': '외형',
   'sidebar.tab.layout': '배치',

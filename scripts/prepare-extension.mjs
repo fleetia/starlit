@@ -34,6 +34,7 @@ async function pathExists(path) {
 async function prepareExtension() {
   const entryHtml = resolve(DIST, 'index.html');
   const guideHtml = resolve(DIST, 'guide.html');
+  const licensesHtml = resolve(DIST, 'licenses.html');
 
   const sourceManifest = JSON.parse(
     await readFile(resolve(ROOT, 'manifest.json'), 'utf8'),
@@ -55,6 +56,7 @@ async function prepareExtension() {
     resolve(DIST, 'background/index.js'),
     entryHtml,
     guideHtml,
+    licensesHtml,
     ...PACKAGED_ASSET_PATHS.map((relativePath) => resolve(DIST, relativePath)),
   ];
   const missingPaths = [];
@@ -113,7 +115,7 @@ async function prepareExtension() {
     }
   }
 
-  for (const htmlPath of [entryHtml, guideHtml]) {
+  for (const htmlPath of [entryHtml, guideHtml, licensesHtml]) {
     const html = await readFile(htmlPath, 'utf8');
     const assetReferences = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
       .map((match) => match[1])

@@ -11,7 +11,9 @@ import {
 } from '@fleetia/lagrange';
 import { lagrangeThemeClass } from '@fleetia/lagrange/theme';
 
+import { version } from '../../../manifest.json';
 import type { Locale } from '../../i18n';
+import { createLicensesHref } from '../../licenses/licensesRoute';
 import { useTranslation } from '../../i18n';
 import type { Settings } from '../types';
 import * as styles from '../OptionsSidebar.css';
@@ -144,6 +146,21 @@ export function GeneralPanel({
               {t('sidebar.general.credits.homepage')}
             </a>
           </div>
+        </SettingsSection>
+        <SettingsSection title={t('sidebar.general.about')}>
+          <Stack gap="sm">
+            <Text as="p" tone="muted" variant="caption">
+              Starlit {version}
+            </Text>
+            <a
+              className={styles.link}
+              href={createLicensesHref(locale)}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {t('sidebar.general.licenses')}
+            </a>
+          </Stack>
         </SettingsSection>
       </Stack>
       <Dialog

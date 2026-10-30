@@ -31,6 +31,9 @@ const ja: Translations = {
   'contextMenu.deleteFailed':
     'Chrome ブックマークを削除できませんでした。もう一度お試しください。',
 
+  'sidebar.general.about': 'Starlitについて',
+  'sidebar.general.licenses': 'オープンソースライセンス',
+
   // OptionsSidebar - Primary tabs
   'sidebar.tab.appearance': '外観',
   'sidebar.tab.layout': '配置',
