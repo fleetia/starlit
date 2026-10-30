@@ -31,6 +31,9 @@ const en: Translations = {
   'contextMenu.deleteFailed':
     'We could not delete this Chrome bookmark. Please try again.',
 
+  'sidebar.general.about': 'About Starlit',
+  'sidebar.general.licenses': 'Open-source licenses',
+
   // OptionsSidebar - Primary tabs
   'sidebar.tab.appearance': 'Appearance',
   'sidebar.tab.layout': 'Layout',

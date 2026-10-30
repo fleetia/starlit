@@ -1417,6 +1417,24 @@ describe('App', () => {
     });
   });
 
+  it('links to bundled licenses using the draft language without saving settings', async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await screen.findByRole('dialog', { name: 'Options' });
+    const link = screen.getByRole('link', { name: 'Open-source licenses' });
+    expect(link.getAttribute('href')).toBe('/licenses.html?locale=en');
+    expect(link.getAttribute('target')).toBe('_blank');
+    fireEvent.click(screen.getByRole('radio', { name: '日本語' }));
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('link', { name: 'Open-source licenses' })
+          .getAttribute('href'),
+      ).toBe('/licenses.html?locale=ja');
+    });
+    expect(appMocks.onLocaleChange).not.toHaveBeenCalled();
+  });
+
   it('confirms before discarding a changed settings draft', async () => {
     renderApp();
 
